@@ -5,6 +5,7 @@
 **Primary Domains:**
 - **Causal Inference & Econometrics**: Structural causal models, counterfactual reasoning, treatment effect estimation
 - **Computational Finance**: Stochastic processes, portfolio optimization, risk modeling
+- **Long-Horizon Financial Simulation**: Monte Carlo methods, regime-switching models, distributional forecasting
 - **Machine Learning**: Deep reinforcement learning, time-series forecasting, representation learning
 - **Behavioral Economics**: Cognitive biases, bounded rationality, prospect theory
 - **Explainable AI**: Post-hoc interpretability, inherently interpretable models, counterfactual explanations
