@@ -18,17 +18,70 @@ print("\n[STEP 1] Generating Synthetic User Profiles...")
 n_users = 1000
 
 # Generate user data with realistic distributions
+ages = np.random.randint(25, 65, n_users)
+
+# Generate realistic monthly income based on age and career stage (in INR)
+# Entry level: 25-35 years → 30K-80K
+# Mid-career: 35-50 years → 60K-150K  
+# Senior: 50-65 years → 100K-250K
+def generate_realistic_income(age):
+    """Generate income based on career stage, rounded to realistic values"""
+    if age < 35:  # Entry level
+        base_income = np.random.uniform(30000, 80000)
+    elif age < 50:  # Mid-career
+        base_income = np.random.uniform(60000, 150000)
+    else:  # Senior/executive
+        base_income = np.random.uniform(100000, 250000)
+    
+    # Round to nearest 1000 (users enter like "50,000" not "50,234.56")
+    return round(base_income / 1000) * 1000
+
+monthly_incomes = np.array([generate_realistic_income(age) for age in ages])
+
+# Generate expense ratio - some users overspend!
+# 80% of users: expenses < income (0.5-0.85 ratio)
+# 15% of users: expenses ≈ income (0.90-1.05 ratio) - living paycheck to paycheck
+# 5% of users: expenses > income (1.1-1.3 ratio) - in debt, using credit/savings
+expense_ratios = []
+for _ in range(n_users):
+    rand = np.random.random()
+    if rand < 0.80:  # Majority: healthy finances
+        expense_ratios.append(np.random.uniform(0.5, 0.85))
+    elif rand < 0.95:  # Living paycheck to paycheck
+        expense_ratios.append(np.random.uniform(0.90, 1.05))
+    else:  # In debt / overspending
+        expense_ratios.append(np.random.uniform(1.1, 1.3))
+
+expense_ratios = np.array(expense_ratios)
+
 data = {
     "user_id": range(n_users),
-    "age": np.random.randint(25, 65, n_users),
-    "monthly_income": np.random.lognormal(mean=10, sigma=0.5, size=n_users),
-    "expense_ratio": np.random.uniform(0.4, 0.8, n_users),
+    "age": ages,
+    "monthly_income": monthly_incomes,
+    "expense_ratio": expense_ratios,
     "risk_tolerance": np.random.beta(2, 5, n_users),
     "investment_horizon": np.random.randint(10, 30, n_users)
 }
 
 df_users = pd.DataFrame(data)
-df_users["monthly_expense"] = df_users["monthly_income"] * df_users["expense_ratio"]
+df_users["monthly_expense"] = (df_users["monthly_income"] * df_users["expense_ratio"]).round(0)  # Round expenses too
+
+# Calculate monthly surplus/deficit
+df_users["monthly_surplus"] = df_users["monthly_income"] - df_users["monthly_expense"]
+
+# Add financial management strategy for deficit cases
+def assign_financial_strategy(row):
+    """How users manage their finances"""
+    if row['monthly_surplus'] > 5000:
+        return 'saving'  # Healthy savers
+    elif row['monthly_surplus'] >= 0:
+        return 'balanced'  # Balanced budget
+    elif row['monthly_surplus'] >= -5000:
+        return 'credit_card'  # Small deficit, using credit cards
+    else:
+        return 'family_support'  # Larger deficit, family support or drawing from savings
+
+df_users['financial_strategy'] = df_users.apply(assign_financial_strategy, axis=1)
 
 # Assign investment goals based on age and horizon
 def assign_goal(row):
@@ -39,15 +92,49 @@ def assign_goal(row):
 
 df_users['goal'] = df_users.apply(assign_goal, axis=1)
 
+# Add emergency fund status (3-6 months of expenses saved)
+def has_emergency_fund(row):
+    """Does user have adequate emergency savings?"""
+    if row['financial_strategy'] in ['saving', 'balanced']:
+        return np.random.choice([True, False], p=[0.7, 0.3])  # 70% have emergency fund
+    else:
+        return np.random.choice([True, False], p=[0.2, 0.8])  # Only 20% in debt have emergency fund
+
+df_users['has_emergency_fund'] = df_users.apply(has_emergency_fund, axis=1)
+
 # Reorder columns
 df_users = df_users[['user_id', 'age', 'monthly_income', 'monthly_expense', 
+                     'monthly_surplus', 'financial_strategy', 'has_emergency_fund',
                      'risk_tolerance', 'investment_horizon', 'goal']]
 
 # Save to CSV
 df_users.to_csv('synthetic_users.csv', index=False)
 print(f"✅ Created: synthetic_users.csv ({len(df_users)} users)")
-print(f"   Sample stats: Avg income=${df_users['monthly_income'].mean():.2f}, "
-      f"Avg risk={df_users['risk_tolerance'].mean():.3f}")
+print(f"   Income stats: Avg=₹{df_users['monthly_income'].mean():,.0f}, "
+      f"Min=₹{df_users['monthly_income'].min():,.0f}, Max=₹{df_users['monthly_income'].max():,.0f}")
+print(f"   Avg risk tolerance={df_users['risk_tolerance'].mean():.3f}")
+
+# Print edge case statistics
+print(f"\n📊 FINANCIAL HEALTH BREAKDOWN:")
+n_saving = (df_users['financial_strategy'] == 'saving').sum()
+n_balanced = (df_users['financial_strategy'] == 'balanced').sum()
+n_credit = (df_users['financial_strategy'] == 'credit_card').sum()
+n_family = (df_users['financial_strategy'] == 'family_support').sum()
+
+print(f"   • Healthy savers (surplus > ₹5K):       {n_saving} users ({100*n_saving/len(df_users):.1f}%)")
+print(f"   • Balanced budget:                      {n_balanced} users ({100*n_balanced/len(df_users):.1f}%)")
+print(f"   • Using credit cards (small deficit):   {n_credit} users ({100*n_credit/len(df_users):.1f}%)")
+print(f"   • Family support/savings (deficit):     {n_family} users ({100*n_family/len(df_users):.1f}%)")
+
+n_deficit = (df_users['monthly_surplus'] < 0).sum()
+print(f"\n⚠️  EDGE CASES:")
+print(f"   • Users with expenses > income:         {n_deficit} users ({100*n_deficit/len(df_users):.1f}%)")
+print(f"   • Users with emergency fund:            {df_users['has_emergency_fund'].sum()} users ({100*df_users['has_emergency_fund'].sum()/len(df_users):.1f}%)")
+
+if n_deficit > 0:
+    avg_deficit = df_users[df_users['monthly_surplus'] < 0]['monthly_surplus'].mean()
+    print(f"   • Average deficit amount:               ₹{abs(avg_deficit):,.0f}/month")
+    print(f"   • How they manage: Credit cards, family support, or drawing from savings")
 
 # ==============================================================================
 # STEP 2: Generate Synthetic Behavioral Bias Parameters
@@ -312,4 +399,8 @@ print("   'Synthetic datasets were generated using controlled stochastic")
 print("   processes and behavioral rules to provide ground truth for causality,")
 print("   bias detection, counterfactual reasoning, and long-horizon evaluation,")
 print("   which are not observable in real-world financial datasets.'")
+print("\n   'Income values are rounded to realistic thousands (not decimals)")
+print("   to match how users actually input salary. Edge cases include users")
+print("   with expenses > income (managed via credit cards, family support,")
+print("   or savings drawdown), representing real-world financial stress.'")
 print("\n" + "="*60)

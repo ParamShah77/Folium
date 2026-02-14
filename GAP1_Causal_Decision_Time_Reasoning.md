@@ -87,17 +87,44 @@ user_id,disposition_strength,loss_aversion,herd_sensitivity
 - Personal circumstances matter (age, income, risk tolerance)
 - A 25-year-old can afford to wait out a crash; a 60-year-old might not
 - Helps personalize interventions
+- **✨ REALISTIC DATA**: Income rounded to thousands (₹50,000 not ₹50,234.56) - matches real user input
+- **✨ EDGE CASES**: Includes users with expenses > income (5-15% of population)
 
 **What's inside:**
 ```csv
-user_id,age,monthly_income,risk_tolerance,investment_horizon,goal
-0,38,28456.32,0.35,18,wealth growth
+user_id,age,monthly_income,monthly_expense,monthly_surplus,financial_strategy,has_emergency_fund,risk_tolerance,investment_horizon,goal
+0,38,60000,48000,12000,saving,True,0.35,18,wealth growth
+1,42,75000,78000,-3000,credit_card,False,0.28,15,wealth growth
 ```
+
+**Key Features:**
+- **monthly_income**: Rounded to nearest ₹1,000 (realistic!)
+- **monthly_expense**: Calculated based on lifestyle (can exceed income!)
+- **monthly_surplus**: Positive = saving, Negative = deficit
+- **financial_strategy**: How users manage finances:
+  - `saving`: Surplus > ₹5,000 (healthy savers ~60%)
+  - `balanced`: Break-even budget (~25%)
+  - `credit_card`: Small deficit, using credit (~10%)
+  - `family_support`: Large deficit, family help/savings drawdown (~5%)
+- **has_emergency_fund**: 3-6 months expenses saved? (70% yes for savers, 20% yes for deficit users)
+
+**Edge Cases Covered:**
+1. ⚠️ **Income < Expenses** (5-15% of users):
+   - Young professionals with student loans
+   - Users building business (initial losses)
+   - Medical emergency expenses
+   - **How they manage**: Credit cards, family loans, drawing from savings, side income
+   
+2. 💰 **No Emergency Fund** (30-80% depending on financial health):
+   - Cannot weather market crashes
+   - More likely to panic sell
+   - Higher stress during downturns
 
 **When to use:**
 - Context enrichment (understand WHO is making the decision)
-- Personalized explanations ("You have 18 years to recover")
-- Risk profiling
+- Personalized explanations ("You have 18 years to recover" vs "You need cash now")
+- Risk profiling (users in debt = lower risk tolerance in practice)
+- Intervention customization (don't tell debt-strapped users to "just hold"!)
 
 ---
 
