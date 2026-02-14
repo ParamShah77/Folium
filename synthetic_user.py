@@ -102,9 +102,30 @@ def has_emergency_fund(row):
 
 df_users['has_emergency_fund'] = df_users.apply(has_emergency_fund, axis=1)
 
+# Add age-horizon mismatch detection
+df_users['age_horizon_mismatch'] = df_users.apply(
+    lambda row: 'young_short' if row['age'] < 35 and row['investment_horizon'] < 10
+                else ('old_long' if row['age'] > 55 and row['investment_horizon'] > 20
+                else 'normal'),
+    axis=1
+)
+
+# Add investment experience
+df_users['years_investing'] = np.clip(
+    (df_users['age'] - 25) * np.random.uniform(0.3, 0.8, n_users),
+    0, 30
+).astype(int)
+
+df_users['investment_experience'] = pd.cut(
+    df_users['years_investing'],
+    bins=[0, 2, 10, 40],
+    labels=['novice', 'intermediate', 'expert']
+)
+
 # Reorder columns
 df_users = df_users[['user_id', 'age', 'monthly_income', 'monthly_expense', 
                      'monthly_surplus', 'financial_strategy', 'has_emergency_fund',
+                     'age_horizon_mismatch', 'years_investing', 'investment_experience',
                      'risk_tolerance', 'investment_horizon', 'goal']]
 
 # Save to CSV
@@ -135,6 +156,17 @@ if n_deficit > 0:
     avg_deficit = df_users[df_users['monthly_surplus'] < 0]['monthly_surplus'].mean()
     print(f"   • Average deficit amount:               ₹{abs(avg_deficit):,.0f}/month")
     print(f"   • How they manage: Credit cards, family support, or drawing from savings")
+
+print(f"\n📊 LIFECYCLE EDGE CASES:")
+n_young_short = (df_users['age_horizon_mismatch'] == 'young_short').sum()
+n_old_long = (df_users['age_horizon_mismatch'] == 'old_long').sum()
+print(f"   • Young with short horizon (<10y):      {n_young_short} users ({100*n_young_short/len(df_users):.1f}%)")
+print(f"   • Old with long horizon (>20y):         {n_old_long} users ({100*n_old_long/len(df_users):.1f}%)")
+
+print(f"\n📊 EXPERIENCE DISTRIBUTION:")
+for exp_level in ['novice', 'intermediate', 'expert']:
+    n_exp = (df_users['investment_experience'] == exp_level).sum()
+    print(f"   • {exp_level.capitalize():12s} investors:              {n_exp} users ({100*n_exp/len(df_users):.1f}%)")
 
 # ==============================================================================
 # STEP 2: Generate Synthetic Behavioral Bias Parameters
@@ -260,10 +292,75 @@ for user_idx in range(n_users):
         })
 
 df_decisions = pd.DataFrame(decisions_data)
+
+# ====== ADD EDGE CASE FIELDS ======
+
+# Market regime classification
+df_decisions['market_regime'] = df_decisions['market_return_recent'].apply(
+    lambda x: 'extreme_crash' if x < -0.30
+              else ('severe_crash' if x < -0.15
+              else ('correction' if x < -0.05
+              else ('euphoria' if x > 0.15
+              else ('bull' if x > 0.05
+              else 'normal'))))
+)
+
+# Market volatility (higher during crashes)
+df_decisions['market_volatility'] = np.random.uniform(0.015, 0.035, len(df_decisions))
+df_decisions.loc[df_decisions['market_regime'] == 'extreme_crash', 'market_volatility'] = \
+    np.random.uniform(0.08, 0.15, (df_decisions['market_regime'] == 'extreme_crash').sum())
+df_decisions.loc[df_decisions['market_regime'] == 'severe_crash', 'market_volatility'] = \
+    np.random.uniform(0.05, 0.10, (df_decisions['market_regime'] == 'severe_crash').sum())
+
+# Crash speed dynamics
+df_decisions['crash_speed'] = np.random.choice(
+    ['flash_crash', 'rapid_decline', 'gradual_bear', 'normal'],
+    size=len(df_decisions),
+    p=[0.05, 0.15, 0.20, 0.60]
+)
+
+# Position characteristics
+df_decisions['position_size_pct'] = np.random.beta(2, 8, len(df_decisions))  # Most positions small (5-20%)
+df_decisions['holding_period_months'] = np.random.randint(1, 60, len(df_decisions))
+
+# Multiple/secondary biases (some decisions have multiple biases)
+def detect_secondary_biases(row):
+    """Some users have multiple simultaneous biases"""
+    secondary = []
+    
+    # Loss aversion + herd often co-occur in crashes
+    if row['bias_type'] == 'loss_aversion':
+        if row['market_return_recent'] < -0.10 and row['crowd_action_ratio'] > 0.70:
+            secondary.append('herd')
+    
+    # Herd + loss aversion
+    elif row['bias_type'] == 'herd':
+        if row['unrealized_gain_loss'] < -0.15:
+            secondary.append('loss_aversion')
+    
+    # Disposition + overconfidence (sell winners in bull market)
+    elif row['bias_type'] == 'disposition' and row['unrealized_gain_loss'] > 0.20:
+        if row['market_regime'] == 'bull':
+            secondary.append('overconfidence')
+    
+    return ','.join(secondary) if secondary else 'none'
+
+df_decisions['secondary_biases'] = df_decisions.apply(detect_secondary_biases, axis=1)
+
 df_decisions.to_csv('synthetic_decisions.csv', index=False)
 print(f"✅ Created: synthetic_decisions.csv ({len(df_decisions)} decisions)")
 print(f"   Bias present: {(df_decisions['bias_present']=='yes').sum()} decisions "
       f"({100*(df_decisions['bias_present']=='yes').sum()/len(df_decisions):.1f}%)")
+
+# Print edge case statistics
+print(f"\n📊 EDGE CASE STATISTICS (Decisions):")
+print(f"   • Extreme crashes (>30% drop):          {(df_decisions['market_regime']=='extreme_crash').sum()} cases")
+print(f"   • Severe crashes (15-30% drop):         {(df_decisions['market_regime']=='severe_crash').sum()} cases")
+print(f"   • Flash crashes:                        {(df_decisions['crash_speed']=='flash_crash').sum()} cases")
+print(f"   • Multiple simultaneous biases:         {(df_decisions['secondary_biases']!='none').sum()} cases")
+print(f"   • Extreme gains (>50%):                 {(df_decisions['unrealized_gain_loss']>0.50).sum()} cases")
+print(f"   • Extreme losses (>40%):                {(df_decisions['unrealized_gain_loss']<-0.40).sum()} cases")
+print(f"   • Large positions (>30% portfolio):     {(df_decisions['position_size_pct']>0.30).sum()} cases")
 
 # ==============================================================================
 # STEP 5: Generate Synthetic Counterfactuals
@@ -400,7 +497,12 @@ print("   processes and behavioral rules to provide ground truth for causality,"
 print("   bias detection, counterfactual reasoning, and long-horizon evaluation,")
 print("   which are not observable in real-world financial datasets.'")
 print("\n   'Income values are rounded to realistic thousands (not decimals)")
-print("   to match how users actually input salary. Edge cases include users")
-print("   with expenses > income (managed via credit cards, family support,")
-print("   or savings drawdown), representing real-world financial stress.'")
+print("   to match how users actually input salary. Edge cases include:")
+print("   • Financial: Users with expenses > income (~10%)")
+print("   • Lifecycle: Age-horizon mismatches, novice vs expert investors")
+print("   • Market: Extreme crashes (>30%), flash vs gradual declines")
+print("   • Portfolio: Extreme gains/losses (>50%/>40%), position sizing")
+print("   • Behavioral: Multiple simultaneous biases co-occurring")
+print("   These edge cases ensure robust, context-aware bias detection")
+print("   that distinguishes genuine financial need from behavioral bias.'")
 print("\n" + "="*60)
