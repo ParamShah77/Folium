@@ -1139,6 +1139,13 @@ RECEIVED: { user_id, unrealized_gl%, intended_action, timestamp }
 If any check fails → 400 Bad Request returned immediately
 ```
 
+**Why unrealized_gl range [−1, +5]?**
+- **−1.0 (−100%)**: Maximum loss for a stock position without margin trading (position goes to zero)
+- **+5.0 (+500%)**: A 5× return — rare but possible for long-term holdings, IPO gains, or small-cap stocks
+- **Reality check**: ~95% of retail investor decisions on large-cap/index stocks fall within this range
+- **Outliers**: Beyond −100% = margin/futures losses (different risk model). Beyond +500% = penny stocks/crypto (different asset class)
+- **Production extension**: Can expand to [−2, +10] to handle more edge cases, or make it dynamic based on asset class
+
 ### Step 2 — Real-Time Market Data Fetch
 ```
 SOURCES:
@@ -1200,6 +1207,58 @@ OUTPUT per scenario: median, p10, p90, full trajectory array
 OPPORTUNITY COST: W_hold_median − W_sell_median
 ```
 
+**How the 10,000 paths are created (ONE-TIME during data generation)**:
+```python
+import numpy as np
+
+mu = 0.10      # 10% expected annual return (Nifty50 long-term average)
+sigma = 0.20   # 20% annual volatility
+years = 30
+n_paths = 10000
+
+# Generate 10,000 paths × 30 years using Geometric Brownian Motion
+returns = np.random.normal(mu, sigma, size=(n_paths, years))
+
+# Inject realistic crashes at year 10 and year 20
+for path_idx in range(n_paths):
+    crash_magnitude_1 = np.random.uniform(0.30, 0.50)  # 30-50% crash
+    crash_magnitude_2 = np.random.uniform(0.30, 0.50)
+    returns[path_idx, 10] -= crash_magnitude_1
+    returns[path_idx, 20] -= crash_magnitude_2
+
+np.save('synthetic_market_paths.npy', returns)  # Saved once, loaded at runtime
+```
+
+**Why sample only 1,000 paths at runtime (not all 10,000)?**
+- **Speed**: 1,000 paths = ~50ms compute time | 10,000 paths = ~500ms (10× slower)
+- **Precision**: With 1,000 samples, median/percentile estimates have negligible standard error
+- **Statistical validity**: 1,000 Monte Carlo samples is industry standard for wealth projections
+- **Dynamic sampling (future)**: Can weight paths based on current market regime (oversample crash paths if VIX is high)
+
+**What about live market data?**
+- **Live data NOT used for future projections** (nobody can predict if Nifty will be +12% or −8% next year)
+- **Live data IS used for**:
+  - Current bias detection (market return today, volatility now, crowd behavior now)
+  - Regime classification (are we in a crash RIGHT NOW?)
+  - Optional: Weighted sampling (if crash detected, sample more crash-recovery paths)
+- **Synthetic paths = statistically valid probability distribution of possible futures**
+
+**Percentile explanation**:
+Imagine you run 1,000 simulations. You get 1,000 different wealth outcomes. Sort them:
+```
+Path 1:   ₹18,200   ← 10th percentile (100th value when sorted)
+Path 2:   ₹23,450
+...
+Path 500: ₹67,583   ← Median/50th percentile (middle value) = MOST LIKELY
+...
+Path 900: ₹1,40,000 ← 90th percentile (900th value)
+Path 1000: ₹1,82,300
+```
+- **Median**: Your expected wealth (50% chance higher, 50% lower)
+- **10th percentile**: If market luck is bad, you'll likely get at least this (only 10% of outcomes worse)
+- **90th percentile**: If market luck is good, you could reach this (only 10% of outcomes better)
+- **Why show all three?** Shows both expected return AND risk/uncertainty range
+
 ### Step 8 — Explainability Engine
 ```
 Generates:
@@ -1222,6 +1281,131 @@ THREE HASHES:
 STORED: audit_logs table — APPEND-ONLY, no UPDATE or DELETE permitted
 ```
 
+**Why cryptographic hashes? The dispute resolution problem:**
+
+**Scenario**: 6 months ago, system recommended "HOLD". User held, lost ₹2L. Now claims system said "SELL".
+
+**WITHOUT audit logs**:
+- User: "Your system told me to sell!"
+- Company: "No it didn't"
+- NO PROOF either way → legal dispute, reputation damage
+- Company could secretly ALTER database → user has no verification
+
+**WITH cryptographic audit logs**:
+```python
+# What gets stored IMMEDIATELY after decision
+import hashlib
+
+original_data = {
+    "decision_id": 1523,
+    "user_id": 42,
+    "timestamp": "2025-08-15T14:32:10",
+    "bias_detected": "loss_aversion",
+    "recommendation": "HOLD",
+    "wealth_hold": 67583,
+    "wealth_sell": 38291
+}
+
+hash_value = hashlib.sha256(str(original_data).encode()).hexdigest()
+# Result: "a3f8c2d9e1b74f283c5a6d8e9f7b2c1a..."
+
+# Stored in audit_logs table (IMMUTABLE)
+```
+
+**6 months later — Verification**:
+1. User has screenshot/email of original recommendation
+2. Company retrieves audit log entry #1523
+3. User provides their data → company recomputes SHA-256 hash
+4. **If hashes MATCH** → Proves system recommendation was authentic, unchanged
+5. **If hashes DON'T MATCH** → Proves database was tampered with
+
+**Why SHA-256 specifically?**
+- Change even ONE character → completely different hash (avalanche effect)
+- Cryptographically impossible to reverse (cannot reconstruct data from hash)
+- Industry standard (Bitcoin, SSL certificates, digital signatures)
+- No known collision attacks (unlike MD5/SHA-1)
+
+**Key properties for legal/regulatory use**:
+- **Tamper-proof**: Append-only table (no UPDATE/DELETE SQL permissions)
+- **Verifiable**: User can independently recompute hash to verify authenticity
+- **Compliance**: SEBI/financial regulators may require audit trails for robo-advisors
+- **Research integrity**: Proves results weren't cherry-picked or altered post-hoc
+
+---
+
+## DATA PRIVACY & SECURITY ARCHITECTURE
+
+### Storage Security
+```
+DATABASE LAYER:
+├── Encryption at rest
+│   ├── PostgreSQL: Transparent Data Encryption (TDE)
+│   ├── SQLite: SQLCipher with AES-256
+│   └── Encrypted automated backups (daily)
+│
+├── Access Control
+│   ├── Role-Based Access Control (RBAC)
+│   ├── Principle of least privilege
+│   ├── API service account (read/write decisions, read-only user profiles)
+│   └── Admin account (audit only, no edit permissions on audit_logs)
+│
+└── Network Security
+    ├── Database not exposed to public internet
+    ├── Access only via private VPC/subnet
+    └── Firewall rules (whitelist application server IPs only)
+```
+
+### API & Communication Security
+```
+TRANSPORT LAYER:
+├── HTTPS/TLS 1.3 (all API endpoints)
+├── Certificate pinning (mobile apps)
+└── No unencrypted HTTP endpoints
+
+AUTHENTICATION:
+├── JWT tokens (short expiry: 15 minutes)
+├── Refresh tokens (httpOnly cookies, 7-day expiry)
+├── API rate limiting (100 requests/minute per user)
+└── No passwords in logs/error messages
+
+SENSITIVE DATA HANDLING:
+├── Passwords: bcrypt with salt (12 rounds)
+├── Income/networth: Encrypted at application level (before DB)
+├── Logs: No PII (only anonymized user_id)
+└── Third-party APIs: Credentials in environment variables (not in code)
+```
+
+### Compliance & User Rights
+```
+GDPR / DPDP Act (India Data Protection):
+├── Right to Access: User can download all their data (JSON export)
+├── Right to Rectification: User can update profile anytime
+├── Right to Deletion: Soft delete (anonymize PII, retain audit logs for 7 years as legally required)
+├── Right to Portability: CSV/JSON export of all decisions and portfolio
+└── Consent Management: Explicit opt-in for all data collection
+
+DATA SHARING POLICY:
+├── NEVER shared with advertisers
+├── NEVER sold to third parties
+├── Aggregate statistics only for research (fully anonymized)
+└── Legal requests: Only with valid court order
+
+AUDIT LOG PROTECTION:
+├── Audit logs retained for 7 years (regulatory requirement)
+├── Even after user deletion, audit hashes remain (anonymized)
+├── Accessed only for: Dispute resolution, regulatory audit, security investigation
+└── All access to audit logs itself is logged (audit of audits)
+```
+
+### Anonymization for Research
+```
+When using data for model retraining or academic research:
+├── user_id → pseudonymized (hash-based mapping)
+├── Income/expense → bucketed (₹50K-75K instead of exact ₹67,234)
+├── Age → age_group (25-35 instead of exact 28)
+└── No timestamps that could re-identify individuals
+```
+
 ---
 
 ## FULL DATABASE SCHEMA
@@ -1232,6 +1416,13 @@ user_profiles:
   expense_ratio, risk_tolerance, investment_horizon, goal,
   financial_strategy, has_emergency_fund, age_horizon_mismatch,
   years_investing, investment_experience, created_at, updated_at
+
+  [FUTURE ENHANCEMENT — Full Networth Profile]
+  total_networth, liquid_cash, fixed_deposits, epf_ppf_balance,
+  gold_holdings, real_estate_value, real_estate_type (owned/rented),
+  crypto_holdings, other_investments,
+  home_loan_outstanding, personal_loan_outstanding, credit_card_debt,
+  total_emi_monthly, rent_income_monthly
 
 bias_profiles_live:
   user_id (FK), disposition_strength, loss_aversion, herd_sensitivity,
@@ -1262,6 +1453,133 @@ portfolios:
   unrealized_gl_abs, holding_period_months, position_size_pct,
   last_price_update
 ```
+
+---
+
+## FUTURE ENHANCEMENTS — FULL FINANCIAL PROFILE
+
+### Why Overall Networth Matters
+
+**Current Limitation**: System only knows about user's equity portfolio. Doesn't account for:
+- Emergency funds (FD, liquid funds)
+- Real asset holdings (gold, real estate)
+- Other liabilities (loans, EMIs)
+- Total financial health context
+
+**Problem this causes**:
+```
+User A: ₹10L equity | ₹50L real estate | ₹5L emergency fund
+        → Net worth ₹65L → Equity is only 15% of portfolio
+        → CAN AFFORD to hold through crash
+
+User B: ₹10L equity | ₹2L emergency fund | ₹8L home loan outstanding
+        → Net worth ₹4L → Equity is 71% of net assets
+        → MAY NEED to sell for liquidity
+```
+
+Both have identical ₹10L equity positions, but completely different risk capacity!
+
+### Enhanced Input Form (Production Version)
+
+**ASSETS**:
+```
+├── Equity Portfolio (current implementation)
+├── Fixed Deposits / Bonds (₹)
+├── EPF/PPF/NPS (₹)
+├── Gold (physical + digital gold, grams → ₹)
+├── Real Estate
+│   ├── Primary residence (owned/rented)
+│   ├── Investment property (₹ market value)
+│   └── Rent income (₹/month if rented out)
+├── Emergency Fund (liquid cash + instant access)
+├── Cryptocurrency (₹)
+└── Business Equity / Other Investments (₹)
+```
+
+**LIABILITIES**:
+```
+├── Home Loan (outstanding principal, EMI/month)
+├── Personal Loans (outstanding, EMI/month)
+├── Credit Card Debt (outstanding balance)
+├── Vehicle Loans (outstanding, EMI/month)
+└── Other Liabilities
+```
+
+**CASH FLOW** (monthly):
+```
+├── Salary (current implementation)
+├── Rent Income (if property rented)
+├── Business Income / Freelance
+├── Total EMI Outflow
+└── Living Expenses (current implementation)
+```
+
+**FINANCIAL GOALS** (time-bound):
+```
+├── House Down Payment (₹ target, years)
+├── Child Education (₹ target, years)
+├── Retirement Corpus (₹ target, age)
+├── Wedding / Major Event (₹ target, years)
+└── Other Goals
+```
+
+### How This Changes Decision Logic
+
+**Enhanced Bias Detection**:
+```python
+# Current: Only looks at equity position
+if unrealized_loss > 10% and loss_aversion > 2.5:
+    bias_detected = True
+
+# Enhanced: Context-aware detection
+equity_as_pct_of_networth = equity_portfolio / total_networth
+emergency_fund_months = emergency_fund / monthly_expense
+liquidity_pressure = (total_emi_monthly / monthly_income) > 0.4
+
+if unrealized_loss > 10% and loss_aversion > 2.5:
+    if equity_as_pct_of_networth < 0.25 and emergency_fund_months > 6:
+        # User has safety net → likely bias-driven
+        bias_detected = True
+        severity = "high"
+    elif liquidity_pressure and emergency_fund_months < 3:
+        # User may have genuine liquidity need
+        bias_detected = False  # or "genuine_distress"
+        recommendation = "Consider partial liquidation if EMI burden high"
+```
+
+**Enhanced Simulator**:
+```python
+# Factor in entire portfolio, not just equity
+total_portfolio_return = (
+    equity_allocation × equity_return +
+    debt_allocation × debt_return +
+    gold_allocation × gold_return +
+    real_estate_allocation × real_estate_appreciation
+)
+
+# Show impact on NET WORTH, not just equity
+wealth_projection_full = (
+    equity_wealth_20y +
+    fixed_deposit_maturity +
+    epf_corpus +
+    real_estate_value_20y
+) - loans_remaining
+```
+
+**Enhanced Explanation**:
+```
+"Your equity position (₹10L) is only 15% of your total net worth (₹65L).
+You have 8 months of emergency funds and no debt obligations.
+Your financial profile supports holding through this downturn.
+Recommendation: HOLD with HIGH confidence."
+```
+
+### Implementation Priority
+
+**MVP (Current)**: Equity-only, demonstrates core bias detection + causal reasoning
+**v2.0**: Add emergency fund + total debt (highest impact factors)
+**v3.0**: Full networth profile with all asset classes
+**v4.0**: Goal-based planning with time-bound targets
 
 ---
 
