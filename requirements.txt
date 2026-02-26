@@ -1,0 +1,20 @@
+# GAP 1: Causal Decision-Time Reasoning
+# Core ML & Data
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.3
+xgboost>=2.0
+matplotlib>=3.7
+seaborn>=0.12
+
+# Causal AI (Week 3+)
+causalnex>=0.12
+dowhy>=0.10
+pgmpy>=0.1.21
+
+# API (Week 3+)
+fastapi>=0.104
+uvicorn>=0.24
+
+# Testing
+pytest>=7.4
