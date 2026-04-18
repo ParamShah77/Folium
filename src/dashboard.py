@@ -294,7 +294,12 @@ def _render_sidebar():
     st.sidebar.markdown("---")
     page = st.sidebar.radio(
         "Navigate",
-        ["🔍 Decision Analysis", "👤 User Profile", "📈 Market Context"],
+        [
+            "🔍 Decision Analysis",
+            "👤 User Profile",
+            "📈 Market Context",
+            "💹 Wealth Simulator",   # GAP 2
+        ],
         key="page_selector",
     )
 
@@ -784,6 +789,431 @@ def page_market_context():
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# PAGE 4 — WEALTH SIMULATOR (GAP 2)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _render_trajectory_chart(result: dict):
+    """
+    Render HOLD vs SELL year-by-year trajectory chart using Plotly.
+    Includes P10/P90 uncertainty bands, median lines, starting wealth baseline.
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        st.warning("⚠️ plotly not installed — run: pip install plotly")
+        return
+
+    years         = result.get("years", [])
+    hold_p50      = result.get("yearly_hold_p50", [])
+    hold_p10      = result.get("yearly_hold_p10", [])
+    hold_p90      = result.get("yearly_hold_p90", [])
+    sell_p50      = result.get("yearly_sell_p50", [])
+    sell_p10      = result.get("yearly_sell_p10", [])
+    sell_p90      = result.get("yearly_sell_p90", [])
+    current_wealth = result.get("inputs", {}).get("current_wealth", 100_000.0)
+
+    if not years or not hold_p50:
+        st.warning("⚠️ Trajectory data not returned by the API.")
+        return
+
+    fig = go.Figure()
+
+    # ── HOLD uncertainty band (P10–P90) ─────────────────────────────
+    fig.add_trace(go.Scatter(
+        x=years + years[::-1],
+        y=hold_p90 + hold_p10[::-1],
+        fill="toself",
+        fillcolor="rgba(108,99,255,0.10)",
+        line=dict(color="rgba(0,0,0,0)"),
+        hoverinfo="skip",
+        showlegend=False,
+        name="HOLD P10–P90",
+    ))
+    # ── SELL uncertainty band ───────────────────────────────────
+    fig.add_trace(go.Scatter(
+        x=years + years[::-1],
+        y=sell_p90 + sell_p10[::-1],
+        fill="toself",
+        fillcolor="rgba(255,107,107,0.10)",
+        line=dict(color="rgba(0,0,0,0)"),
+        hoverinfo="skip",
+        showlegend=False,
+        name="SELL P10–P90",
+    ))
+    # ── HOLD median trajectory ──────────────────────────────────
+    fig.add_trace(go.Scatter(
+        x=years, y=hold_p50,
+        mode="lines",
+        name="🔵 HOLD (median)",
+        line=dict(color="#6C63FF", width=3),
+        hovertemplate="Year %{x}<br>₹%{y:,.0f}<extra>HOLD median</extra>",
+    ))
+    # ── SELL median trajectory ──────────────────────────────────
+    fig.add_trace(go.Scatter(
+        x=years, y=sell_p50,
+        mode="lines",
+        name="🔴 SELL (median)",
+        line=dict(color="#FF6B6B", width=3, dash="dash"),
+        hovertemplate="Year %{x}<br>₹%{y:,.0f}<extra>SELL median</extra>",
+    ))
+    # ── Starting wealth baseline ───────────────────────────────
+    fig.add_hline(
+        y=current_wealth,
+        line_dash="dot",
+        line_color="#888",
+        annotation_text=f"Starting ₹{current_wealth:,.0f}",
+        annotation_position="bottom right",
+    )
+
+    fig.update_layout(
+        title=dict(
+            text="📈 HOLD vs SELL — Long-Horizon Wealth Projection",
+            font=dict(size=17, color="#E0E0E0")
+        ),
+        xaxis=dict(
+            title="Year",
+            showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+            color="#aaa", tickmode="linear", dtick=5,
+        ),
+        yaxis=dict(
+            title="Portfolio Value (₹)",
+            showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+            color="#aaa", tickformat=",.0f",
+        ),
+        plot_bgcolor ="rgba(14,17,23,0)",
+        paper_bgcolor="rgba(14,17,23,0)",
+        font=dict(color="#E0E0E0", family="Inter, sans-serif"),
+        legend=dict(
+            bgcolor="rgba(30,33,48,0.85)",
+            bordercolor="#444", borderwidth=1
+        ),
+        hovermode="x unified",
+        height=450,
+        margin=dict(l=60, r=30, t=60, b=50),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_distribution_chart(result: dict):
+    """Render final wealth distribution histogram comparing HOLD vs SELL."""
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        return
+
+    hold = result.get("hold", {})
+    sell = result.get("sell", {})
+
+    # If raw outcomes not available (stripped by API), use summary stats to simulate
+    hold_outcomes = hold.get("outcomes", [])
+    sell_outcomes = sell.get("outcomes", [])
+
+    if not hold_outcomes or not sell_outcomes:
+        # Fallback: show box chart from summary stats
+        fig = go.Figure()
+        for label, data, color in [
+            ("HOLD", hold, "#6C63FF"),
+            ("SELL", sell, "#FF6B6B"),
+        ]:
+            fig.add_trace(go.Box(
+                q1=[data.get("p25", 0)],
+                median=[data.get("median", 0)],
+                q3=[data.get("p75", 0)],
+                lowerfence=[data.get("p10", 0)],
+                upperfence=[data.get("p90", 0)],
+                mean=[data.get("mean", 0)],
+                name=label,
+                marker_color=color,
+                boxmean=True,
+            ))
+        fig.update_layout(
+            title="Final Wealth Distribution (Summary Statistics)",
+            yaxis_title="Final Wealth (₹)",
+            yaxis=dict(tickformat=",.0f"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#E0E0E0"),
+            height=350,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        return
+
+    import numpy as np
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=hold_outcomes, name="HOLD",
+        marker_color="rgba(108,99,255,0.75)",
+        nbinsx=40, opacity=0.8,
+    ))
+    fig.add_trace(go.Histogram(
+        x=sell_outcomes, name="SELL",
+        marker_color="rgba(255,107,107,0.75)",
+        nbinsx=40, opacity=0.8,
+    ))
+    fig.update_layout(
+        barmode="overlay",
+        title="Final Wealth Distribution Across 1 000 Scenarios",
+        xaxis=dict(title="Final Wealth (₹)", tickformat=",.0f"),
+        yaxis_title="Count",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#E0E0E0"),
+        height=350,
+        legend=dict(bgcolor="rgba(30,33,48,0.85)"),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def page_wealth_simulator():
+    """GAP 2 — Personalised Long-Horizon Wealth Simulator."""
+    st.title("💹 Wealth Simulator")
+    st.markdown(
+        "**GAP 2**: Simulate your personal 10–30 year wealth trajectory under HOLD vs SELL — "
+        "powered by Monte Carlo over 1 000 possible market futures."
+    )
+    _render_indices_ribbon()
+
+    # ── INFO BANNER ────────────────────────────────────────────────────
+    with st.expander("ℹ️ How the simulator works", expanded=False):
+        st.markdown("""
+        **Monte Carlo Simulation (1 000 paths, 10–30 years)**
+
+        | Scenario | Logic |
+        |--|--|
+        | **HOLD** | Stay invested at current position. Compound returns over horizon using risk-adjusted portfolio (stocks + bonds). |
+        | **SELL** | Realise P&L minus 5% transaction cost. Reinvest at 30% of original stock allocation (panic-selling → conservative reallocation). |
+
+        **Output:** Year-by-year median trajectories + P10/P90 uncertainty bands for each scenario.
+        The **Opportunity Cost** = expected HOLD wealth − expected SELL wealth.
+
+        Data: `synthetic_market_paths.npy` (10 000 × 30yr annual return paths for Indian equity markets)
+        """)
+
+    st.divider()
+    st.subheader("📝 Simulation Parameters")
+
+    # ── INPUT FORM ────────────────────────────────────────────────────
+    with st.form("simulator_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            user_id = st.number_input(
+                "User ID (from synthetic_users.csv)",
+                min_value=0, max_value=99_999, value=42, step=1,
+                help="User profile determines investment horizon, risk tolerance, age."
+            )
+            current_wealth = st.number_input(
+                "Current Portfolio Value (₹)",
+                min_value=1_000.0, max_value=50_000_000.0,
+                value=75_000.0, step=5_000.0,
+                format="%.0f"
+            )
+            unrealized_gl = st.number_input(
+                "Unrealised Gain / Loss (%)",
+                min_value=-70.0, max_value=200.0,
+                value=-18.0, step=1.0,
+                help="Negative = loss position. E.g. -18 means down 18%."
+            ) / 100.0
+        with col2:
+            n_simulations = st.select_slider(
+                "Monte Carlo Paths",
+                options=[100, 200, 500, 1000, 2000, 5000],
+                value=1000,
+                help="More paths = more accurate but slower. 1 000 is recommended."
+            )
+            st.markdown("")
+            st.markdown("")
+            st.info(
+                f"💡 **Ramesh Scenario**: User 42, ₹75 000, −18%, 1000 paths\n\n"
+                "This mirrors the master blueprint demo from the project overview."
+            )
+
+        run_sim = st.form_submit_button(
+            "🚀 Run Monte Carlo Simulation",
+            use_container_width=True,
+            type="primary"
+        )
+
+    # ── EXECUTE AND RENDER ─────────────────────────────────────────────
+    if run_sim:
+        with st.spinner(f"⏳ Running {n_simulations:,} Monte Carlo paths per scenario…"):
+            payload = {
+                "user_id"       : int(user_id),
+                "current_wealth": float(current_wealth),
+                "unrealized_gl" : float(unrealized_gl),
+                "n_simulations" : int(n_simulations),
+            }
+            result = _api_post("/simulate", payload)
+
+        if result is None:
+            return
+
+        # Store in session state so user can explore without re-running
+        st.session_state["sim_result"] = result
+
+    # Render from session state
+    if "sim_result" not in st.session_state:
+        st.info("↗️ Fill in your parameters above and click Run to see your personalised wealth projection.")
+        return
+
+    result = st.session_state["sim_result"]
+    hold   = result.get("hold", {})
+    sell   = result.get("sell", {})
+    comp   = result.get("comparison", {})
+    user   = result.get("user_profile", {})
+    inputs = result.get("inputs", {})
+    horizon = result.get("horizon_years", 20)
+
+    # ── USER PROFILE BANNER ────────────────────────────────────────────
+    st.divider()
+    st.subheader("👤 Investor Profile Used")
+    up1, up2, up3, up4 = st.columns(4)
+    up1.metric("🏦 Age",              user.get("age", "N/A"))
+    up2.metric("⏳ Investment Horizon", f"{user.get('investment_horizon', horizon)} yrs")
+    up3.metric("⚖️ Risk Tolerance",    f"{user.get('risk_tolerance', 0):.2f}")
+    up4.metric("🎯 Goal",             user.get("goal", "N/A").replace("_", " ").title())
+
+    # ── KEY METRICS ───────────────────────────────────────────────────
+    st.divider()
+    st.subheader("📊 Simulation Results")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(
+        "🔵 HOLD — Expected",
+        f"₹{hold.get('mean', 0):,.0f}",
+        delta=f"P10: ₹{hold.get('p10', 0):,.0f} | P90: ₹{hold.get('p90', 0):,.0f}",
+        delta_color="normal",
+    )
+    c2.metric(
+        "🔴 SELL — Expected",
+        f"₹{sell.get('mean', 0):,.0f}",
+        delta=f"P10: ₹{sell.get('p10', 0):,.0f} | P90: ₹{sell.get('p90', 0):,.0f}",
+        delta_color="normal",
+    )
+    opp_cost = comp.get("opportunity_cost_inr", 0)
+    c3.metric(
+        "💰 Opportunity Cost of Selling",
+        f"₹{abs(opp_cost):,.0f}",
+        delta=f"{comp.get('opportunity_cost_pct', 0):.1f}% of portfolio",
+        delta_color="inverse",  # red = bad (you lose money by selling)
+    )
+    prob = comp.get("prob_hold_better", 0)
+    c4.metric(
+        "🎯 P(HOLD wins)",
+        f"{prob*100:.1f}%",
+        delta="across 1k simulations",
+        delta_color="off",
+    )
+
+    # ── RECOMMENDATION BANNER ─────────────────────────────────────────
+    better = comp.get("better_decision", "HOLD")
+    rec_text = comp.get("recommendation_text", "")
+    if better == "HOLD":
+        st.markdown(
+            f'<div class="bias-banner bias-rational">🔵 {rec_text}</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div class="bias-banner bias-biased">🔴 {rec_text}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── TRAJECTORY CHART ──────────────────────────────────────────────
+    st.divider()
+    st.subheader("📈 Year-by-Year Wealth Trajectory")
+    st.caption(
+        "Shaded bands = P10–P90 range (most likely outcomes). "
+        f"Solid lines = median. {n_simulations if 'n_simulations' not in result.get('inputs', {}) else result['inputs'].get('n_simulations', 1000):,} Monte Carlo paths per scenario."
+    )
+    _render_trajectory_chart(result)
+
+    # ── DETAILED STATS TABLE ────────────────────────────────────────────
+    st.divider()
+    st.subheader("📊 Detailed Statistics")
+    tab1, tab2, tab3 = st.tabs(["HOLD vs SELL Summary", "Year-by-Year Table", "Validation"])
+
+    with tab1:
+        import pandas as pd
+        stat_keys = ["mean", "median", "std", "p10", "p25", "p50", "p75", "p90"]
+        hold_stats = {k: hold.get(k, 0) for k in stat_keys}
+        sell_stats = {k: sell.get(k, 0) for k in stat_keys}
+        stats_df = pd.DataFrame({
+            "Statistic": [k.upper() for k in stat_keys],
+            "HOLD (₹)" : [f"₹{hold_stats[k]:,.0f}" for k in stat_keys],
+            "SELL (₹)" : [f"₹{sell_stats[k]:,.0f}" for k in stat_keys],
+            "Difference": [f"₹{hold_stats[k] - sell_stats[k]:+,.0f}" for k in stat_keys],
+        })
+        st.dataframe(stats_df, use_container_width=True, hide_index=True)
+
+    with tab2:
+        years       = result.get("years", list(range(1, horizon + 1)))
+        hold_p50    = result.get("yearly_hold_p50", [])
+        sell_p50    = result.get("yearly_sell_p50", [])
+        hold_p10    = result.get("yearly_hold_p10", [])
+        hold_p90    = result.get("yearly_hold_p90", [])
+        if years and hold_p50:
+            import pandas as pd
+            traj_data = {
+                "Year"          : years,
+                "HOLD Median (₹)": [f"₹{v:,.0f}" for v in hold_p50],
+                "HOLD P10 (₹)"  : [f"₹{v:,.0f}" for v in hold_p10] if hold_p10 else ["-"] * len(years),
+                "HOLD P90 (₹)"  : [f"₹{v:,.0f}" for v in hold_p90] if hold_p90 else ["-"] * len(years),
+                "SELL Median (₹)": [f"₹{v:,.0f}" for v in sell_p50] if sell_p50 else ["-"] * len(years),
+            }
+            st.dataframe(pd.DataFrame(traj_data), use_container_width=True, hide_index=True)
+        else:
+            st.info("Trajectory data not available.")
+
+    with tab3:
+        st.markdown("**Validate against synthetic_counterfactuals.csv**")
+        dec_id_val = st.number_input("Decision ID to validate", min_value=0, value=0, step=1)
+        if st.button("🔍 Validate"):
+            val = _api_get(f"/simulate/validate/{dec_id_val}")
+            if val:
+                if "error" in val:
+                    st.error(val["error"])
+                else:
+                    v1, v2, v3 = st.columns(3)
+                    v1.metric("HOLD Error",
+                              f"{val['hold_error_pct']:.2f}%",
+                              delta="PASS" if val["pass_hold"] else "FAIL",
+                              delta_color="normal" if val["pass_hold"] else "inverse")
+                    v2.metric("SELL Error",
+                              f"{val['sell_error_pct']:.2f}%",
+                              delta="PASS" if val["pass_sell"] else "FAIL",
+                              delta_color="normal" if val["pass_sell"] else "inverse")
+                    v3.metric("Overall",
+                              "✅ PASS" if val["pass_overall"] else "❌ FAIL",
+                              delta="< 20% error target",
+                              delta_color="off")
+                    with st.expander("🔍 Raw validation data"):
+                        st.json(val)
+
+    # ── POPULATION BIAS IMPACT ─────────────────────────────────────────
+    st.divider()
+    st.subheader("📉 Population-Level Bias Cost (Research Experiment 2)")
+    st.markdown(
+        "**Experiment 2 target:** quantify the average wealth lost to behavioral biases "
+        "across the population. Expected result: **~42% wealth gap** (biased vs rational investors)."
+    )
+    col_n, col_pf, _ = st.columns([1, 1, 2])
+    n_users_pop = col_n.number_input("Sample users", min_value=10, max_value=500, value=50, step=10)
+    pf_val      = col_pf.number_input("Portfolio size (₹)", min_value=10_000, value=75_000, step=5_000)
+
+    if st.button("🧪 Run Population Analysis"):
+        with st.spinner(f"Analysing {n_users_pop} users… (this may take ~30s)"):
+            impact = _api_get(f"/simulate/bias_impact?n_users={n_users_pop}&assumed_portfolio={pf_val}")
+        if impact:
+            bi1, bi2, bi3 = st.columns(3)
+            bi1.metric("Mean Bias Cost", f"₹{impact.get('mean_bias_cost_inr', 0):,.0f}")
+            bi2.metric("Median Bias Cost", f"₹{impact.get('median_bias_cost_inr', 0):,.0f}")
+            bi3.metric("Avg Wealth Loss %", f"{impact.get('mean_wealth_loss_pct', 0):.1f}%")
+            st.success(impact.get("key_finding", ""))
+            with st.expander("🔍 Full result"):
+                st.json({k: v for k, v in impact.items() if k != "distribution"})
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -796,6 +1226,8 @@ def main():
         page_user_profile()
     elif page == "📈 Market Context":
         page_market_context()
+    elif page == "💹 Wealth Simulator":
+        page_wealth_simulator()
 
 
 if __name__ == "__main__":

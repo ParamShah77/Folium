@@ -1,25 +1,31 @@
 """
-GAP 1 – FastAPI Backend (Updated)
-==================================
+GAP 1 + GAP 2 – FastAPI Backend
+================================
 Exposes the unified bias-detection + causal-intervention pipeline
-as a REST API.  Now includes user management, market data, SHAP
-explanations, and tamper-evident audit trails.
+as a REST API.  Includes user management, market data, SHAP
+explanations, tamper-evident audit trails, and the Monte Carlo
+long-horizon wealth simulator (GAP 2).
 
 Endpoints
 ---------
-  GET  /health                  → liveness probe
-  GET  /model/status            → inspect loaded model artefacts
-  POST /analyze/decision        → single-user real-time analysis (updated)
-  POST /analyze/batch           → analyse a JSON list of decisions
-  GET  /causal/effects          → pre-computed causal effect table
-  GET  /causal/interventions    → pre-computed intervention simulation
-  GET  /demo                    → run 4 canned scenarios, return JSON
-  GET  /demo/all_biases         → highest-confidence real specimens
-  POST /user/register           → register new user + onboarding
-  GET  /user/{user_id}/profile  → full profile + bias history
-  GET  /user/{user_id}/decisions→ decision history
-  GET  /audit/{decision_id}     → audit trail + tamper detection
-  GET  /market/context          → live NIFTY market data
+  GET  /health                      → liveness probe
+  GET  /model/status                → inspect loaded model artefacts
+  POST /analyze/decision            → single-user real-time analysis (updated)
+  POST /analyze/batch               → analyse a JSON list of decisions
+  GET  /causal/effects              → pre-computed causal effect table
+  GET  /causal/interventions        → pre-computed intervention simulation
+  GET  /demo                        → run 4 canned scenarios, return JSON
+  GET  /demo/all_biases             → highest-confidence real specimens
+  POST /user/register               → register new user + onboarding
+  GET  /user/{user_id}/profile      → full profile + bias history
+  GET  /user/{user_id}/decisions    → decision history
+  GET  /audit/{decision_id}         → audit trail + tamper detection
+  GET  /market/context              → live NIFTY market data
+  GET  /market/ribbon               → live indices ribbon data
+  POST /simulate                    → GAP 2: HOLD vs SELL Monte Carlo
+  POST /simulate/individual         → GAP 2: single-scenario simulation
+  GET  /simulate/validate/{id}      → GAP 2: validate vs ground-truth
+  GET  /simulate/bias_impact        → GAP 2: population-level bias cost
 
 Install & Run
 -------------
@@ -65,6 +71,7 @@ from integration import analyze_decision_realtime, analyze_batch
 from causal_inference import load_causal_results, EFFECTS_PKL
 from database import DatabaseManager, get_db
 from market_data import MarketDataFetcher, get_fetcher
+from simulator import get_simulator, LongHorizonSimulator
 
 import numpy as np
 import pandas as pd
@@ -74,9 +81,10 @@ import pandas as pd
 # ══════════════════════════════════════════════════════════════════════════
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise DB and market fetcher once at startup."""
-    app.state.db      = get_db()
-    app.state.fetcher = get_fetcher()
+    """Initialise DB, market fetcher, and simulator once at startup."""
+    app.state.db        = get_db()
+    app.state.fetcher   = get_fetcher()
+    app.state.simulator = get_simulator()   # GAP 2: lazy-loads datasets on first call
     yield
     app.state.db.close()
 
@@ -109,6 +117,12 @@ def _fetcher() -> MarketDataFetcher:
         return app.state.fetcher
     except AttributeError:
         return get_fetcher()
+
+def _sim() -> LongHorizonSimulator:
+    try:
+        return app.state.simulator
+    except AttributeError:
+        return get_simulator()
 
 # ══════════════════════════════════════════════════════════════════════════
 # PYDANTIC MODELS
@@ -687,6 +701,142 @@ def market_ribbon() -> dict:
         return _fetcher().get_indices_ribbon()
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# GAP 2 — PYDANTIC MODELS FOR SIMULATOR
+# ══════════════════════════════════════════════════════════════════════════
+
+class SimulateInput(BaseModel):
+    """HOLD vs SELL Monte Carlo simulation request."""
+    user_id          : int   = Field(42,        description="User ID from synthetic_users.csv")
+    current_wealth   : float = Field(75_000.0,  description="Current portfolio value (₹)", gt=0)
+    unrealized_gl    : float = Field(-0.18,     description="Unrealised gain/loss fraction (e.g. -0.18 = -18%)")
+    n_simulations    : int   = Field(1_000,     description="Monte Carlo paths per scenario (100–5000)", ge=100, le=5000)
+
+
+class SimulateIndividualInput(BaseModel):
+    """Single-scenario (HOLD or SELL) individual simulation request."""
+    user_id          : int   = Field(42,        description="User ID from synthetic_users.csv")
+    decision         : str   = Field("hold",    description="'hold' or 'sell'")
+    current_portfolio: float = Field(75_000.0,  description="Current portfolio value (₹)", gt=0)
+    unrealized_gl    : float = Field(-0.18,     description="Unrealised gain/loss fraction")
+    n_simulations    : int   = Field(500,       description="Monte Carlo paths (100–5000)", ge=100, le=5000)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# GAP 2 — ROUTES
+# ══════════════════════════════════════════════════════════════════════════
+
+@app.post("/simulate", summary="GAP 2: HOLD vs SELL — Monte Carlo wealth comparison")
+def simulate_hold_vs_sell(payload: SimulateInput) -> dict:
+    """
+    Runs 1 000 Monte Carlo simulations (or user-specified count) for both
+    HOLD and SELL decisions and returns:
+    - Year-by-year median trajectories (median / P10 / P90 bands)
+    - Final-wealth summary statistics (mean / median / P10 / P90 / std)
+    - Opportunity cost in ₹ and %
+    - Probability HOLD outperforms SELL
+    - Human-readable recommendation text
+    """
+    try:
+        sim    = _sim()
+        result = sim.compare_hold_vs_sell(
+            user_id       = payload.user_id,
+            current_wealth= payload.current_wealth,
+            unrealized_gl = payload.unrealized_gl,
+            n_simulations = payload.n_simulations,
+        )
+        # Drop raw outcome arrays (too large for API response) — keep summaries
+        for key in ("hold", "sell"):
+            result[key].pop("outcomes", None)
+        return result
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/simulate/individual", summary="GAP 2: Single-scenario Monte Carlo (HOLD or SELL)")
+def simulate_individual(payload: SimulateIndividualInput) -> dict:
+    """
+    Simulates a single decision scenario (HOLD or SELL) for a specific user
+    and returns the wealth distribution across all Monte Carlo paths.
+    Useful for building a before/after comparison on the frontend.
+    """
+    try:
+        sim    = _sim()
+        result = sim.simulate_individual(
+            user_id          = payload.user_id,
+            decision         = payload.decision,
+            current_portfolio= payload.current_portfolio,
+            unrealized_gl    = payload.unrealized_gl,
+            n_simulations    = payload.n_simulations,
+        )
+        # Remove raw arrays (keep summary + trajectories for chart)
+        result.pop("outcomes", None)
+        return result
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/simulate/validate/{decision_id}",
+         summary="GAP 2: Validate simulator vs synthetic_counterfactuals.csv")
+def validate_simulation(
+    decision_id  : int   = Path(..., description="Decision ID (integer) from synthetic_decisions.csv"),
+    current_wealth: float = 10_000.0,
+) -> dict:
+    """
+    Runs the simulator for the specified decision_id and compares the result
+    to the pre-computed counterfactual ground truth.
+    Target: HOLD error < 20 %, SELL error < 20 %.
+    """
+    try:
+        sim = _sim()
+        return sim.validate_against_precomputed(
+            decision_id   = decision_id,
+            current_wealth= current_wealth,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/simulate/bias_impact", summary="GAP 2: Population-level bias cost quantification")
+def simulate_bias_impact(
+    n_users           : int   = 100,
+    assumed_portfolio : float = 75_000.0,
+) -> dict:
+    """
+    Experiment 2 (Research Paper): Measures the population-level financial cost
+    of behavioral biases across n_users from synthetic_users.csv.
+    Expected result: ~30-50% wealth gap between biased and rational investors
+    over their investment horizons — targeting the 42% gap from the master blueprint.
+    """
+    try:
+        if n_users > 500:
+            raise HTTPException(
+                status_code=400,
+                detail="n_users > 500 is too slow for a synchronous API call. Use the notebook instead."
+            )
+        sim    = _sim()
+        result = sim.bias_impact_quantifier(n_users=n_users, assumed_portfolio=assumed_portfolio)
+        # Distribution can be large — summarise
+        dist   = result.pop("distribution", [])
+        result["distribution_summary"] = {
+            "p10"   : float(np.percentile(dist, 10))  if dist else 0,
+            "p25"   : float(np.percentile(dist, 25))  if dist else 0,
+            "median": float(np.median(dist))           if dist else 0,
+            "p75"   : float(np.percentile(dist, 75))  if dist else 0,
+            "p90"   : float(np.percentile(dist, 90))  if dist else 0,
+            "n"     : len(dist),
+        }
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ══════════════════════════════════════════════════════════════════════════
