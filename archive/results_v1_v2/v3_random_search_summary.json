@@ -1,0 +1,74 @@
+[
+  {
+    "idx": 4,
+    "params": {
+      "max_depth": 5,
+      "min_child_weight": 4,
+      "subsample": 0.8359,
+      "colsample_bytree": 0.827,
+      "reg_alpha": 0.2136,
+      "reg_lambda": 4.4913,
+      "learning_rate": 0.0433,
+      "n_estimators": 423,
+      "gamma": 0.0973,
+      "smote_herd": 1014,
+      "smote_loss": 1031,
+      "class_weight_loss": 2.9517
+    },
+    "macro_f1": 0.8499185227923007,
+    "learning_curve_gap": 0.14207049192268795,
+    "best_iteration": 422,
+    "loss_aversion_recall": 0.8260869565217391,
+    "loss_aversion_f1": 0.8260869565217391,
+    "cv_macro_f1_mean": 0.8409023461430168,
+    "cv_macro_f1_std": 0.007859500426144054
+  },
+  {
+    "idx": 40,
+    "params": {
+      "max_depth": 5,
+      "min_child_weight": 6,
+      "subsample": 0.7067,
+      "colsample_bytree": 0.804,
+      "reg_alpha": 0.2491,
+      "reg_lambda": 3.0256,
+      "learning_rate": 0.0475,
+      "n_estimators": 393,
+      "gamma": 0.0023,
+      "smote_herd": 922,
+      "smote_loss": 1052,
+      "class_weight_loss": 2.8138
+    },
+    "macro_f1": 0.8486795570884751,
+    "learning_curve_gap": 0.14309773656990343,
+    "best_iteration": 392,
+    "loss_aversion_recall": 0.8260869565217391,
+    "loss_aversion_f1": 0.8507462686567164,
+    "cv_macro_f1_mean": 0.8328558249300227,
+    "cv_macro_f1_std": 0.011390207101652361
+  },
+  {
+    "idx": 2,
+    "params": {
+      "max_depth": 5,
+      "min_child_weight": 3,
+      "subsample": 0.7216,
+      "colsample_bytree": 0.8201,
+      "reg_alpha": 0.2103,
+      "reg_lambda": 4.0176,
+      "learning_rate": 0.0407,
+      "n_estimators": 411,
+      "gamma": 0.3246,
+      "smote_herd": 1146,
+      "smote_loss": 839,
+      "class_weight_loss": 2.879
+    },
+    "macro_f1": 0.845635468585084,
+    "learning_curve_gap": 0.14693669105181129,
+    "best_iteration": 410,
+    "loss_aversion_recall": 0.8115942028985508,
+    "loss_aversion_f1": 0.8235294117647058,
+    "cv_macro_f1_mean": 0.8360450197050376,
+    "cv_macro_f1_std": 0.009468213607402413
+  }
+]

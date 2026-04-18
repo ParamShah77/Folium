@@ -106,6 +106,20 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     # Loss × market (crash amplifies loss pain)
     df["loss_x_market"] = df["unrealized_gain_loss"] * df["market_return_recent"]
 
+    # Distinguishing crowd-vs-loss features for herd generalisation.
+    loss_abs = df["unrealized_gain_loss"].abs().clip(lower=0.01)
+    df["crowd_influence_ratio"] = (
+        df["crowd_action_ratio"] / loss_abs
+    ).clip(lower=0.0, upper=50.0)
+    df["herd_pure_signal"] = (
+        df["crowd_action_ratio"]
+        * (1 - df["unrealized_gain_loss"].clip(upper=0).abs())
+    )
+    df["loss_crowd_interaction"] = (
+        df["crowd_action_ratio"]
+        * df["unrealized_gain_loss"].clip(upper=0).abs()
+    )
+
     # ── 3e. Risk-adjusted features ─────────────────────────
     # How loss feels relative to user's risk tolerance
     df["risk_tolerance"] = df["risk_tolerance"].fillna(df["risk_tolerance"].median())
@@ -212,6 +226,7 @@ def prepare_train_test(
     df: pd.DataFrame,
     test_size: float = 0.20,
     random_state: int = 42,
+    preserve_existing_test_indices: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split into train / test, save indices."""
 
@@ -226,15 +241,38 @@ def prepare_train_test(
     X = df_encoded[X_cols]
     y = df_encoded["bias_label"]
 
-    X_train, X_test, _, _ = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
+    test_idx_path = os.path.join(PROCESSED_DIR, "test_indices.npy")
+    train_idx_path = os.path.join(PROCESSED_DIR, "train_indices.npy")
 
-    train_idx = X_train.index.to_numpy()
-    test_idx  = X_test.index.to_numpy()
+    if preserve_existing_test_indices and os.path.exists(test_idx_path):
+        existing_test_idx = np.load(test_idx_path)
+        valid_test_idx = np.array(
+            sorted(set(int(i) for i in existing_test_idx if int(i) in X.index)),
+            dtype=int,
+        )
 
-    np.save(os.path.join(PROCESSED_DIR, "train_indices.npy"), train_idx)
-    np.save(os.path.join(PROCESSED_DIR, "test_indices.npy"),  test_idx)
+        if len(valid_test_idx) > 0:
+            test_idx_set = set(valid_test_idx.tolist())
+            train_idx = np.array([int(i) for i in X.index if int(i) not in test_idx_set], dtype=int)
+            X_train, X_test = X.loc[train_idx], X.loc[valid_test_idx]
+            print(f"✅ Preserved existing test split with {len(valid_test_idx)} rows")
+            test_idx = valid_test_idx
+        else:
+            X_train, X_test, _, _ = train_test_split(
+                X, y, test_size=test_size, random_state=random_state, stratify=y
+            )
+            train_idx = X_train.index.to_numpy()
+            test_idx = X_test.index.to_numpy()
+            np.save(test_idx_path, test_idx)
+    else:
+        X_train, X_test, _, _ = train_test_split(
+            X, y, test_size=test_size, random_state=random_state, stratify=y
+        )
+        train_idx = X_train.index.to_numpy()
+        test_idx = X_test.index.to_numpy()
+        np.save(test_idx_path, test_idx)
+
+    np.save(train_idx_path, train_idx)
     print(f"✅ Train size: {len(train_idx)}, Test size: {len(test_idx)}")
 
     return df_encoded.loc[train_idx], df_encoded.loc[test_idx]

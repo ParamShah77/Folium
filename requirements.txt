@@ -1,4 +1,7 @@
-# GAP 1: Causal Decision-Time Reasoning
+# Behavioral Bias Detection + Long-Horizon Portfolio Simulation
+# Updated: April 2026 — reflects v3 model + Objective 2 Monte Carlo pipeline
+# ─────────────────────────────────────────────────────────────────────
+
 # Core ML & Data
 numpy>=1.26
 pandas>=2.0
@@ -6,15 +9,52 @@ scikit-learn>=1.3
 xgboost>=2.0
 matplotlib>=3.7
 seaborn>=0.12
+scipy>=1.11
 
-# Causal AI (Week 3+)
+# ─────────────────────────────────────────────────────────────────────
+# SHAP Explainability
+shap>=0.43
+
+# ─────────────────────────────────────────────────────────────────────
+# Class imbalance handling (kept for reference — SMOTE removed from training)
+# imbalanced-learn is still imported in some utility scripts
+imbalanced-learn>=0.11
+
+# ─────────────────────────────────────────────────────────────────────
+# Causal AI (Gap 1 — causal chain analysis)
 causalnex>=0.12
 dowhy>=0.10
 pgmpy>=0.1.21
+networkx>=3.0
 
-# API (Week 3+)
+# ─────────────────────────────────────────────────────────────────────
+# Market Data (live NIFTY for dashboard Page 3)
+yfinance>=0.2.36
+
+# ─────────────────────────────────────────────────────────────────────
+# API Backend
 fastapi>=0.104
 uvicorn>=0.24
+httpx>=0.25          # used by FastAPI TestClient
 
+# ─────────────────────────────────────────────────────────────────────
+# Dashboard (4-page Streamlit app)
+streamlit>=1.30
+plotly>=5.18
+requests>=2.31
+
+# ─────────────────────────────────────────────────────────────────────
+# Objective 2 — Monte Carlo Portfolio Simulation (Gap 2)
+tqdm>=4.66           # progress bars for Monte Carlo runs
+joblib>=1.3          # parallel simulation runs
+
+# ─────────────────────────────────────────────────────────────────────
+# Notebook support
+jupyter>=1.0
+ipykernel>=6.0
+ipywidgets>=8.0      # interactive widgets in notebooks
+
+# ─────────────────────────────────────────────────────────────────────
 # Testing
 pytest>=7.4
+pytest-asyncio>=0.23

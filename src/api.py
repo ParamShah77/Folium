@@ -1,19 +1,25 @@
 """
-GAP 1 – FastAPI Backend
-======================
+GAP 1 – FastAPI Backend (Updated)
+==================================
 Exposes the unified bias-detection + causal-intervention pipeline
-as a REST API ready for consumption by a frontend dashboard or
-any downstream service.
+as a REST API.  Now includes user management, market data, SHAP
+explanations, and tamper-evident audit trails.
 
 Endpoints
 ---------
   GET  /health                  → liveness probe
   GET  /model/status            → inspect loaded model artefacts
-  POST /analyze/decision        → single-user real-time analysis
+  POST /analyze/decision        → single-user real-time analysis (updated)
   POST /analyze/batch           → analyse a JSON list of decisions
   GET  /causal/effects          → pre-computed causal effect table
   GET  /causal/interventions    → pre-computed intervention simulation
-  GET  /demo                    → run 3 canned scenarios, return JSON
+  GET  /demo                    → run 4 canned scenarios, return JSON
+  GET  /demo/all_biases         → highest-confidence real specimens
+  POST /user/register           → register new user + onboarding
+  GET  /user/{user_id}/profile  → full profile + bias history
+  GET  /user/{user_id}/decisions→ decision history
+  GET  /audit/{decision_id}     → audit trail + tamper detection
+  GET  /market/context          → live NIFTY market data
 
 Install & Run
 -------------
@@ -25,9 +31,12 @@ Install & Run
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sys
 import time
+import uuid
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -41,10 +50,11 @@ except Exception:
 
 # ─── FastAPI ──────────────────────────────────────────────────────────────
 try:
-    from fastapi import FastAPI, HTTPException, Body
+    from contextlib import asynccontextmanager
+    from fastapi import FastAPI, HTTPException, Body, Path
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel, Field
-    from typing import Annotated
+    from typing import Annotated, Optional
 except ImportError as exc:
     raise SystemExit(
         "FastAPI not installed. Run: pip install fastapi uvicorn[standard]"
@@ -53,9 +63,23 @@ except ImportError as exc:
 # ─── Internal pipeline ────────────────────────────────────────────────────
 from integration import analyze_decision_realtime, analyze_batch
 from causal_inference import load_causal_results, EFFECTS_PKL
+from database import DatabaseManager, get_db
+from market_data import MarketDataFetcher, get_fetcher
 
 import numpy as np
 import pandas as pd
+
+# ══════════════════════════════════════════════════════════════════════════
+# LIFESPAN — initialise singletons at startup
+# ══════════════════════════════════════════════════════════════════════════
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialise DB and market fetcher once at startup."""
+    app.state.db      = get_db()
+    app.state.fetcher = get_fetcher()
+    yield
+    app.state.db.close()
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # APP SETUP
@@ -64,41 +88,56 @@ app = FastAPI(
     title="Behavioral Bias Detection API",
     description=(
         "Real-time bias detection (XGBoost, 89% accuracy) combined with "
-        "causal intervention recommendations (partial-correlation causal engine). "
+        "causal intervention recommendations (DoWhy PSM causal engine). "
         "Part of the Major Project: Causal AI for Investment Decision Making."
     ),
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
+# ── Convenience accessors ────────────────────────────────────────────────
+def _db() -> DatabaseManager:
+    try:
+        return app.state.db
+    except AttributeError:
+        return get_db()
+
+def _fetcher() -> MarketDataFetcher:
+    try:
+        return app.state.fetcher
+    except AttributeError:
+        return get_fetcher()
+
 # ══════════════════════════════════════════════════════════════════════════
-# MODELS
+# PYDANTIC MODELS
 # ══════════════════════════════════════════════════════════════════════════
+
 class DecisionInput(BaseModel):
     """User decision event payload."""
-    market_return         : float = Field(-0.05,   description="Recent market return (fraction, e.g. -0.12)")
+    # Optional user linking
+    user_id               : Optional[str] = Field(None, description="Registered user ID (optional)")
+    # Market context — auto-fetched if omitted
+    market_return         : Optional[float] = Field(None, description="Recent market return (fraction, e.g. -0.12)")
     unrealized_gl         : float = Field( 0.00,   description="Unrealised gain/loss fraction (e.g. -0.18 = -18%)")
-    crowd_ratio           : float = Field( 0.50,   description="Fraction of crowd currently selling [0, 1]")
-    age                   : int   = Field( 35,      description="Investor age (years)")
-    risk_tolerance        : float = Field( 0.5,    description="Risk tolerance score [0–1], as stored in dataset")
-    investment_horizon    : int   = Field( 10,      description="Investment horizon (years)")
+    crowd_ratio           : Optional[float] = Field(None, description="Fraction of crowd currently selling [0, 1]")
+    age                   : int   = Field( 35,     description="Investor age (years)")
+    risk_tolerance        : float = Field( 0.5,    description="Risk tolerance score [0–1]")
+    investment_horizon    : int   = Field( 10,     description="Investment horizon (years)")
     monthly_income        : float = Field(60_000.0, description="Monthly income (₹)")
     monthly_expense       : float = Field(45_000.0, description="Monthly expense (₹)")
     financial_strategy    : str   = Field("saving", description="Financial strategy: saving / investing / credit_card / family_support")
-    # Market context
-    market_volatility     : float = Field(0.20,    description="Current market volatility index (e.g. 0.20 = 20%)")
-    position_size_pct     : float = Field(0.10,    description="Position size as % of portfolio [0, 1]")
-    holding_period_months : int   = Field(6,        description="How long investor has held the position (months)")
+    market_volatility     : Optional[float] = Field(None, description="Current market volatility (auto-fetched if omitted)")
+    position_size_pct     : float = Field(0.10,   description="Position size as % of portfolio [0, 1]")
+    holding_period_months : int   = Field(6,       description="How long investor has held the position (months)")
     crash_speed           : str   = Field("normal", description="Market crash speed: normal / gradual_bear / rapid_decline")
-    # Investor profile
     has_emergency_fund    : int   = Field(1,        description="1 = has emergency fund, 0 = does not")
     years_investing       : int   = Field(5,        description="Years of investing experience")
-    investment_experience : str   = Field("expert",       description="Experience level: expert (baseline) / intermediate / novice")
-    secondary_biases      : str   = Field("none",  description="Secondary bias present: none / loss_aversion / overconfidence")
+    investment_experience : str   = Field("expert", description="Experience level: expert / intermediate / novice")
+    secondary_biases      : str   = Field("none",  description="Secondary bias: none / loss_aversion / overconfidence")
     age_horizon_mismatch  : str   = Field("none",  description="Age-horizon mismatch type: none / old_long")
-    goal                  : str   = Field("wealth growth", description="Primary investment goal (e.g. wealth growth / retirement)")
-    # Optional richer context – used by causal chain
+    goal                  : str   = Field("wealth growth", description="Primary investment goal")
     loss_aversion         : float = Field(1.5,     description="Measured loss-aversion coefficient")
     herd_sensitivity      : float = Field(0.5,     description="Herd-sensitivity score [0, 1]")
     disposition_strength  : float = Field(0.3,     description="Disposition-effect score [0, 1]")
@@ -110,16 +149,31 @@ class BatchInput(BaseModel):
     decisions: list[DecisionInput] = Field(..., description="List of decision events to analyse in bulk")
 
 
+class UserRegistrationInput(BaseModel):
+    """New user profile for registration."""
+    name               : str   = Field(...,       description="Full name")
+    age                : int   = Field(...,       description="Age in years", ge=18, le=100)
+    monthly_income     : float = Field(...,       description="Monthly income (₹)", gt=0)
+    risk_tolerance     : float = Field(0.5,       description="Risk tolerance score [0–1]", ge=0, le=1)
+    investment_horizon : int   = Field(10,        description="Investment horizon (years)", ge=1, le=50)
+    has_emergency_fund : int   = Field(1,         description="1 = yes, 0 = no")
+    # Onboarding answers (optional — filled during onboarding flow)
+    answers            : Optional[dict] = Field(None, description="5-question onboarding answers (optional)")
+
+
+class UserRegistrationResponse(BaseModel):
+    user_id             : str
+    initial_bias_profile: dict
+    onboarding_questions: list[dict]
+    message             : str
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # SWAGGER EXAMPLES  (pre-filled payloads for Try-it-out in /docs)
 # ══════════════════════════════════════════════════════════════════════════
 SWAGGER_EXAMPLES = {
     "loss_aversion": {
         "summary": "🔴 Loss Aversion — Real specimen (Age 56, 96.7% confidence)",
-        "description": (
-            "Genuine dataset sample correctly classified as Loss Aversion with 96.7% confidence. "
-            "Crash market (-10.7%), severe P&L loss (-41.4%), low crowd pressure — pure loss-pain response."
-        ),
         "value": {
             "market_return": -0.1068, "unrealized_gl": -0.4143, "crowd_ratio": 0.2943,
             "age": 56, "risk_tolerance": 0.477, "investment_horizon": 19,
@@ -134,10 +188,6 @@ SWAGGER_EXAMPLES = {
     },
     "herd": {
         "summary": "🟠 Herd Mentality — Real specimen (Age 57, 90.6% confidence)",
-        "description": (
-            "Genuine dataset sample correctly classified as Herd with 90.6% confidence. "
-            "81.4% of crowd is selling — investor blindly follows despite mild own P&L (-15.9%)."
-        ),
         "value": {
             "market_return": -0.0039, "unrealized_gl": -0.1593, "crowd_ratio": 0.8143,
             "age": 57, "risk_tolerance": 0.458, "investment_horizon": 24,
@@ -152,10 +202,6 @@ SWAGGER_EXAMPLES = {
     },
     "disposition": {
         "summary": "🟣 Disposition Effect — Real specimen (Age 63, 99.7% confidence)",
-        "description": (
-            "Genuine dataset sample correctly classified as Disposition with 99.7% confidence. "
-            "Selling a +20.5% winner in a bull market (+8%) — classic early-exit behavior."
-        ),
         "value": {
             "market_return": 0.0803, "unrealized_gl": 0.2050, "crowd_ratio": 0.3354,
             "age": 63, "risk_tolerance": 0.363, "investment_horizon": 29,
@@ -170,10 +216,6 @@ SWAGGER_EXAMPLES = {
     },
     "rational": {
         "summary": "🟢 Rational Investor — Real specimen (Age 48, 100% confidence)",
-        "description": (
-            "Genuine dataset sample correctly classified as Rational with 100% confidence. "
-            "Low P&L variance, 12-year horizon, minimal crowd pressure — disciplined decision-making."
-        ),
         "value": {
             "market_return": -0.0427, "unrealized_gl": -0.0054, "crowd_ratio": 0.5163,
             "age": 48, "risk_tolerance": 0.324, "investment_horizon": 12,
@@ -189,7 +231,62 @@ SWAGGER_EXAMPLES = {
 }
 
 # ══════════════════════════════════════════════════════════════════════════
-# ROUTES
+# ONBOARDING QUESTIONS
+# ══════════════════════════════════════════════════════════════════════════
+ONBOARDING_QUESTIONS = [
+    {
+        "id": "q1",
+        "question": "How do you typically react when your portfolio drops 20% in a week?",
+        "options": ["Sell everything immediately", "Sell some positions", "Hold and wait", "Buy more"],
+    },
+    {
+        "id": "q2",
+        "question": "If 80% of your colleagues are selling a stock, what do you do?",
+        "options": ["Follow and sell", "Research independently", "Buy if fundamentals are good", "Ignore and hold"],
+    },
+    {
+        "id": "q3",
+        "question": "You have a 30% gain on a stock. What do you do?",
+        "options": ["Sell immediately to lock in profits", "Sell half", "Hold based on fundamentals", "Set a trailing stop"],
+    },
+    {
+        "id": "q4",
+        "question": "How long can you stay invested without checking your portfolio?",
+        "options": ["Less than a week", "1–4 weeks", "1–6 months", "More than 6 months"],
+    },
+    {
+        "id": "q5",
+        "question": "When markets crash, what is your primary concern?",
+        "options": ["Avoiding more losses", "Missing the recovery", "Whether my thesis changed", "Tax loss harvesting"],
+    },
+]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════════════════
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _augment_with_market(payload: dict) -> dict:
+    """
+    If market_return / market_volatility / crowd_ratio are missing from payload,
+    auto-fetch from MarketDataFetcher.
+    """
+    ctx = _fetcher().get_market_context()
+    if payload.get("market_return") is None:
+        payload["market_return"] = ctx["market_return"]
+    if payload.get("market_volatility") is None:
+        payload["market_volatility"] = ctx["market_volatility"]
+    if payload.get("crowd_ratio") is None:
+        payload["crowd_ratio"] = ctx["crowd_ratio"]
+    return payload
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ROUTES — existing (preserved + upgraded)
 # ══════════════════════════════════════════════════════════════════════════
 
 @app.get("/health", summary="Liveness probe")
@@ -200,7 +297,7 @@ def health() -> dict:
 @app.get("/model/status", summary="Inspect loaded model artefacts")
 def model_status() -> dict:
     from bias_detector import _model_cache, _feature_cache
-    bias_loaded  = _model_cache is not None
+    bias_loaded   = _model_cache is not None
     causal_exists = os.path.exists(EFFECTS_PKL)
     return {
         "bias_model_loaded"    : bias_loaded,
@@ -210,25 +307,76 @@ def model_status() -> dict:
     }
 
 
-@app.post("/analyze/decision", summary="Analyse a single user decision event")
+@app.post("/analyze/decision", summary="Analyse a single user decision event (with SHAP + audit)")
 def analyze_decision(
     payload: Annotated[
         DecisionInput,
-        Body(
-            openapi_examples=SWAGGER_EXAMPLES,
-        ),
+        Body(openapi_examples=SWAGGER_EXAMPLES),
     ]
 ) -> dict:
     """
     Full real-time pipeline:
-    1. Detect behavioural bias (XGBoost)
-    2. Identify causal drivers from the pre-computed causal graph
-    3. Return actionable intervention recommendation
+    1. Auto-fetch market data if not provided
+    2. Detect behavioural bias (XGBoost)
+    3. SHAP per-prediction explanations (top 5 features)
+    4. Causal drivers from the pre-computed causal graph
+    5. Log decision + append audit entry to DB
+    6. Return actionable intervention recommendation
     """
     try:
-        result = analyze_decision_realtime(payload.model_dump())
-        # Remove large nested causal_effects from response (available at /causal/effects)
+        data = payload.model_dump()
+
+        # Fetch missing market context
+        data = _augment_with_market(data)
+
+        # Run analysis
+        result = analyze_decision_realtime(data)
         result.pop("causal_effects", None)
+
+        # ── User profile integration ────────────────────────────────────
+        uid = data.get("user_id")
+        if uid:
+            user = _db().get_user(uid)
+            if user is None:
+                uid = None   # unknown user — proceed without DB
+            else:
+                _db().update_bias_profile(uid, result["bias_type"])
+
+        # ── Log decision to DB ──────────────────────────────────────────
+        raw_input_str  = json.dumps(data, default=str)
+        raw_output_str = json.dumps(result, default=str)
+        input_hash     = _sha256(raw_input_str)
+        output_hash    = _sha256(raw_output_str)
+        expl_hash      = _sha256(result.get("explanation", ""))
+
+        decision_id = _db().log_decision({
+            "user_id"       : uid,
+            "bias_detected" : result["bias_type"],
+            "confidence"    : result["confidence"],
+            "recommendation": result.get("intervention", ""),
+            "risk_score"    : result.get("risk_score", 0.0),
+            "raw_input"     : data,
+            "raw_output"    : result,
+        })
+
+        # ── Append audit log ────────────────────────────────────────────
+        log_id = _db().append_audit_log({
+            "decision_id"     : decision_id,
+            "input_hash"      : input_hash,
+            "output_hash"     : output_hash,
+            "explanation_hash": expl_hash,
+        })
+        full_hash = _sha256(input_hash + output_hash + expl_hash)
+
+        result["decision_id"]  = decision_id
+        result["audit_log_id"] = log_id
+        result["audit_hash"]   = full_hash
+        result["market_auto_fetched"] = {
+            "market_return"    : data["market_return"],
+            "market_volatility": data["market_volatility"],
+            "crowd_ratio"      : data["crowd_ratio"],
+        }
+
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -241,7 +389,7 @@ def analyze_batch_endpoint(payload: BatchInput) -> dict:
     Returns original fields + pred_bias_type, pred_confidence, pred_risk_score, intervention.
     """
     try:
-        records = [d.model_dump() for d in payload.decisions]
+        records = [_augment_with_market(d.model_dump()) for d in payload.decisions]
         df      = pd.DataFrame(records)
         df_out  = analyze_batch(df)
         return {"count": len(df_out), "results": df_out.to_dict(orient="records")}
@@ -273,7 +421,7 @@ def causal_interventions() -> dict:
     return {"interventions": data["interventions"]}
 
 
-@app.get("/demo", summary="Run 4 canned scenarios (one per bias class) — quick sanity check")
+@app.get("/demo", summary="Run 4 canned scenarios (one per bias class)")
 def demo() -> dict:
     """Returns one prediction for each of the 4 bias classes using real dataset specimens."""
     scenarios = [
@@ -341,7 +489,8 @@ def demo() -> dict:
 
     results = []
     for s in scenarios:
-        r = analyze_decision_realtime(s["input"].model_dump())
+        data = _augment_with_market(s["input"].model_dump())
+        r = analyze_decision_realtime(data)
         r.pop("causal_effects", None)
         results.append({
             "scenario"       : s["name"],
@@ -361,14 +510,8 @@ def demo() -> dict:
          summary="Guarantee all 4 bias classes detected — uses real dataset specimens")
 def demo_all_biases() -> dict:
     """
-    Loads the real investor dataset, finds the **highest-confidence correctly-predicted
-    specimen** for each of the 4 bias classes, and returns the model's output.
-
-    This endpoint is the definitive proof that the model can detect:
-    * 🔴 Loss Aversion   (Panic Seller)
-    * 🟠 Herd Mentality  (Crowd Follower)     ← rare class: only 14 training samples
-    * 🟣 Disposition     (Early Winner Seller)
-    * 🟢 Rational        (No Bias)
+    Loads the real investor dataset, finds the highest-confidence correctly-predicted
+    specimen for each of the 4 bias classes, and returns the model's output.
     """
     from bias_detector import load_data, load_model, BIAS_LABELS
     import numpy as np
@@ -438,6 +581,112 @@ def demo_all_biases() -> dict:
         "all_correct"  : all_correct,
         "specimens"    : specimens,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ROUTES — new (user management + audit + market)
+# ══════════════════════════════════════════════════════════════════════════
+
+@app.post("/user/register", summary="Register a new user + 5-question onboarding")
+def register_user(payload: UserRegistrationInput) -> dict:
+    """
+    Register a new investor profile and return 5 onboarding questions
+    that help characterise their behavioural tendencies.
+
+    Steps:
+    1. Persist profile in DB
+    2. Compute initial (neutral) bias profile
+    3. Return user_id + onboarding questions
+    """
+    try:
+        user_data = payload.model_dump()
+        user_id   = _db().register_user(user_data)
+        profile   = _db().get_bias_profile(user_id)
+
+        return {
+            "user_id"             : user_id,
+            "initial_bias_profile": profile,
+            "onboarding_questions": ONBOARDING_QUESTIONS,
+            "message"             : (
+                f"Welcome {payload.name}! Please answer the 5 behavioural questions "
+                "to calibrate your initial bias profile."
+            ),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/user/{user_id}/profile", summary="Get full user profile + bias history")
+def get_user_profile(user_id: str = Path(..., description="Registered user ID")) -> dict:
+    """Returns the full user profile and live bias scores from the database."""
+    profile = _db().get_user(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+    bias_profile = _db().get_bias_profile(user_id)
+    return {
+        "user_id"          : user_id,
+        "profile"          : profile,
+        "bias_profile"     : bias_profile,
+    }
+
+
+@app.get("/user/{user_id}/decisions", summary="Get decision history for a user")
+def get_user_decisions(user_id: str = Path(..., description="Registered user ID")) -> dict:
+    """Returns the full decision history for a registered user, newest first."""
+    profile = _db().get_user(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+    decisions = _db().get_user_decision_history(user_id)
+    return {"user_id": user_id, "decision_count": len(decisions), "decisions": decisions}
+
+
+@app.get("/audit/{decision_id}", summary="Audit trail + tamper detection for a decision")
+def get_audit(decision_id: str = Path(..., description="Decision ID to audit")) -> dict:
+    """
+    Returns the full audit trail for a decision.
+    Recomputes the SHA-256 hash and flags any tampering.
+    """
+    trail = _db().get_audit_trail(decision_id)
+    if trail is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No audit record found for decision '{decision_id}'",
+        )
+    return trail
+
+
+@app.get("/market/context", summary="Live NIFTY50 market context")
+def market_context() -> dict:
+    """
+    Fetches current NIFTY50 market data:
+    - market_return:     1-month % return
+    - market_volatility: 30-day rolling std of daily returns
+    - crowd_ratio:       India VIX-derived fear proxy [0, 1]
+    - last_updated:      ISO-8601 UTC timestamp
+    - data_source:       'live' | 'cache' | 'default_fallback'
+    """
+    try:
+        ctx = _fetcher().get_market_context()
+        ctx["market_hours"] = _fetcher().is_market_hours()
+        return ctx
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/market/ribbon", summary="Live prices + 1-day change for all 4 indices")
+def market_ribbon() -> dict:
+    """
+    Returns current price and 1-day % change for:
+      - NIFTY 50   (^NSEI)
+      - SENSEX     (^BSESN)
+      - Bank NIFTY (^NSEBANK)
+      - India VIX  (^INDIAVIX)
+    Used by the dashboard top-ribbon on every page.
+    """
+    try:
+        return _fetcher().get_indices_ribbon()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 # ══════════════════════════════════════════════════════════════════════════
