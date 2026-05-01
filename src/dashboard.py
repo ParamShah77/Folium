@@ -39,7 +39,7 @@ REQUEST_TIMEOUT = 10   # seconds
 # ─────────────────────────────────────────────
 st.set_page_config(
     page_title="FinDecision Intelligence",
-    page_icon="📊",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -172,13 +172,13 @@ def _api_get(path: str) -> dict | None:
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.ConnectionError:
-        st.error(f"❌ Cannot connect to API at {API_BASE_URL}. Is the server running?")
+        st.error(f"Cannot connect to API at {API_BASE_URL}. Is the server running?")
         return None
     except requests.exceptions.Timeout:
-        st.error("❌ API request timed out. Please try again.")
+        st.error("API request timed out. Please try again.")
         return None
     except Exception as exc:
-        st.error(f"❌ API error: {exc}")
+        st.error(f"API error: {exc}")
         return None
 
 
@@ -191,10 +191,10 @@ def _api_post(path: str, body: dict) -> dict | None:
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.ConnectionError:
-        st.error(f"❌ Cannot connect to API at {API_BASE_URL}. Is the server running?")
+        st.error(f"Cannot connect to API at {API_BASE_URL}. Is the server running?")
         return None
     except requests.exceptions.Timeout:
-        st.error("❌ API request timed out. Please try again.")
+        st.error("API request timed out. Please try again.")
         return None
     except requests.exceptions.HTTPError as exc:
         detail = ""
@@ -202,25 +202,25 @@ def _api_post(path: str, body: dict) -> dict | None:
             detail = exc.response.json().get("detail", "")
         except Exception:
             pass
-        st.error(f"❌ API error {exc.response.status_code}: {detail or exc}")
+        st.error(f"API error {exc.response.status_code}: {detail or exc}")
         return None
     except Exception as exc:
-        st.error(f"❌ Error: {exc}")
+        st.error(f"Error: {exc}")
         return None
 
 
 def _market_regime(ret: float, vol: float) -> tuple[str, str]:
     """Return (label, color) for market regime."""
     if ret < -0.10 or vol > 0.03:
-        return "🔴 CRASH / HIGH VOLATILITY", "#FF6B6B"
+        return "CRASH / HIGH VOLATILITY", "#FF6B6B"
     elif ret < -0.03:
         return "🟠 BEAR MARKET", "#FFB347"
     elif ret < 0.03:
         return "🟡 NEUTRAL", "#FFD700"
     elif ret < 0.10:
-        return "🟢 BULL MARKET", "#00C9A7"
+        return "BULL MARKET", "#00C9A7"
     else:
-        return "🚀 RALLY / EUPHORIA", "#6C63FF"
+        return "RALLY / EUPHORIA", "#6C63FF"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -258,11 +258,11 @@ def _render_indices_ribbon():
         chg       = idx.get("change_pct")
         direction = idx.get("direction", "neutral")
 
-        price_str = f"{price:,.2f}" if price is not None else "N/A"
+        price_str = f"{price:,.2f}"if price is not None else "N/A"
         if chg is not None:
-            sign  = "+" if chg >= 0 else ""
-            chg_class = "r-chg-up" if direction == "up" else "r-chg-down"
-            arrow = "▲" if direction == "up" else "▼"
+            sign  = "+"if chg >= 0 else ""
+            chg_class = "r-chg-up"if direction == "up"else "r-chg-down"
+            arrow = "▲"if direction == "up"else "▼"
             chg_str = f"<span class='{chg_class}'>{arrow} {sign}{chg:.2f}%</span>"
         else:
             chg_str = "<span class='r-chg-neu'>—</span>"
@@ -290,24 +290,25 @@ def _render_indices_ribbon():
 # ══════════════════════════════════════════════════════════════════════════
 
 def _render_sidebar():
-    st.sidebar.title("📊 FinDecision AI")
+    st.sidebar.title("FinDecision AI")
     st.sidebar.markdown("---")
     page = st.sidebar.radio(
         "Navigate",
         [
-            "🔍 Decision Analysis",
-            "👤 User Profile",
-            "📈 Market Context",
-            "💹 Wealth Simulator",   # GAP 2
+            "Unified Pipeline",
+            "Decision Analysis",
+            "User Profile",
+            "Market Context",
+            "Wealth Simulator",   # GAP 2
         ],
         key="page_selector",
     )
 
     st.sidebar.markdown("---")
-    st.sidebar.subheader("👤 User Session")
+    st.sidebar.subheader("User Session")
 
     # User ID input
-    if "user_id" not in st.session_state:
+    if "user_id"not in st.session_state:
         st.session_state.user_id = ""
 
     uid_input = st.sidebar.text_input(
@@ -340,7 +341,7 @@ def _render_sidebar():
             if result:
                 uid = result["user_id"]
                 st.session_state.user_id = uid
-                st.sidebar.success(f"✅ Registered! User ID:\n`{uid}`")
+                st.sidebar.success(f"Registered! User ID:\n`{uid}`")
 
     # ── Tax Slab Panel ────────────────────────────────────────────────────
     st.sidebar.markdown("---")
@@ -408,16 +409,16 @@ def _render_tax_sidebar():
             rows_html = (
                 f"<div class='tax-card'>"
                 f"<div class='tax-row'>"
-                f"  <span class='tax-key'>STCG ({info['STCG']['threshold']})</span>"
-                f"  <span class='tax-val'>{info['STCG']['rate']}</span>"
+                f" <span class='tax-key'>STCG ({info['STCG']['threshold']})</span>"
+                f" <span class='tax-val'>{info['STCG']['rate']}</span>"
                 f"</div>"
                 f"<div class='tax-row'>"
-                f"  <span class='tax-key'>LTCG ({info['LTCG']['threshold']})</span>"
-                f"  <span class='tax-val'>{info['LTCG']['rate']}</span>"
+                f" <span class='tax-key'>LTCG ({info['LTCG']['threshold']})</span>"
+                f" <span class='tax-val'>{info['LTCG']['rate']}</span>"
                 f"</div>"
                 f"<div class='tax-row'>"
-                f"  <span class='tax-key'>Exemption</span>"
-                f"  <span class='tax-badge'>{info['exemption']}</span>"
+                f" <span class='tax-key'>Exemption</span>"
+                f" <span class='tax-badge'>{info['exemption']}</span>"
                 f"</div>"
                 f"</div>"
             )
@@ -438,7 +439,7 @@ def _render_market_banner():
     """Auto-fetch and display compact market context banner."""
     ctx = _api_get("/market/context")
     if ctx is None:
-        st.warning("⚠️ Market data unavailable — defaults will be used.")
+        st.warning("Market data unavailable — defaults will be used.")
         return
 
     ret  = ctx.get("market_return", 0)
@@ -459,7 +460,7 @@ def _render_market_banner():
     st.caption(
         f"Data source: **{ctx.get('data_source', 'unknown')}** | "
         f"Updated: {ctx.get('last_updated', 'N/A')[:19]} UTC | "
-        f"Market hours: {'✅ Open' if ctx.get('market_hours') else '🔒 Closed'}"
+        f"Market hours: {'Open'if ctx.get('market_hours') else '🔒 Closed'}"
     )
 
 
@@ -471,20 +472,20 @@ def _render_shap_chart(shap_data: list[dict]):
         st.warning("plotly not installed — `pip install plotly`")
         return
 
-    if not shap_data or (len(shap_data) == 1 and "error" in shap_data[0]):
+    if not shap_data or (len(shap_data) == 1 and "error"in shap_data[0]):
         st.info("SHAP explanations not available for this prediction.")
         return
 
     features = [d.get("feature", "?")[:30] for d in shap_data]
     impacts  = [d.get("shap_impact", 0) for d in shap_data]
-    colors   = ["#FF6B6B" if v > 0 else "#00C9A7" for v in impacts]
+    colors   = ["#FF6B6B"if v > 0 else "#00C9A7"for v in impacts]
 
     fig = go.Figure(go.Bar(
         x=impacts,
         y=features,
         orientation="h",
         marker_color=colors,
-        text=[f"{v:+.4f}" for v in impacts],
+        text=[f"{v:+.4f}"for v in impacts],
         textposition="outside",
     ))
     fig.update_layout(
@@ -500,19 +501,220 @@ def _render_shap_chart(shap_data: list[dict]):
     st.plotly_chart(fig, use_container_width=True)
 
 
+def page_unified_pipeline():
+    st.title("Unified Pipeline (End-to-End)")
+    st.markdown("Analyse your investment decision and simulate its long-term financial impact in one click.")
+
+    # ── Indices & Market Context ──────────────────────────────────────────
+    _render_indices_ribbon()
+    st.subheader("Live Market Context")
+    _render_market_banner()
+    
+    st.divider()
+    st.subheader("Step 1: Identify Investor")
+    
+    col_id, _ = st.columns([1, 2])
+    with col_id:
+        uid_input = st.text_input("Enter your User ID (e.g., 42):", value=st.session_state.get("user_id", ""), key="unified_uid_input")
+        if st.button("Load Profile", type="primary", use_container_width=True):
+            st.session_state["user_id"] = uid_input
+            st.rerun()
+            
+    uid = st.session_state.get("user_id", "")
+    profile = None
+    if uid:
+        profile_data = _api_get(f"/user/{uid}/profile")
+        if profile_data:
+            profile = profile_data.get("profile", {})
+            st.success(f"Successfully loaded profile for {profile.get('name', 'User')}!")
+            
+    if not profile:
+        st.info("Please enter a valid User ID (try 42) to continue with the end-to-end pipeline.")
+        return
+        
+    st.divider()
+    st.subheader("Step 2: Intelligent Intake")
+
+    with st.form("unified_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Trade Parameters**")
+            unrealized_gl = st.number_input("Unrealized Gain/Loss (%)", -100.0, 200.0, -5.0, 1.0) / 100.0
+            holding_months = st.number_input("Holding Period (months)", 1, 360, 6)
+            position_pct = st.number_input("Position Size (% of portfolio)", 0.1, 100.0, 10.0, 1.0) / 100.0
+            decision_intent = st.selectbox("Decision Intent", ["Thinking of selling", "Planning to hold"])
+            current_wealth = st.number_input(
+                "Current Portfolio Value (₹)",
+                min_value=1000.0, max_value=50000000.0,
+                value=75000.0, step=5000.0
+            )
+
+        with col2:
+            st.markdown("**Demographics & Profile**")
+            st.info("Profile locked from session.")
+            age = profile.get("age", 35)
+            horizon = profile.get("investment_horizon", 10)
+            risk_tolerance = profile.get("risk_tolerance", 0.5)
+            monthly_income = profile.get("monthly_income", 60000)
+            emg_fund_val = profile.get("has_emergency_fund", 1)
+            emg_fund = emg_fund_val == 1
+            
+            # Render as disabled
+            st.number_input("Your Age", value=age, disabled=True)
+            st.number_input("Investment Horizon (years)", value=horizon, disabled=True)
+            st.number_input("Risk Tolerance", value=float(risk_tolerance), disabled=True)
+            st.number_input("Monthly Income (₹)", value=float(monthly_income), disabled=True)
+
+        n_sims = st.select_slider("Monte Carlo Paths", options=[100, 500, 1000, 2000, 5000], value=1000)
+        submitted = st.form_submit_button("Analyse & Simulate (End-to-End)", use_container_width=True)
+
+    if submitted:
+        payload1: dict[str, Any] = {
+            "unrealized_gl": float(unrealized_gl),
+            "holding_period_months": int(holding_months),
+            "position_size_pct": float(position_pct),
+            "age": int(age),
+            "investment_horizon": int(horizon),
+            "risk_tolerance": float(risk_tolerance),
+            "has_emergency_fund": int(emg_fund),
+            "monthly_income": float(monthly_income),
+            "portfolio_value": float(current_wealth),
+        }
+        if uid: payload1["user_id"] = uid
+
+        payload2 = {
+            "current_wealth": float(current_wealth),
+            "unrealized_gl": float(unrealized_gl),
+            "n_simulations": int(n_sims),
+        }
+        if uid: 
+            try:
+                payload2["user_id"] = int(uid)
+            except ValueError:
+                pass  # Fallback gracefully if not castable
+
+        # Execute Obj 1
+        with st.spinner("Objective 1: Analysing with XGBoost & Causal Graph..."):
+            result1 = _api_post("/analyze/decision", payload1)
+        
+        if result1 is None: return
+
+        # Execute Obj 2
+        with st.spinner(f"Objective 2: Running {n_sims} Monte Carlo paths for trajectory..."):
+            result2 = _api_post("/simulate", payload2)
+            
+        if result2 is None: return
+
+        st.success("End-to-End Pipeline Completed")
+        st.divider()
+
+        # Render Obj 1 Results
+        st.subheader("Objective 1: Behavioral Bias & Causal Analysis")
+        bias_type = result1.get("bias_type", "unknown")
+        confidence = result1.get("confidence", 0) * 100
+        is_biased = result1.get("is_biased", False)
+
+        if is_biased:
+            # Check if the user's explicit intent overrides the cognitive hazard
+            resisted = False
+            if decision_intent == "Planning to hold":
+                if bias_type in ["herd", "loss_aversion"]:
+                    resisted = True   # Herd/Loss Aversion causes panic selling. Holding resists it.
+                elif bias_type == "disposition"and float(unrealized_gl) > 0:
+                    resisted = True  # Disposition causes selling winners. Holding a winner resists it.
+                    
+            if resisted:
+                st.markdown(
+                    f'<div class="bias-banner bias-rational"style="border: 2px solid #28a745; background-color: rgba(40, 167, 69, 0.1);"> BIAS RESISTED: You were highly susceptible to <b>{bias_type.replace("_", "").title()}</b> logic ({confidence:.1f}% probability), but your explicit decision to <i>"{decision_intent}"</i> successfully broke the bias!</div>', 
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(f'<div class="bias-banner bias-biased"> BIAS DETECTED: {bias_type.replace("_", "").title()} ({confidence:.1f}% confidence)</div>', unsafe_allow_html=True)
+                st.warning(f"Your intent to '{decision_intent}'aligns with this cognitive hazard. Consider the Objective 2 financial simulation before executing this trade.")
+        else:
+            st.markdown(f'<div class="bias-banner bias-rational"> RATIONAL DECISION ({confidence:.1f}% confidence)</div>', unsafe_allow_html=True)
+
+        causal_chain = result1.get("causal_chain", [])
+        if causal_chain:
+            with st.expander("Causal Chain Details", expanded=True):
+                for i, step in enumerate(causal_chain, 1):
+                    st.markdown(f"**Step {i}:** {step}")
+
+        st.divider()
+
+        # Render Obj 2 Results
+        st.subheader("Objective 2: Long-Term Financial Impact Simulator")
+        comp = result2.get("comparison", {})
+        hold = result2.get("hold", {})
+        sell = result2.get("sell", {})
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("HOLD — Expected", f"₹{hold.get('mean', 0):,.0f}")
+        c2.metric("SELL — Expected", f"₹{sell.get('mean', 0):,.0f}")
+        c3.metric("Opportunity Cost", f"₹{abs(comp.get('opportunity_cost_inr', 0)):,.0f}", delta_color="inverse")
+        c4.metric("P(HOLD wins)", f"{comp.get('prob_hold_better', 0)*100:.1f}%")
+
+        better = comp.get("better_decision", "HOLD")
+        rec_text = comp.get("recommendation_text", "")
+        if better == "HOLD":
+            st.markdown(f'<div class="bias-banner bias-rational"> {rec_text}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="bias-banner bias-biased"> {rec_text}</div>', unsafe_allow_html=True)
+
+        st.caption("Year-by-Year Wealth Trajectory (Median & P10-P90 range)")
+        _render_trajectory_chart(result2)
+
+        # ── DETAILED STATS TABLE ────────────────────────────────────────────
+        st.divider()
+        st.subheader("Detailed Statistics")
+        tab1, tab2 = st.tabs(["HOLD vs SELL Summary", "Year-by-Year Table"])
+
+        with tab1:
+            import pandas as pd
+            stat_keys = ["mean", "median", "std", "p10", "p25", "p50", "p75", "p90"]
+            hold_stats = {k: hold.get(k, 0) for k in stat_keys}
+            sell_stats = {k: sell.get(k, 0) for k in stat_keys}
+            stats_df = pd.DataFrame({
+                "Statistic": [k.upper() for k in stat_keys],
+                "HOLD (₹)": [f"₹{hold_stats[k]:,.0f}"for k in stat_keys],
+                "SELL (₹)": [f"₹{sell_stats[k]:,.0f}"for k in stat_keys],
+                "Difference": [f"₹{hold_stats[k] - sell_stats[k]:+,.0f}"for k in stat_keys],
+            })
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+
+        with tab2:
+            horizon_years = result2.get("horizon_years", 20)
+            years       = result2.get("years", list(range(1, horizon_years + 1)))
+            hold_p50    = result2.get("yearly_hold_p50", [])
+            sell_p50    = result2.get("yearly_sell_p50", [])
+            hold_p10    = result2.get("yearly_hold_p10", [])
+            hold_p90    = result2.get("yearly_hold_p90", [])
+            if years and hold_p50:
+                import pandas as pd
+                traj_data = {
+                    "Year"         : years,
+                    "HOLD Median (₹)": [f"₹{v:,.0f}"for v in hold_p50],
+                    "HOLD P10 (₹)" : [f"₹{v:,.0f}"for v in hold_p10] if hold_p10 else ["-"] * len(years),
+                    "HOLD P90 (₹)" : [f"₹{v:,.0f}"for v in hold_p90] if hold_p90 else ["-"] * len(years),
+                    "SELL Median (₹)": [f"₹{v:,.0f}"for v in sell_p50] if sell_p50 else ["-"] * len(years),
+                }
+                st.dataframe(pd.DataFrame(traj_data), use_container_width=True, hide_index=True)
+            else:
+                st.info("Trajectory data not available.")
+
 def page_decision_analysis():
-    st.title("🔍 Decision Analysis")
+    st.title("Decision Analysis")
     st.markdown("Analyse your investment decision for hidden behavioural biases.")
 
     # ── Indices ribbon ───────────────────────────────────────────────────
     _render_indices_ribbon()
 
     # Market banner
-    st.subheader("📡 Live Market Context")
+    st.subheader("Live Market Context")
     _render_market_banner()
 
     st.divider()
-    st.subheader("📝 Decision Input")
+    st.subheader("Decision Input")
 
     # FORM
     with st.form("decision_form"):
@@ -527,7 +729,7 @@ def page_decision_analysis():
                 "Position Size (% of portfolio)", 0.1, 100.0, 10.0, 1.0
             ) / 100.0
             decision_intent = st.selectbox(
-                "Decision Intent", ["Thinking of selling", "Planning to hold", "Unsure"]
+                "Decision Intent", ["Thinking of selling", "Planning to hold"]
             )
         with col2:
             age            = st.number_input("Your Age", 18, 80, 35)
@@ -536,19 +738,19 @@ def page_decision_analysis():
             emg_fund       = st.selectbox("Emergency Fund?", ["Yes", "No"]) == "Yes"
             monthly_income = st.number_input("Monthly Income (₹)", 10000, 5000000, 60000, step=5000)
 
-        submitted = st.form_submit_button("🚀 Analyse Decision", use_container_width=True)
+        submitted = st.form_submit_button("Analyse Decision", use_container_width=True)
 
     if submitted:
         uid = st.session_state.get("user_id") or None
         payload: dict[str, Any] = {
-            "unrealized_gl"        : float(unrealized_gl),
+            "unrealized_gl"       : float(unrealized_gl),
             "holding_period_months": int(holding_months),
-            "position_size_pct"    : float(position_pct),
-            "age"                  : int(age),
-            "investment_horizon"   : int(horizon),
-            "risk_tolerance"       : float(risk_tolerance),
-            "has_emergency_fund"   : int(emg_fund),
-            "monthly_income"       : float(monthly_income),
+            "position_size_pct"   : float(position_pct),
+            "age"                 : int(age),
+            "investment_horizon"  : int(horizon),
+            "risk_tolerance"      : float(risk_tolerance),
+            "has_emergency_fund"  : int(emg_fund),
+            "monthly_income"      : float(monthly_income),
         }
         if uid:
             payload["user_id"] = uid
@@ -566,12 +768,12 @@ def page_decision_analysis():
 
         if is_biased:
             banner_class = "bias-biased"
-            icon  = "🔴"
-            label = bias_type.replace("_", " ").title()
+            icon  = ""
+            label = bias_type.replace("_", "").title()
             msg   = f"{icon} BIAS DETECTED: {label} ({confidence:.1f}% confidence)"
         else:
             banner_class = "bias-rational"
-            icon  = "✅"
+            icon  = ""
             msg   = f"{icon} RATIONAL DECISION ({confidence:.1f}% confidence)"
 
         st.markdown(
@@ -581,7 +783,7 @@ def page_decision_analysis():
 
         # ── Metrics row ──────────────────────────────────────────────────
         mc1, mc2, mc3 = st.columns(3)
-        mc1.metric("Bias Type",    bias_type.replace("_", " ").title())
+        mc1.metric("Bias Type",    bias_type.replace("_", "").title())
         mc2.metric("Confidence",   f"{confidence:.1f}%")
         mc3.metric("Risk Score",   f"{result.get('risk_score', 0)*100:.1f}%")
 
@@ -595,7 +797,7 @@ def page_decision_analysis():
         # ── Causal Chain ─────────────────────────────────────────────────
         causal_chain = result.get("causal_chain", [])
         if causal_chain:
-            st.subheader("🔗 Causal Chain")
+            st.subheader("Causal Chain")
             with st.container():
                 for i, step in enumerate(causal_chain, 1):
                     st.markdown(f"**Step {i}:** {step}")
@@ -630,7 +832,7 @@ def page_decision_analysis():
 # ══════════════════════════════════════════════════════════════════════════
 
 def page_user_profile():
-    st.title("👤 User Profile")
+    st.title("User Profile")
     _render_indices_ribbon()
 
     uid = st.session_state.get("user_id", "")
@@ -647,7 +849,7 @@ def page_user_profile():
     bias_profile = profile_data.get("bias_profile", {})
 
     # Profile card
-    st.subheader("👤 Profile Details")
+    st.subheader("Profile Details")
     pc1, pc2 = st.columns(2)
     with pc1:
         st.markdown(f"**Name:** {profile.get('name', 'N/A')}")
@@ -656,21 +858,21 @@ def page_user_profile():
     with pc2:
         st.markdown(f"**Risk Tolerance:** {profile.get('risk_tolerance', 0):.2f}")
         st.markdown(f"**Investment Horizon:** {profile.get('investment_horizon', 0)} years")
-        emg = "✅ Yes" if profile.get("has_emergency_fund") else "❌ No"
+        emg = "Yes"if profile.get("has_emergency_fund") else "No"
         st.markdown(f"**Emergency Fund:** {emg}")
 
     st.divider()
 
     # Bias profile evolution bar chart
-    st.subheader("📊 Bias Profile (Running Average)")
+    st.subheader("Bias Profile (Running Average)")
     if bias_profile:
         n    = int(bias_profile.get("total_decisions", 0))
         st.caption(f"Based on {n} decision(s)")
         scores = {
-            "Disposition"    : float(bias_profile.get("disposition_score", 0)),
-            "Herd"           : float(bias_profile.get("herd_score", 0)),
-            "Loss Aversion"  : float(bias_profile.get("loss_aversion_score", 0)),
-            "Rational"       : float(bias_profile.get("rational_score", 0)),
+            "Disposition"   : float(bias_profile.get("disposition_score", 0)),
+            "Herd"          : float(bias_profile.get("herd_score", 0)),
+            "Loss Aversion" : float(bias_profile.get("loss_aversion_score", 0)),
+            "Rational"      : float(bias_profile.get("rational_score", 0)),
         }
         try:
             import plotly.graph_objects as go
@@ -679,7 +881,7 @@ def page_user_profile():
                 x=list(scores.keys()),
                 y=list(scores.values()),
                 marker_color=colors,
-                text=[f"{v:.2f}" for v in scores.values()],
+                text=[f"{v:.2f}"for v in scores.values()],
                 textposition="outside",
             ))
             fig.update_layout(
@@ -720,7 +922,7 @@ def page_user_profile():
 # ══════════════════════════════════════════════════════════════════════════
 
 def page_market_context():
-    st.title("📈 Market Context")
+    st.title("Market Context")
     st.markdown("Live NIFTY50 data fetched from yfinance with 15-minute TTL cache.")
     _render_indices_ribbon()
 
@@ -745,17 +947,17 @@ def page_market_context():
 
     # Metrics
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("📉 NIFTY 1M Return",   f"{ret*100:.3f}%")
-    m2.metric("📊 30-Day Volatility", f"{vol*100:.3f}%")
+    m1.metric("NIFTY 1M Return",   f"{ret*100:.3f}%")
+    m2.metric("30-Day Volatility", f"{vol*100:.3f}%")
     m3.metric("😱 Crowd Fear Ratio",  f"{crowd:.3f}",
               help="0 = calm, 1 = panic selling")
-    m4.metric("🟢 Market Hours",
-              "Open" if ctx.get("market_hours") else "Closed")
+    m4.metric("Market Hours",
+              "Open"if ctx.get("market_hours") else "Closed")
 
     st.divider()
 
     # Detail card
-    st.subheader("📡 Data Details")
+    st.subheader("Data Details")
     col1, col2 = st.columns(2)
     col1.markdown(f"**Data Source:** `{source}`")
     col1.markdown(f"**Last Updated:** {ctx.get('last_updated', 'N/A')[:19]} UTC")
@@ -771,11 +973,11 @@ def page_market_context():
     # Regime guide
     st.subheader("📖 Market Regime Guide")
     guide = [
-        ("🔴 CRASH / HIGH VOL", "Return < -10% or vol > 3%", "Extreme fear, high risk"),
+        ("CRASH / HIGH VOL", "Return < -10% or vol > 3%", "Extreme fear, high risk"),
         ("🟠 BEAR",             "Return -3% to -10%",         "Negative sentiment, caution"),
         ("🟡 NEUTRAL",          "Return -3% to +3%",          "Balanced market"),
-        ("🟢 BULL",             "Return +3% to +10%",         "Positive momentum"),
-        ("🚀 RALLY / EUPHORIA", "Return > +10%",              "Euphoric, watch for reversals"),
+        ("BULL",             "Return +3% to +10%",         "Positive momentum"),
+        ("RALLY / EUPHORIA", "Return > +10%",              "Euphoric, watch for reversals"),
     ]
     import pandas as pd
     st.dataframe(
@@ -784,7 +986,7 @@ def page_market_context():
     )
 
     # Auto refresh
-    if st.button("🔄 Refresh Market Data"):
+    if st.button("Refresh Market Data"):
         st.rerun()
 
 
@@ -800,7 +1002,7 @@ def _render_trajectory_chart(result: dict):
     try:
         import plotly.graph_objects as go
     except ImportError:
-        st.warning("⚠️ plotly not installed — run: pip install plotly")
+        st.warning("plotly not installed — run: pip install plotly")
         return
 
     years         = result.get("years", [])
@@ -813,7 +1015,7 @@ def _render_trajectory_chart(result: dict):
     current_wealth = result.get("inputs", {}).get("current_wealth", 100_000.0)
 
     if not years or not hold_p50:
-        st.warning("⚠️ Trajectory data not returned by the API.")
+        st.warning("Trajectory data not returned by the API.")
         return
 
     fig = go.Figure()
@@ -844,7 +1046,7 @@ def _render_trajectory_chart(result: dict):
     fig.add_trace(go.Scatter(
         x=years, y=hold_p50,
         mode="lines",
-        name="🔵 HOLD (median)",
+        name="HOLD (median)",
         line=dict(color="#6C63FF", width=3),
         hovertemplate="Year %{x}<br>₹%{y:,.0f}<extra>HOLD median</extra>",
     ))
@@ -852,7 +1054,7 @@ def _render_trajectory_chart(result: dict):
     fig.add_trace(go.Scatter(
         x=years, y=sell_p50,
         mode="lines",
-        name="🔴 SELL (median)",
+        name="SELL (median)",
         line=dict(color="#FF6B6B", width=3, dash="dash"),
         hovertemplate="Year %{x}<br>₹%{y:,.0f}<extra>SELL median</extra>",
     ))
@@ -867,7 +1069,7 @@ def _render_trajectory_chart(result: dict):
 
     fig.update_layout(
         title=dict(
-            text="📈 HOLD vs SELL — Long-Horizon Wealth Projection",
+            text="HOLD vs SELL — Long-Horizon Wealth Projection",
             font=dict(size=17, color="#E0E0E0")
         ),
         xaxis=dict(
@@ -966,7 +1168,7 @@ def _render_distribution_chart(result: dict):
 
 def page_wealth_simulator():
     """GAP 2 — Personalised Long-Horizon Wealth Simulator."""
-    st.title("💹 Wealth Simulator")
+    st.title("Wealth Simulator")
     st.markdown(
         "**GAP 2**: Simulate your personal 10–30 year wealth trajectory under HOLD vs SELL — "
         "powered by Monte Carlo over 1 000 possible market futures."
@@ -974,7 +1176,7 @@ def page_wealth_simulator():
     _render_indices_ribbon()
 
     # ── INFO BANNER ────────────────────────────────────────────────────
-    with st.expander("ℹ️ How the simulator works", expanded=False):
+    with st.expander("ℹ How the simulator works", expanded=False):
         st.markdown("""
         **Monte Carlo Simulation (1 000 paths, 10–30 years)**
 
@@ -990,7 +1192,7 @@ def page_wealth_simulator():
         """)
 
     st.divider()
-    st.subheader("📝 Simulation Parameters")
+    st.subheader("Simulation Parameters")
 
     # ── INPUT FORM ────────────────────────────────────────────────────
     with st.form("simulator_form"):
@@ -1028,19 +1230,19 @@ def page_wealth_simulator():
             )
 
         run_sim = st.form_submit_button(
-            "🚀 Run Monte Carlo Simulation",
+            "Run Monte Carlo Simulation",
             use_container_width=True,
             type="primary"
         )
 
     # ── EXECUTE AND RENDER ─────────────────────────────────────────────
     if run_sim:
-        with st.spinner(f"⏳ Running {n_simulations:,} Monte Carlo paths per scenario…"):
+        with st.spinner(f"Running {n_simulations:,} Monte Carlo paths per scenario…"):
             payload = {
-                "user_id"       : int(user_id),
+                "user_id"      : int(user_id),
                 "current_wealth": float(current_wealth),
-                "unrealized_gl" : float(unrealized_gl),
-                "n_simulations" : int(n_simulations),
+                "unrealized_gl": float(unrealized_gl),
+                "n_simulations": int(n_simulations),
             }
             result = _api_post("/simulate", payload)
 
@@ -1051,8 +1253,8 @@ def page_wealth_simulator():
         st.session_state["sim_result"] = result
 
     # Render from session state
-    if "sim_result" not in st.session_state:
-        st.info("↗️ Fill in your parameters above and click Run to see your personalised wealth projection.")
+    if "sim_result"not in st.session_state:
+        st.info("↗ Fill in your parameters above and click Run to see your personalised wealth projection.")
         return
 
     result = st.session_state["sim_result"]
@@ -1065,40 +1267,40 @@ def page_wealth_simulator():
 
     # ── USER PROFILE BANNER ────────────────────────────────────────────
     st.divider()
-    st.subheader("👤 Investor Profile Used")
+    st.subheader("Investor Profile Used")
     up1, up2, up3, up4 = st.columns(4)
     up1.metric("🏦 Age",              user.get("age", "N/A"))
-    up2.metric("⏳ Investment Horizon", f"{user.get('investment_horizon', horizon)} yrs")
-    up3.metric("⚖️ Risk Tolerance",    f"{user.get('risk_tolerance', 0):.2f}")
-    up4.metric("🎯 Goal",             user.get("goal", "N/A").replace("_", " ").title())
+    up2.metric("Investment Horizon", f"{user.get('investment_horizon', horizon)} yrs")
+    up3.metric("⚖ Risk Tolerance",    f"{user.get('risk_tolerance', 0):.2f}")
+    up4.metric("Goal",             user.get("goal", "N/A").replace("_", "").title())
 
     # ── KEY METRICS ───────────────────────────────────────────────────
     st.divider()
-    st.subheader("📊 Simulation Results")
+    st.subheader("Simulation Results")
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(
-        "🔵 HOLD — Expected",
+        "HOLD — Expected",
         f"₹{hold.get('mean', 0):,.0f}",
         delta=f"P10: ₹{hold.get('p10', 0):,.0f} | P90: ₹{hold.get('p90', 0):,.0f}",
         delta_color="normal",
     )
     c2.metric(
-        "🔴 SELL — Expected",
+        "SELL — Expected",
         f"₹{sell.get('mean', 0):,.0f}",
         delta=f"P10: ₹{sell.get('p10', 0):,.0f} | P90: ₹{sell.get('p90', 0):,.0f}",
         delta_color="normal",
     )
     opp_cost = comp.get("opportunity_cost_inr", 0)
     c3.metric(
-        "💰 Opportunity Cost of Selling",
+        "Opportunity Cost of Selling",
         f"₹{abs(opp_cost):,.0f}",
         delta=f"{comp.get('opportunity_cost_pct', 0):.1f}% of portfolio",
         delta_color="inverse",  # red = bad (you lose money by selling)
     )
     prob = comp.get("prob_hold_better", 0)
     c4.metric(
-        "🎯 P(HOLD wins)",
+        "P(HOLD wins)",
         f"{prob*100:.1f}%",
         delta="across 1k simulations",
         delta_color="off",
@@ -1109,27 +1311,27 @@ def page_wealth_simulator():
     rec_text = comp.get("recommendation_text", "")
     if better == "HOLD":
         st.markdown(
-            f'<div class="bias-banner bias-rational">🔵 {rec_text}</div>',
+            f'<div class="bias-banner bias-rational"> {rec_text}</div>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f'<div class="bias-banner bias-biased">🔴 {rec_text}</div>',
+            f'<div class="bias-banner bias-biased"> {rec_text}</div>',
             unsafe_allow_html=True,
         )
 
     # ── TRAJECTORY CHART ──────────────────────────────────────────────
     st.divider()
-    st.subheader("📈 Year-by-Year Wealth Trajectory")
+    st.subheader("Year-by-Year Wealth Trajectory")
     st.caption(
         "Shaded bands = P10–P90 range (most likely outcomes). "
-        f"Solid lines = median. {n_simulations if 'n_simulations' not in result.get('inputs', {}) else result['inputs'].get('n_simulations', 1000):,} Monte Carlo paths per scenario."
+        f"Solid lines = median. {n_simulations if 'n_simulations'not in result.get('inputs', {}) else result['inputs'].get('n_simulations', 1000):,} Monte Carlo paths per scenario."
     )
     _render_trajectory_chart(result)
 
     # ── DETAILED STATS TABLE ────────────────────────────────────────────
     st.divider()
-    st.subheader("📊 Detailed Statistics")
+    st.subheader("Detailed Statistics")
     tab1, tab2, tab3 = st.tabs(["HOLD vs SELL Summary", "Year-by-Year Table", "Validation"])
 
     with tab1:
@@ -1139,9 +1341,9 @@ def page_wealth_simulator():
         sell_stats = {k: sell.get(k, 0) for k in stat_keys}
         stats_df = pd.DataFrame({
             "Statistic": [k.upper() for k in stat_keys],
-            "HOLD (₹)" : [f"₹{hold_stats[k]:,.0f}" for k in stat_keys],
-            "SELL (₹)" : [f"₹{sell_stats[k]:,.0f}" for k in stat_keys],
-            "Difference": [f"₹{hold_stats[k] - sell_stats[k]:+,.0f}" for k in stat_keys],
+            "HOLD (₹)": [f"₹{hold_stats[k]:,.0f}"for k in stat_keys],
+            "SELL (₹)": [f"₹{sell_stats[k]:,.0f}"for k in stat_keys],
+            "Difference": [f"₹{hold_stats[k] - sell_stats[k]:+,.0f}"for k in stat_keys],
         })
         st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
@@ -1154,11 +1356,11 @@ def page_wealth_simulator():
         if years and hold_p50:
             import pandas as pd
             traj_data = {
-                "Year"          : years,
-                "HOLD Median (₹)": [f"₹{v:,.0f}" for v in hold_p50],
-                "HOLD P10 (₹)"  : [f"₹{v:,.0f}" for v in hold_p10] if hold_p10 else ["-"] * len(years),
-                "HOLD P90 (₹)"  : [f"₹{v:,.0f}" for v in hold_p90] if hold_p90 else ["-"] * len(years),
-                "SELL Median (₹)": [f"₹{v:,.0f}" for v in sell_p50] if sell_p50 else ["-"] * len(years),
+                "Year"         : years,
+                "HOLD Median (₹)": [f"₹{v:,.0f}"for v in hold_p50],
+                "HOLD P10 (₹)" : [f"₹{v:,.0f}"for v in hold_p10] if hold_p10 else ["-"] * len(years),
+                "HOLD P90 (₹)" : [f"₹{v:,.0f}"for v in hold_p90] if hold_p90 else ["-"] * len(years),
+                "SELL Median (₹)": [f"₹{v:,.0f}"for v in sell_p50] if sell_p50 else ["-"] * len(years),
             }
             st.dataframe(pd.DataFrame(traj_data), use_container_width=True, hide_index=True)
         else:
@@ -1167,31 +1369,31 @@ def page_wealth_simulator():
     with tab3:
         st.markdown("**Validate against synthetic_counterfactuals.csv**")
         dec_id_val = st.number_input("Decision ID to validate", min_value=0, value=0, step=1)
-        if st.button("🔍 Validate"):
+        if st.button("Validate"):
             val = _api_get(f"/simulate/validate/{dec_id_val}")
             if val:
-                if "error" in val:
+                if "error"in val:
                     st.error(val["error"])
                 else:
                     v1, v2, v3 = st.columns(3)
                     v1.metric("HOLD Error",
                               f"{val['hold_error_pct']:.2f}%",
-                              delta="PASS" if val["pass_hold"] else "FAIL",
-                              delta_color="normal" if val["pass_hold"] else "inverse")
+                              delta="PASS"if val["pass_hold"] else "FAIL",
+                              delta_color="normal"if val["pass_hold"] else "inverse")
                     v2.metric("SELL Error",
                               f"{val['sell_error_pct']:.2f}%",
-                              delta="PASS" if val["pass_sell"] else "FAIL",
-                              delta_color="normal" if val["pass_sell"] else "inverse")
+                              delta="PASS"if val["pass_sell"] else "FAIL",
+                              delta_color="normal"if val["pass_sell"] else "inverse")
                     v3.metric("Overall",
-                              "✅ PASS" if val["pass_overall"] else "❌ FAIL",
+                              "PASS"if val["pass_overall"] else "FAIL",
                               delta="< 20% error target",
                               delta_color="off")
-                    with st.expander("🔍 Raw validation data"):
+                    with st.expander("Raw validation data"):
                         st.json(val)
 
     # ── POPULATION BIAS IMPACT ─────────────────────────────────────────
     st.divider()
-    st.subheader("📉 Population-Level Bias Cost (Research Experiment 2)")
+    st.subheader("Population-Level Bias Cost (Research Experiment 2)")
     st.markdown(
         "**Experiment 2 target:** quantify the average wealth lost to behavioral biases "
         "across the population. Expected result: **~42% wealth gap** (biased vs rational investors)."
@@ -1200,7 +1402,7 @@ def page_wealth_simulator():
     n_users_pop = col_n.number_input("Sample users", min_value=10, max_value=500, value=50, step=10)
     pf_val      = col_pf.number_input("Portfolio size (₹)", min_value=10_000, value=75_000, step=5_000)
 
-    if st.button("🧪 Run Population Analysis"):
+    if st.button("Run Population Analysis"):
         with st.spinner(f"Analysing {n_users_pop} users… (this may take ~30s)"):
             impact = _api_get(f"/simulate/bias_impact?n_users={n_users_pop}&assumed_portfolio={pf_val}")
         if impact:
@@ -1209,7 +1411,7 @@ def page_wealth_simulator():
             bi2.metric("Median Bias Cost", f"₹{impact.get('median_bias_cost_inr', 0):,.0f}")
             bi3.metric("Avg Wealth Loss %", f"{impact.get('mean_wealth_loss_pct', 0):.1f}%")
             st.success(impact.get("key_finding", ""))
-            with st.expander("🔍 Full result"):
+            with st.expander("Full result"):
                 st.json({k: v for k, v in impact.items() if k != "distribution"})
 
 
@@ -1220,13 +1422,15 @@ def page_wealth_simulator():
 def main():
     page = _render_sidebar()
 
-    if page == "🔍 Decision Analysis":
+    if page == "Unified Pipeline":
+        page_unified_pipeline()
+    elif page == "Decision Analysis":
         page_decision_analysis()
-    elif page == "👤 User Profile":
+    elif page == "User Profile":
         page_user_profile()
-    elif page == "📈 Market Context":
+    elif page == "Market Context":
         page_market_context()
-    elif page == "💹 Wealth Simulator":
+    elif page == "Wealth Simulator":
         page_wealth_simulator()
 
 

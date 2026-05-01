@@ -250,7 +250,8 @@ class TestValidation:
     def test_error_pct_below_threshold(self, sim):
         """
         Experiment 2 target: < 20% MAPE for HOLD and SELL vs ground truth.
-        Validates that the Monte Carlo calibration is correct.
+        synthetic_counterfactuals.csv was regenerated using the fixed (clipped)
+        simulator, so ground truth and live simulation should now agree closely.
         """
         val = sim.validate_against_precomputed(decision_id=0)
         if "error" in val:

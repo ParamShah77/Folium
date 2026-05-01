@@ -223,6 +223,7 @@ def analyze_decision_realtime(user_input: dict) -> dict:
     return {
         "bias_type"          : bias_type,
         "bias_label"         : bias_type.replace("_", " ").title(),
+        "is_biased"          : bias_result.get("is_biased", False),
         "confidence"         : round(confidence, 4),
         "all_probabilities"  : all_probs,
         "causal_chain"       : causal_chain,

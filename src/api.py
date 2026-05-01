@@ -635,12 +635,38 @@ def get_user_profile(user_id: str = Path(..., description="Registered user ID"))
     """Returns the full user profile and live bias scores from the database."""
     profile = _db().get_user(user_id)
     if profile is None:
+        if user_id.isdigit():
+            try:
+                sim = _sim()
+                match = sim.users_df[sim.users_df["user_id"] == int(user_id)]
+                if not match.empty:
+                    row = match.iloc[0]
+                    profile = {
+                        "age": int(row.get("age", 35)),
+                        "monthly_income": float(row.get("monthly_income", 50000)),
+                        "risk_tolerance": float(row.get("risk_tolerance", 0.5)),
+                        "investment_horizon": int(row.get("investment_horizon", 10)),
+                        "has_emergency_fund": int(row.get("has_emergency_fund", 1)),
+                        "name": f"Synthetic User {user_id}",
+                    }
+            except Exception:
+                pass
+                
+    if profile is None:
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+
     bias_profile = _db().get_bias_profile(user_id)
+    if bias_profile is None and user_id.isdigit():
+        bias_profile = {
+            "disposition_score": 0.0, "herd_score": 0.0,
+            "loss_aversion_score": 0.0, "rational_score": 0.0,
+            "total_decisions": 0
+        }
+
     return {
         "user_id"          : user_id,
         "profile"          : profile,
-        "bias_profile"     : bias_profile,
+        "bias_profile"     : bias_profile or {},
     }
 
 
@@ -648,6 +674,16 @@ def get_user_profile(user_id: str = Path(..., description="Registered user ID"))
 def get_user_decisions(user_id: str = Path(..., description="Registered user ID")) -> dict:
     """Returns the full decision history for a registered user, newest first."""
     profile = _db().get_user(user_id)
+    if profile is None:
+        if user_id.isdigit():
+            try:
+                sim = _sim()
+                match = sim.users_df[sim.users_df["user_id"] == int(user_id)]
+                if not match.empty:
+                    profile = {"dummy": True}
+            except Exception:
+                pass
+                
     if profile is None:
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
     decisions = _db().get_user_decision_history(user_id)

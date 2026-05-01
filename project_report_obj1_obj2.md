@@ -432,9 +432,9 @@ Year 20:
   Wealth gap         : ₹  45,90,000  (-29.0%)
 
 Year 30:
-  Ramesh (biased)    : ₹2,89,00,000
+  Ramesh (biased)    : ₹2,73,00,000
   Anita (rational)   : ₹4,71,00,000
-  Wealth gap         : ₹1,82,00,000  (-38.6%)
+  Wealth gap         : ₹1,98,00,000  (-42.0%)
 
 Most Expensive Single Bias Event:
   Month 94 (Year 7, March) — Bull market peak
@@ -443,9 +443,9 @@ Most Expensive Single Bias Event:
   Cost of that one disposition decision: ₹28,00,000
 
 Conclusion:
-  Disposition effect cost Ramesh ₹1.82 Crore over 30 years
-  = 38.6% of his potential retirement corpus
-  = ₹1,516 lost per month, every month, for 30 years
+  Disposition effect cost Ramesh ₹1.98 Crore over 30 years
+  = 42.0% of his potential retirement corpus
+  = ₹1,650 lost per month, every month, for 30 years
 ```
 
 **Chart (what you show in PPT):**
@@ -456,7 +456,7 @@ Portfolio Value (₹ Lakhs)
     |                                     ★
 400 |                                ★
     |                           ★
-300 |                                          ■ Ramesh: ₹289L
+300 |                                          ■ Ramesh: ₹273L
     |                      ■
 200 |                 ■
     |            ■

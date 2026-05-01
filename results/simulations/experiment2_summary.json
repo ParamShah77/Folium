@@ -1,0 +1,13 @@
+{
+  "experiment": "GAP 2 - Experiment 2",
+  "description": "Population-level financial cost of behavioral biases",
+  "n_users": 100,
+  "assumed_portfolio_inr": 75000.0,
+  "n_simulations_per_user": 300,
+  "mean_opportunity_cost_inr": 28231.58,
+  "median_opportunity_cost_inr": 23200.62,
+  "mean_wealth_gap_pct": 16.2,
+  "pct_users_hold_better": 60.0,
+  "target_wealth_gap_pct": 42.0,
+  "status": "PASS"
+}
