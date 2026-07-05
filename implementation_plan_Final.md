@@ -25,6 +25,29 @@
 
 ---
 
+## Amendments (v2.1) — Authoritative Rulings
+
+> These rulings are authoritative. Where an amendment conflicts with body text anywhere in this document, the amendment wins.
+
+1. **Scope (8–12 week build).** IN: auth (email/password + TOTP MFA + Google OAuth + CSRF), PostgreSQL (Alembic, RLS), /v1 backend restructure, SSE pipeline, ML core ported from `src/`, Claude debate engine, SHA-256 audit chain, tax engine, SIP tracker, manual portfolio, React frontend, admin dashboard, tests + CI, local Docker now with Render deploy at the end. DEFERRED: Zerodha Kite (§6C), WhatsApp bot (§6G), ML retrainer (§6F), outcome tracker (§6E); multi-asset beyond equity (MF/gold/crypto) is a stretch goal. The `kite_tokens` table stays in the schema for future use.
+2. **Decision endpoint** is `POST /v1/decisions/analyze` (202 + `decision_id`). The `/v1/decisions/submit` naming in §3F is superseded.
+3. **Registration profile fields** (age, income, expense, risk_tolerance, horizon, emergency fund, strategy, goal, phone) are OPTIONAL, per §1B. `UserRegistrationInput` in §10 is corrected accordingly; the ML feature builder uses the defaults in §5A.
+4. **Email verification** uses the link-token flow of §1B; the "OTP" wording in §9 is wrong.
+5. **Admin MFA reset** endpoint is `POST /v1/admin/users/{id}/reset-mfa` only; `/v1/auth/mfa/admin-reset` is removed.
+6. **Email provider is Resend** (env `RESEND_API_KEY`). SMTP_* vars removed. Dev fallback: when `ENV=development` and `RESEND_API_KEY` is empty, print the full email (including the verification/reset link) to the server log instead of sending.
+7. **Standardized env vars:** `ANTHROPIC_API_KEY` (not CLAUDE_API_KEY); `FERNET_KEY` (32-byte urlsafe-base64 key from `cryptography.fernet.Fernet.generate_key()` — NOT hex; encrypts TOTP secrets and future Kite tokens); `CLAUDE_MODEL` (default `claude-sonnet-5`); keep `CLAUDE_MONTHLY_BUDGET_USD`. Market context rate limit is 60 req/min (supersedes the 30 req/min in §9). The Environment Variables Reference table is updated to match (SMTP_* and META_WA_* removed, ZERODHA_* marked deferred).
+8. **`SimulateInput`/`SimulateIndividualInput` must NOT contain `user_id`** — identity always comes from the JWT (the §3C rule applies everywhere, including the §10 schemas).
+9. **RLS mechanics:** policies use `USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid)` so an unset GUC denies rather than errors. The app sets it with `SELECT set_config('app.current_user_id', $1::text, true)` executed INSIDE the same transaction as the protected queries (plain `SET LOCAL x = $1` cannot take bind parameters and expires outside a transaction). Per-request DB access to user-owned tables therefore runs inside an explicit transaction.
+10. **Token blacklisting:** on logout and refresh rotation, blacklist BOTH the refresh jti and the current access-token jti (15-min TTL), so the per-request blacklist check in `get_current_user` is meaningful. Deploy note: an in-process TTL cache (~60 s) fronts the Redis blacklist check to protect the Upstash 10k-commands/day quota; local dev Redis needs no cache.
+11. **Security headers:** backend middleware keeps HSTS/nosniff/X-Frame-Options/Referrer-Policy, but the authoritative CSP for the SPA is delivered by the static host at deploy time (render.yaml headers), not FastAPI (§3G's CSP block is superseded). CSP `connect-src` must NOT include `api.anthropic.com` (the browser never calls Anthropic). At deploy, the Render static site gets an `/api/*` rewrite proxying to the backend service so auth cookies are first-party and SameSite=Lax works. Both noted for §7B.
+12. **Debate engine: no AutoGen.** Three sequential Anthropic SDK calls (Bull, Bear, Judge) with judge-skip-on-agreement, the Redis result cache, and the monthly budget guard as in §5D. Model comes from the `CLAUDE_MODEL` env var.
+13. **Tax engine rates** updated to post-July-2024 Indian rates: STCG on listed equity = 20%; LTCG = 12.5% above a ₹1,25,000 exemption. Module-level constants with an FY-applicability comment. §6A's 15% / 10% / ₹1,00,000 figures are superseded.
+14. **Simulator:** `SEQUENTIAL_SELL_PENALTY` (2.5%) is applied to post-tax sell proceeds before reinvestment in the SELL scenario.
+15. **Port mapping (src/ → backend/):** `bias_detector.py` → `backend/core/bias_detector.py`; `simulator.py` → `backend/core/simulator.py`; `causal_inference.py` + `causal_structure.py` + `causal_utils.py` → `backend/core/causal_inference.py` (+ helpers); `market_data.py` → `backend/services/market_data.py`; `database.py` superseded by `backend/db/*`; `api.py` + `dashboard.py` remain untouched legacy reference until parity. `models/*.pkl` are reused as-is. `data/financial_intelligence.db` is a dev fixture, never migrated.
+16. **Seed/demo data** script (`scripts/seed_demo.py`) is built in Milestone 3, not week 21.
+
+---
+
 ## 1. Project Overview
 
 ### Mission
@@ -161,33 +184,32 @@ PgBouncer in transaction-pooling mode does not support prepared statements. asyn
 
 ---
 
-### Environment Variables Reference [NEW]
+### Environment Variables Reference [NEW] — updated per Amendment 7
 
-Create a `.env` file in the root directory for local development.
+Create a `.env` file in the root directory for local development (see `.env.example`).
 
 | Variable | Description | Allowed Values / Format | Default |
 |---|---|---|---|
 | `ENV` | Application environment | `development`, `staging`, `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:port/db?sslmode=require` | (Required) |
-| `REDIS_URL` | Upstash Redis connection string | `redis://default:token@host:port` or `rediss://` | (Required) |
-| `JWT_PRIVATE_KEY` | RS256 asymmetric private key (PEM content) | Hex/base64 encoded or raw PEM string | (Required) |
-| `JWT_PUBLIC_KEY` | RS256 asymmetric public key (PEM content) | Hex/base64 encoded or raw PEM string | (Required) |
-| `AES_KEY` | 32-byte key for encrypting TOTP secrets and Kite tokens | 64-character hex string | (Required) |
-| `CLAUDE_API_KEY` | Anthropic Claude API Key | `sk-ant-api03-...` | (Required) |
+| `REDIS_URL` | Redis connection string (Upstash in prod, local in dev) | `redis://host:port/db` or `rediss://` | (Required) |
+| `JWT_PRIVATE_KEY` | RS256 asymmetric private key (PEM content) | Raw PEM, `\n`-escaped PEM, or base64-encoded PEM | (Required) |
+| `JWT_PUBLIC_KEY` | RS256 asymmetric public key (PEM content) | Raw PEM, `\n`-escaped PEM, or base64-encoded PEM | (Required) |
+| `FERNET_KEY` | Fernet key encrypting TOTP secrets and future Kite tokens | 32-byte urlsafe-base64 from `cryptography.fernet.Fernet.generate_key()` — NOT hex | (Required) |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key | `sk-ant-...` | (Required for debate engine) |
+| `CLAUDE_MODEL` | Claude model used by the debate engine | Anthropic model id | `claude-sonnet-5` |
 | `CLAUDE_MONTHLY_BUDGET_USD` | Safety budget ceiling for Claude API | Numeric, e.g. `50.00` | `50.00` |
 | `ADMIN_EMAIL` | Target email for budget and system warnings | Email address | (Required) |
-| `SMTP_HOST` | Host for outgoing notification emails | hostname | `smtp.gmail.com` |
-| `SMTP_PORT` | Port for outgoing emails | `587` or `465` | `587` |
-| `SMTP_USERNAME` | Email user for authentication | email / username | (Required) |
-| `SMTP_PASSWORD` | App-specific password for SMTP | App password | (Required) |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google Client ID for OAuth flow | `...apps.googleusercontent.com` | (Required) |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Client Secret | OAuth Secret | (Required) |
-| `SENTRY_DSN` | Backend and Frontend Sentry tracking DSN | Sentry project DSN URL | (Optional) |
-| `ZERODHA_KITE_API_KEY` | Zerodha Kite developer API key | Developer key | (Required for Kite) |
-| `ZERODHA_KITE_API_SECRET` | Zerodha Kite developer API secret | Developer secret | (Required for Kite) |
-| `META_WA_PHONE_NUMBER_ID` | Meta WhatsApp Bot phone number ID | Numeric ID | (Required for WA) |
-| `META_WA_ACCESS_TOKEN` | Meta WhatsApp Bot access token | Permanent System User Token | (Required for WA) |
+| `RESEND_API_KEY` | Resend API key for transactional email | `re_...` — when empty and `ENV=development`, emails are printed to the server log (Amendment 6) | (Optional in dev) |
+| `FRONTEND_URL` | Base URL used in email links and auth redirects | URL | `http://localhost:3000` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google Client ID for OAuth flow | `...apps.googleusercontent.com` | (Required for OAuth) |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Client Secret | OAuth Secret | (Required for OAuth) |
+| `SENTRY_DSN` | Backend and Frontend Sentry tracking DSN (empty = disabled) | Sentry project DSN URL | (Optional) |
+| `ZERODHA_KITE_API_KEY` | Zerodha Kite developer API key — DEFERRED (Amendment 1) | Developer key | (Deferred) |
+| `ZERODHA_KITE_API_SECRET` | Zerodha Kite developer API secret — DEFERRED (Amendment 1) | Developer secret | (Deferred) |
 | `CORS_ALLOWED_ORIGINS` | CORS allowed origins for FastAPI backend | JSON array, e.g., `["http://localhost:3000"]` | `["http://localhost:3000"]` |
+
+> Removed per Amendments 6/7: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `META_WA_PHONE_NUMBER_ID`, `META_WA_ACCESS_TOKEN`, `AES_KEY` (→ `FERNET_KEY`), `CLAUDE_API_KEY` (→ `ANTHROPIC_API_KEY`).
 
 ---
 
