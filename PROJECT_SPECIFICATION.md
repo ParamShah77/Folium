@@ -230,7 +230,8 @@ else:
 **Wealth Projection Formulae**:
 
 **Scenario A - HOLD**:
-$$W_{\text{hold}} = W_0 \times (1 + g) \times \prod_{t=1}^{H} (1 + r_t)$$
+$$W_{\text{hold}} = W_0 
+\times (1 + g) \times \prod_{t=1}^{H} (1 + r_t)$$
 
 **Scenario B - SELL**:
 $$W_{\text{sell}} = W_0 \times (1 + 0.9g) \times \prod_{t=1}^{H} (1 + 0.7r_t)$$

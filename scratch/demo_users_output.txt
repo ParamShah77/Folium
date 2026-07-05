@@ -1,0 +1,40 @@
+﻿User ID: 386
+Expected Bias: RATIONAL
+Inputs to fill in the form:
+- Unrealized Gain/Loss (%): -3.8
+- Holding Period (months): 15
+- Position Size (%): 21.8
+- Decision Intent: Thinking of selling
+----------------------------------------
+User ID: 2953
+Expected Bias: LOSS_AVERSION
+Inputs to fill in the form:
+- Unrealized Gain/Loss (%): -34.0
+- Holding Period (months): 20
+- Position Size (%): 51.2
+- Decision Intent: Thinking of selling
+----------------------------------------
+User ID: 2448
+Expected Bias: HERD
+Inputs to fill in the form:
+- Unrealized Gain/Loss (%): 12.6
+- Holding Period (months): 6
+- Position Size (%): 14.5
+- Decision Intent: Thinking of selling
+----------------------------------------
+User ID: 512
+Expected Bias: DISPOSITION
+Inputs to fill in the form:
+- Unrealized Gain/Loss (%): 6.3
+- Holding Period (months): 18
+- Position Size (%): 19.8
+- Decision Intent: Thinking of selling
+----------------------------------------
+User ID: 120
+Expected Bias: RATIONAL
+Inputs to fill in the form:
+- Unrealized Gain/Loss (%): -9.7
+- Holding Period (months): 26
+- Position Size (%): 9.4
+- Decision Intent: Planning to hold
+----------------------------------------

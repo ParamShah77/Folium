@@ -295,7 +295,7 @@ def _render_sidebar():
     page = st.sidebar.radio(
         "Navigate",
         [
-            "Unified Pipeline",
+            "Decision Intelligence Hub",
             "Decision Analysis",
             "User Profile",
             "Market Context",
@@ -502,7 +502,7 @@ def _render_shap_chart(shap_data: list[dict]):
 
 
 def page_unified_pipeline():
-    st.title("Unified Pipeline (End-to-End)")
+    st.title("Decision Intelligence Hub")
     st.markdown("Analyse your investment decision and simulate its long-term financial impact in one click.")
 
     # ── Indices & Market Context ──────────────────────────────────────────
@@ -605,7 +605,7 @@ def page_unified_pipeline():
             
         if result2 is None: return
 
-        st.success("End-to-End Pipeline Completed")
+        st.success("Analysis Completed")
         st.divider()
 
         # Render Obj 1 Results
@@ -1422,7 +1422,7 @@ def page_wealth_simulator():
 def main():
     page = _render_sidebar()
 
-    if page == "Unified Pipeline":
+    if page == "Decision Intelligence Hub":
         page_unified_pipeline()
     elif page == "Decision Analysis":
         page_decision_analysis()

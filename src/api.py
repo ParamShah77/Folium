@@ -647,7 +647,7 @@ def get_user_profile(user_id: str = Path(..., description="Registered user ID"))
                         "risk_tolerance": float(row.get("risk_tolerance", 0.5)),
                         "investment_horizon": int(row.get("investment_horizon", 10)),
                         "has_emergency_fund": int(row.get("has_emergency_fund", 1)),
-                        "name": f"Synthetic User {user_id}",
+                        "name": f"User {user_id}",
                     }
             except Exception:
                 pass
