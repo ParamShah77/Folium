@@ -1,0 +1,40 @@
+# FinAI backend — Milestone 1 dependencies.
+# Pinned to versions supporting BOTH host Python 3.13 and container Python 3.11.
+# Do NOT edit the repo-root requirements.txt (that holds the prototype pins).
+
+# --- Web framework / server ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20          # form parsing (login/register form-encoded fallbacks)
+
+# --- Config / validation ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+email-validator==2.2.0             # EmailStr support for pydantic
+
+# --- Database ---
+asyncpg==0.30.0                    # async driver (app runtime; statement_cache_size=0 for pgbouncer)
+psycopg2-binary==2.9.10            # sync driver (Alembic migrations against Postgres directly)
+alembic==1.14.0
+
+# --- Redis ---
+redis==5.2.1                       # includes redis.asyncio
+
+# --- Auth / crypto ---
+PyJWT==2.10.1                      # RS256 sign/verify (preferred over python-jose)
+cryptography==44.0.0               # RSA key handling + Fernet
+bcrypt==4.2.1                      # password hashing (cost 12)
+zxcvbn==4.4.28                     # password strength scoring
+
+# --- Middleware / observability ---
+slowapi==0.1.9                     # rate limiting (Redis-backed via limits)
+structlog==24.4.0                  # structured JSON logging
+sentry-sdk[fastapi]==2.19.2        # error tracking (disabled when SENTRY_DSN empty)
+
+# --- Email ---
+resend==2.6.0                      # transactional email (dev fallback logs to stdout)
+
+# --- Tests ---
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1                      # ASGI test client

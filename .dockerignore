@@ -1,0 +1,25 @@
+# Keep the build context small: only backend/ and models/ are copied.
+.git
+.claude
+.venv
+.venv*
+**/__pycache__
+**/.pytest_cache
+node_modules
+.env
+.env.*
+data/
+archive/
+notebooks/
+results/
+scratch/
+src/
+tests/
+scripts/
+drive-download-20260218T060425Z-1-001/
+*.zip
+*.csv
+*.npy
+*.docx
+*.md
+*.log
