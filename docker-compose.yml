@@ -6,6 +6,13 @@
 #    to SCRAM password encryption (md5 auth would fail against it).
 #  * The backend connects THROUGH PgBouncer in transaction-pooling mode —
 #    which is why backend/db/pool.py sets statement_cache_size=0 (§2A).
+#  * SECURITY (RLS): the backend authenticates all the way to Postgres as the
+#    NON-superuser role `app_user` (created by migration 0007), because a
+#    superuser silently bypasses Row-Level Security. So PgBouncer's DB_USER and
+#    the backend's DATABASE_URL both use app_user. Migrations still go DIRECT to
+#    Postgres as `finai` (superuser/owner), bypassing PgBouncer — see env.py.
+#    NOTE: app_user only exists after migration 0007 runs; PgBouncer connects
+#    lazily (on first query), so bring the DB up + migrate before hitting the app.
 #  * `version:` key omitted (obsolete in Compose v2).
 #
 # Bring up infra only:   docker compose up -d postgres redis pgbouncer
@@ -18,7 +25,11 @@ services:
       POSTGRES_USER: finai
       POSTGRES_PASSWORD: finai
     ports:
-      - "5432:5432"
+      # Host 5433 -> container 5432, to coexist with a locally-installed Postgres
+      # that already holds host port 5432. PgBouncer and the backend still reach
+      # Postgres INTERNALLY on 5432 (unchanged); only host-side tools (Alembic,
+      # pytest) use 5433 -- see scripts/dev-env.ps1.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -40,8 +51,10 @@ services:
   pgbouncer:
     image: edoburu/pgbouncer:latest
     environment:
-      DB_USER: finai
-      DB_PASSWORD: finai
+      # app_user (NON-superuser) so RLS binds. PgBouncer authenticates to
+      # Postgres with these creds AND expects clients to present them.
+      DB_USER: app_user
+      DB_PASSWORD: app_user
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: finai
@@ -62,8 +75,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # container-network URLs override anything in .env
-      DATABASE_URL: postgresql://finai:finai@pgbouncer:5432/finai
+      # container-network URLs override anything in .env.
+      # app_user (NON-superuser) through PgBouncer so RLS is enforced (see notes).
+      DATABASE_URL: postgresql://app_user:app_user@pgbouncer:5432/finai
       REDIS_URL: redis://redis:6379/0
       ENV: development
       SENTRY_DSN: "" # empty = disabled in dev (§3E)

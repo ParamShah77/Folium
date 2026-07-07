@@ -1,4 +1,4 @@
-"""0007 create RLS policies + admin view
+"""0007 create RLS policies + admin view + least-privilege app_user role
 
 Enables Row-Level Security on the five user-owned tables (§2E) with policies
 written per Amendment 9:
@@ -11,19 +11,36 @@ rows instead of a 500. The app sets the GUC with
 ``SELECT set_config('app.current_user_id', $1::text, true)`` inside the same
 transaction (backend/db/pool.py: Database.rls_transaction).
 
-FORCE ROW LEVEL SECURITY is applied so the policies bind even when the
-connection role owns the table (local dev / tests connect as the DB owner).
-Because of this, ALL access to these tables must go through an rls_transaction —
-which the backend already does. The non-protected tables (users, refresh_tokens,
-etc.) are untouched, so direct auth queries keep working.
+WHO RLS ACTUALLY BINDS (the security-critical part):
+  PostgreSQL RLS is UNCONDITIONALLY BYPASSED by superusers and by a table's
+  OWNER (unless FORCE is set). In this stack the migration/owner role ``finai``
+  is the ``POSTGRES_USER`` and is therefore a SUPERUSER — no amount of ENABLE /
+  FORCE can make a superuser obey a policy. So the application (and the RLS test
+  path) MUST connect as a dedicated NON-superuser role that is subject to the
+  policies. That role is ``app_user``, created here as a LOGIN role with a
+  password (APP_DB_PASSWORD, default 'app_user' for local dev). FORCE ROW LEVEL
+  SECURITY is still applied — it is harmless for a non-owner and correctly
+  protects the case where ``app_user`` ever owns a table — but it is NOT what
+  makes the guarantee hold; connecting as a non-superuser is.
 
-Also creates the ``app_user`` role (§2E) for least-privilege production
-deployments and the ``admin_stats_view`` aggregate (§2F, no PII).
+Migrations, admin operations, and the direct test fixtures keep using ``finai``
+(they need owner/superuser privileges: CREATE ROLE, ENABLE RLS, TRUNCATE, etc.).
+
+app_user is granted what the app needs across the WHOLE public schema (not just
+the five protected tables) so the non-RLS auth queries (users, refresh_tokens,
+…) also work through the app pool:
+  * USAGE on schema public
+  * SELECT/INSERT/UPDATE/DELETE on all tables (existing + future default privs)
+  * SELECT on admin_stats_view (views are not covered by ON ALL TABLES)
+  * USAGE/SELECT on all sequences (harmless if there are none)
+
+Also creates the ``admin_stats_view`` aggregate (§2F, no PII).
 
 Revision ID: 0007_create_rls_policies
 Revises: 0006_create_sip_kite
 Create Date: 2026-07-05
 """
+import os
 from typing import Sequence, Union
 
 from alembic import op
@@ -45,15 +62,30 @@ _POLICY_USING = (
     "user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid"
 )
 
+# Password for the least-privilege application login role. Sourced from the
+# environment so production can inject a real secret; defaults to 'app_user' for
+# local dev (matches docker-compose / .env.example / SETUP.md).
+_APP_DB_PASSWORD = os.getenv("APP_DB_PASSWORD", "app_user")
+
+
+def _sql_str_literal(value: str) -> str:
+    """Return a safely single-quoted SQL string literal (doubles embedded quotes)."""
+    return "'" + value.replace("'", "''") + "'"
+
 
 def upgrade() -> None:
-    # Least-privilege application role (used in production; NOLOGIN by default).
+    pw_literal = _sql_str_literal(_APP_DB_PASSWORD)
+
+    # Least-privilege application LOGIN role (subject to RLS: NOT a superuser).
+    # Create-or-update so the password is set even if the role already exists.
     op.execute(
-        """
+        f"""
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
-                CREATE ROLE app_user;
+                CREATE ROLE app_user LOGIN PASSWORD {pw_literal};
+            ELSE
+                ALTER ROLE app_user LOGIN PASSWORD {pw_literal};
             END IF;
         END
         $$;
@@ -62,7 +94,7 @@ def upgrade() -> None:
 
     for table in _PROTECTED_TABLES:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;")
-        # FORCE so the owner role is also subject to the policy (see docstring).
+        # FORCE is harmless for a non-owner; kept for owner-safety (see docstring).
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;")
         op.execute(
             f"""
@@ -71,10 +103,6 @@ def upgrade() -> None:
                 USING ({_POLICY_USING})
                 WITH CHECK ({_POLICY_USING});
             """
-        )
-        # Grant CRUD to app_user so the production role can operate under RLS.
-        op.execute(
-            f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO app_user;"
         )
 
     # Admin aggregate view — no user_id, no PII, no financial figures (§2F).
@@ -99,16 +127,50 @@ def upgrade() -> None:
         """
     )
 
+    # ------------------------------------------------------------------ #
+    # Grant app_user everything the app pool needs across the whole schema.
+    # Without these, the 18 auth tests that run through the app pool would
+    # fail with permission-denied (app_user is not the owner).
+    # ------------------------------------------------------------------ #
+    op.execute("GRANT USAGE ON SCHEMA public TO app_user;")
+    op.execute(
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;"
+    )
+    op.execute("GRANT SELECT ON admin_stats_view TO app_user;")
+    op.execute(
+        "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;"
+    )
+    # Default privileges so tables/sequences created by FUTURE migrations (run as
+    # finai) are automatically usable by app_user without another grant pass.
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;"
+    )
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+        "GRANT USAGE, SELECT ON SEQUENCES TO app_user;"
+    )
+
 
 def downgrade() -> None:
+    # Undo default privileges first (must mirror the GRANTs above).
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+        "REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM app_user;"
+    )
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+        "REVOKE USAGE, SELECT ON SEQUENCES FROM app_user;"
+    )
+    op.execute("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM app_user;")
+    op.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_user;")
+
     op.execute("DROP VIEW IF EXISTS admin_stats_view;")
+
     for table in _PROTECTED_TABLES:
         op.execute(f"DROP POLICY IF EXISTS {table}_isolation ON {table};")
         op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY;")
         op.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY;")
-    # Revoke grants before dropping the role.
-    for table in _PROTECTED_TABLES:
-        op.execute(
-            f"REVOKE ALL ON {table} FROM app_user;"
-        )
+
+    op.execute("REVOKE USAGE ON SCHEMA public FROM app_user;")
     op.execute("DROP ROLE IF EXISTS app_user;")

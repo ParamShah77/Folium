@@ -5,18 +5,29 @@ Provisions an isolated test environment against the local compose stack:
   * A dedicated ``finai_test`` database on the compose Postgres. It is created
     (if missing) and migrated to head via Alembic once per session. Migrations
     run through psycopg2 DIRECTLY against Postgres (see env.py), so point
-    ``TEST_DATABASE_URL`` at Postgres directly (default host port 5432).
+    ``TEST_DATABASE_URL`` at Postgres directly (default host port 5433).
   * A dedicated Redis DB index (default 15) that is flushed before each test so
     blacklist / token / csrf keys never leak between tests.
-  * A per-test ``clean_db`` fixture that TRUNCATEs the mutable tables so each
+  * A per-test ``clean_state`` fixture that TRUNCATEs the mutable tables so each
     test starts from an empty schema without re-running migrations.
   * An ``httpx.AsyncClient`` bound to the ASGI app via lifespan, with the app's
     pool/redis pointed at the test datastores. Rate limiting is disabled by
     default (RATE_LIMIT_ENABLED=false) and re-enabled only by the rate-limit test.
 
-Environment overrides (all optional; sensible localhost defaults):
-    TEST_DATABASE_URL   postgresql://finai:finai@localhost:5432/finai_test
-    TEST_REDIS_URL      redis://localhost:6379/15
+TWO DB ROLES — this is a SECURITY requirement, not a convenience:
+  * ``finai`` (POSTGRES_USER == SUPERUSER) is used for admin work that must
+    bypass RLS: creating ``finai_test``, running the Alembic migrations, the
+    per-test TRUNCATE, and the direct ``db_conn`` assertion/seed fixture.
+  * ``app_user`` (a NON-superuser LOGIN role created by migration 0007) is what
+    the APP POOL connects as — the pool's ``rls_transaction`` only enforces the
+    §2E policies because app_user is subject to RLS. A superuser would silently
+    bypass every policy, so the app (and the RLS test path) must NOT use finai.
+
+Environment overrides (all optional; sensible localhost:5433 defaults):
+    TEST_DATABASE_URL       postgresql://finai:finai@localhost:5433/finai_test
+    TEST_APP_DATABASE_URL   postgresql://app_user:app_user@localhost:5433/finai_test
+    TEST_ADMIN_DATABASE_URL postgresql://finai:finai@localhost:5433/postgres
+    TEST_REDIS_URL          redis://localhost:6379/15
 
 Requires the compose stack up (postgres + redis) and dev keys present in .env
 (scripts/generate_dev_keys.py). If keys are absent, a throwaway RSA + Fernet key
@@ -35,9 +46,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 # --------------------------------------------------------------------------- #
 # Environment setup — MUST run before backend.config is imported.
 # --------------------------------------------------------------------------- #
-_ADMIN_DEFAULT = "postgresql://finai:finai@localhost:5432/postgres"
+# finai (superuser/owner) — admin work: create DB, migrate, TRUNCATE, direct asserts.
+_ADMIN_DEFAULT = "postgresql://finai:finai@localhost:5433/postgres"
 _TEST_DB_URL = os.getenv(
-    "TEST_DATABASE_URL", "postgresql://finai:finai@localhost:5432/finai_test"
+    "TEST_DATABASE_URL", "postgresql://finai:finai@localhost:5433/finai_test"
+)
+# app_user (NON-superuser) — the app POOL, so RLS actually binds (§2E, migration 0007).
+_TEST_APP_DB_URL = os.getenv(
+    "TEST_APP_DATABASE_URL", "postgresql://app_user:app_user@localhost:5433/finai_test"
 )
 _TEST_REDIS_URL = os.getenv("TEST_REDIS_URL", "redis://localhost:6379/15")
 
@@ -79,7 +95,8 @@ def _ensure_keys() -> None:
 
 
 os.environ["ENV"] = "development"
-os.environ["DATABASE_URL"] = _TEST_DB_URL
+# The APP POOL connects as app_user so RLS binds (the whole point of the fix).
+os.environ["DATABASE_URL"] = _TEST_APP_DB_URL
 os.environ["REDIS_URL"] = _TEST_REDIS_URL
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("RESEND_API_KEY", "")  # force dev email fallback
@@ -218,7 +235,11 @@ async def redis_conn():
 
 @pytest_asyncio.fixture
 async def db_conn():
-    """Direct asyncpg handle to the test DB (assertions / seeding)."""
+    """Direct asyncpg handle as ``finai`` (superuser) — assertions / seeding.
+
+    Deliberately NOT app_user: this fixture must bypass RLS so tests can seed
+    rows for arbitrary users and assert across the whole table.
+    """
     import asyncpg
 
     conn = await asyncpg.connect(_TEST_DB_URL, statement_cache_size=0)

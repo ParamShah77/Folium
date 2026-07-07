@@ -35,17 +35,34 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Resolve the sync (psycopg2) URL. An explicit ALEMBIC_DATABASE_URL wins so the
-# test harness / CI can point migrations at a scratch database.
+# Resolve the sync (psycopg2) URL.
+#
+# Migrations MUST connect as the owner/superuser `finai` DIRECT to Postgres
+# (not through PgBouncer, not as app_user): they CREATE ROLE, ENABLE RLS, etc.
+# The app's DATABASE_URL now points at app_user-through-PgBouncer, so we do NOT
+# fall back to it — that would run DDL through the transaction pooler as a role
+# without the required privileges. Instead we REQUIRE ALEMBIC_DATABASE_URL to be
+# set explicitly (scripts/dev-env.ps1 / SETUP.md do this), and only fall back to
+# Settings.sync_database_url() when it is clearly a `finai` direct URL.
 _settings = get_settings()
-_url = os.getenv("ALEMBIC_DATABASE_URL")
-if _url:
-    if _url.startswith("postgresql://"):
-        _url = "postgresql+psycopg2://" + _url[len("postgresql://") :]
-    elif _url.startswith("postgres://"):
-        _url = "postgresql+psycopg2://" + _url[len("postgres://") :]
-else:
-    _url = _settings.sync_database_url()
+_raw = os.getenv("ALEMBIC_DATABASE_URL")
+if not _raw:
+    _candidate = _settings.sync_database_url()
+    if "app_user" in _candidate or ":6432/" in _candidate:
+        raise RuntimeError(
+            "ALEMBIC_DATABASE_URL is not set and DATABASE_URL points at "
+            "app_user/PgBouncer. Migrations must run as `finai` DIRECT to "
+            "Postgres. Set ALEMBIC_DATABASE_URL, e.g.\n"
+            "  postgresql://finai:finai@localhost:5433/finai\n"
+            "(scripts/dev-env.ps1 sets this for you)."
+        )
+    _raw = _candidate
+
+_url = _raw
+if _url.startswith("postgresql://"):
+    _url = "postgresql+psycopg2://" + _url[len("postgresql://") :]
+elif _url.startswith("postgres://"):
+    _url = "postgresql+psycopg2://" + _url[len("postgres://") :]
 
 config.set_main_option("sqlalchemy.url", _url)
 

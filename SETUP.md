@@ -19,6 +19,27 @@ Run every command from the repository root:
 > - **The backend** is a FastAPI (Python) web server. In Milestone 1 it exposes the
 >   authentication API (`/v1/auth/*`) and a `/health` check.
 
+> **Two database roles — this is a SECURITY design, not a detail.**
+> The database has two login roles and they are used on purpose:
+> - **`finai`** is the PostgreSQL **superuser** (it owns everything). It is used for
+>   *admin* work: creating databases, **running migrations**, and the test suite's
+>   direct setup/cleanup. Superusers can do anything — including **bypassing**
+>   Row-Level Security (RLS).
+> - **`app_user`** is a **non-superuser** login role created by migration `0007`. The
+>   **running app** connects as `app_user` (through PgBouncer). This is *required*:
+>   RLS — the per-user data isolation that stops one user reading another's rows — is
+>   **silently bypassed by superusers**. So the app must NOT connect as `finai`, or
+>   the isolation guarantee would not actually hold. Its password is `app_user` for
+>   local dev (set by `APP_DB_PASSWORD`).
+>
+> One-line takeaway: **migrations run as `finai`; the app runs as `app_user`.**
+
+> **Ports on this machine.** The Docker Postgres is published on host port **5433**
+> (not the usual 5432) so it can coexist with any locally-installed PostgreSQL that
+> already uses 5432. PgBouncer is on **6432**, Redis on **6379**. Inside Docker the
+> containers still talk to Postgres on 5432 — only *host-side* tools (Alembic run
+> from your machine, pytest) use 5433.
+
 Two Python interpreters are involved. That's normal:
 - **Host Python 3.13** (on your machine) — used to generate keys and, if you like,
   to run migrations and tests directly. A dedicated virtualenv lives at
@@ -45,13 +66,31 @@ with `Successfully installed fastapi-... uvicorn-... asyncpg-...`. **If it fails
 make sure Python 3.13 is installed (`py -3.13 --version`); if `py` is missing, use
 `python -m venv backend\.venv` with a Python 3.11–3.13 on PATH.
 
-> Throughout this guide, `PY` means `backend\.venv\Scripts\python.exe`. You can set a
-> shortcut for the session: `$PY = "backend\.venv\Scripts\python.exe"` and then call
-> `& $PY ...`.
+---
+
+## Step 1 — Load the dev environment variables (do this in every new shell)
+
+The project ships a helper that sets `$PY` (the venv Python) and the database URLs
+that Alembic and the tests use. **Dot-source** it (note the leading `. ` — a dot,
+then a space) so the variables land in your *current* shell:
+
+```powershell
+. .\scripts\dev-env.ps1
+```
+
+**What/why:** exports `ALEMBIC_DATABASE_URL`, `TEST_DATABASE_URL`,
+`TEST_APP_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`, and `APP_DB_PASSWORD` (all
+pointing at the Docker Postgres on host port **5433**), and sets `$PY`. **Success:**
+it prints "Dev env loaded:" and the URLs. **If it fails** with "running scripts is
+disabled," allow local scripts for this session:
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` and re-run.
+
+> Re-run this dot-source **every time you open a new PowerShell window** — env vars
+> don't persist across shells. Everywhere below, `$PY` means the venv Python it set.
 
 ---
 
-## Step 1 — Verify Docker Desktop is installed and running
+## Step 2 — Verify Docker Desktop is installed and running
 
 ```powershell
 docker --version
@@ -60,255 +99,216 @@ docker compose version
 
 **What/why:** confirms Docker (the container engine) and Docker Compose (the tool
 that starts several containers together from `docker-compose.yml`) are available.
-**Success:** you see two version lines, e.g. `Docker version 29.x` and
+**Success:** two version lines, e.g. `Docker version 29.x` and
 `Docker Compose version v2.x`. **If it fails:** install **Docker Desktop for
-Windows**, launch it, and wait until the whale icon in the system tray says
-"Docker Desktop is running." Docker commands fail with a pipe/connection error
-when the Desktop app isn't running — start it first.
+Windows**, launch it, and wait until the tray icon says "Docker Desktop is running."
 
 ---
 
-## Step 2 — Generate local dev keys and create your `.env`
+## Step 3 — Generate local dev keys and create your `.env`
 
 The backend needs three secrets: an RSA key **pair** to sign/verify JWT login
 tokens, and a **Fernet** key to encrypt sensitive data at rest. This script creates
 them and writes them into a `.env` file (seeded from `.env.example`).
 
 ```powershell
-backend\.venv\Scripts\python.exe scripts\generate_dev_keys.py
+& $PY scripts\generate_dev_keys.py
 ```
 
 **What/why:** produces `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, and `FERNET_KEY` and
-saves them to `.env`. `.env` is **gitignored** — it holds secrets and must never be
-committed. **Success:** prints `wrote JWT_PRIVATE_KEY`, `wrote JWT_PUBLIC_KEY`,
-`wrote FERNET_KEY`, then `.env updated`. A `.env` file now exists in the repo root.
-**If it fails:** if it says keys already exist, that's fine — they're kept. To
-rotate them, run with `--force` (this invalidates any existing logins).
+saves them to `.env`. `.env` is **gitignored** — never commit it. **Success:** prints
+`wrote JWT_PRIVATE_KEY` etc., then `.env updated`. **If it fails** saying keys already
+exist, that's fine — they're kept (use `--force` to rotate, which logs everyone out).
 
-> Open `.env` and skim it. For local dev the defaults are ready to go. Note:
-> `RESEND_API_KEY` is intentionally blank — in development the app **prints**
-> verification/reset emails to its log instead of sending them (Amendment 6), so you
-> can test the flow with no email account.
+> Open `.env` and skim it. The `DATABASE_URL` there points at **app_user** through
+> PgBouncer (`postgresql://app_user:app_user@localhost:6432/finai`) — that's the app's
+> connection and it's correct. `RESEND_API_KEY` is intentionally blank: in development
+> the app **prints** verification/reset emails to its log instead of sending them
+> (Amendment 6), so you can test the flow with no email account.
 
 ---
 
-## Step 3 — Start the infrastructure (PostgreSQL, Redis, PgBouncer)
+## Step 4 — Start the infrastructure (PostgreSQL, Redis, PgBouncer)
 
 ```powershell
 docker compose up -d postgres redis pgbouncer
-```
-
-**What/why:** `up` creates and starts the three containers; `-d` ("detached") runs
-them in the background so your terminal is free. The first run **downloads** the
-images (postgres, redis, pgbouncer) — this can take a minute or two. Later runs are
-instant. **Success:** you see lines ending in `Started` / `Healthy` for the
-containers.
-
-Now check their status:
-
-```powershell
 docker compose ps
 ```
 
-**What/why:** lists the running containers and their health. **Success:** you should
-see `postgres` and `redis` with **STATUS** `Up ... (healthy)`, and `pgbouncer` as
-`Up`. "healthy" means the container passed its built-in health check (for Postgres,
-that the database is accepting connections). PgBouncer has no health check in this
-setup, so plain `Up` is expected and correct.
+**What/why:** `up -d` creates and starts the three containers in the background. The
+first run **downloads** the images (a minute or two); later runs are instant.
+**Success:** `docker compose ps` shows `postgres` and `redis` as `Up ... (healthy)`
+and `pgbouncer` as `Up`. ("healthy" = it passed its built-in check; PgBouncer has no
+check here, so plain `Up` is expected and correct.)
 
 **If it fails:**
-- *"port is already allocated" / "bind: address already in use"* — something else on
-  your machine is using port 5432 (Postgres), 6379 (Redis), or 6432 (PgBouncer).
-  Stop that program, or change the host port on the left side of the `ports:` mapping
-  in `docker-compose.yml` (e.g. `"5433:5432"`).
-- *Cannot connect to the Docker daemon* — Docker Desktop isn't running (see Step 1).
+- *"port is already allocated"* — something else uses 5433 / 6379 / 6432. Stop it, or
+  change the host port on the left of the `ports:` mapping in `docker-compose.yml`.
+- *Cannot connect to the Docker daemon* — Docker Desktop isn't running (Step 2).
 - Containers restart-looping — view logs: `docker compose logs postgres`.
 
-> **Ports recap:** on your machine, PostgreSQL is reachable at `localhost:5432`,
-> PgBouncer at `localhost:6432`, Redis at `localhost:6379`. The app (in Docker) talks
-> to Postgres *through* PgBouncer; migrations and tests talk to Postgres **directly**
-> on 5432 (explained next).
+> **Heads-up about PgBouncer:** it authenticates to Postgres as `app_user`, which
+> **doesn't exist until you run migrations** (Step 5). PgBouncer connects *lazily*
+> (only on the first query), so this is fine — just migrate before you hit the app.
 
 ---
 
-## Step 4 — Create the test database and run the migrations
+## Step 5 — Create the databases and run the migrations (as `finai`)
 
-Migrations are versioned scripts that **build the database tables**. Running them is
-how an empty PostgreSQL becomes the FinAI schema (users, refresh_tokens, decisions,
-audit_logs with its tamper-proof rules, portfolios, RLS policies, and more).
+Migrations **build the database tables** and create the `app_user` role. They run as
+the superuser `finai`, connecting **directly** to Postgres on **5433** (not through
+PgBouncer).
 
-> **Why "directly" on port 5432, not through PgBouncer (6432)?** PgBouncer pools
-> connections in "transaction mode," which doesn't support the session-level SQL that
-> creating roles and enabling row-level security need. So migrations use a direct
-> Postgres connection. The running app still uses PgBouncer — that's fine because the
-> app only runs normal queries.
+> **Why directly, as `finai`?** Migrations do superuser-only things — `CREATE ROLE`,
+> enabling Row-Level Security, granting privileges. PgBouncer's transaction pooling
+> can't run that kind of session-level SQL, and `app_user` lacks the privileges. So
+> migrations always go straight to Postgres as `finai`. (`ALEMBIC_DATABASE_URL`,
+> already set by Step 1, points there.)
 
-**4a. Create the two databases.** The compose file already created the main `finai`
-database. Create the `finai_test` database used by the test suite:
+**5a. Create the two databases** — the main `finai` was created by compose; add the
+test database:
 
 ```powershell
 docker compose exec postgres createdb -U finai finai_test
 ```
 
-**What/why:** runs the `createdb` tool *inside* the postgres container as user
-`finai`. **Success:** no output means success. **If it fails** with "already
-exists," that's fine — it's already there.
+**What/why:** runs `createdb` inside the postgres container as `finai`. **Success:**
+no output. **If it says "already exists,"** that's fine.
 
-**4b. Point Alembic at the database and upgrade to the latest version.** We set an
-environment variable so Alembic connects directly to Postgres on 5432, then run the
-upgrade.
-
-Apply the schema to the **main** `finai` database:
+**5b. Apply the schema to the main `finai` database:**
 
 ```powershell
-$env:ALEMBIC_DATABASE_URL = "postgresql://finai:finai@localhost:5432/finai"
-backend\.venv\Scripts\python.exe -m alembic -c backend\db\migrations\alembic.ini upgrade head
+& $PY -m alembic -c backend\db\migrations\alembic.ini upgrade head
 ```
 
-**What/why:** `upgrade head` runs every migration `0001` → `0007` in order, creating
-all tables, indexes, the append-only audit rules, the row-level-security policies,
-and the admin stats view. **Success:** the output ends with lines like
-`Running upgrade ... -> 0007_create_rls_policies`. Running it again is safe and just
-prints nothing new (you're already at head). **If it fails:**
-- *"could not connect" / "Connection refused"* — Postgres isn't up (redo Step 3) or
-  you changed its host port (update the URL above to match).
-- *"password authentication failed"* — the credentials in the URL must be
-  `finai:finai` (the compose defaults).
+**What/why:** runs migrations `0001` → `0007` in order — all tables, indexes, the
+append-only audit rules, the **`app_user` role**, the **RLS policies**, the grants
+`app_user` needs, and the admin view. **Success:** output ends with
+`Running upgrade ... -> 0007_create_rls_policies`. Re-running is safe (nothing to do
+if already at head). **If it fails:**
+- *"ALEMBIC_DATABASE_URL is not set..."* — you skipped Step 1; dot-source
+  `dev-env.ps1` and retry.
+- *"could not connect"* — Postgres isn't up (Step 4), or the host port isn't 5433.
+- *"password authentication failed"* — the URL must use `finai:finai`.
 
-> **What just happened, concretely:** you turned an empty database into ~13 tables
-> with constraints. `alembic downgrade base` would reverse it all cleanly (drops
-> everything). You normally never need that, but it's how migrations stay reversible.
-
-*(The test suite in Step 5 will create/upgrade `finai_test` automatically, so you do
-not have to run `upgrade head` against `finai_test` yourself. Applying it to `finai`
-above is what lets you inspect real tables in Step 6.)*
+*(You do **not** need to migrate `finai_test` yourself — the test suite in Step 6
+creates and migrates it automatically. Migrating `finai` above is what lets you
+inspect real tables in Step 7 and run the app.)*
 
 ---
 
-## Step 5 — Run the backend test suite
+## Step 6 — Run the backend test suite
 
 The tests exercise the whole auth surface against the **real** local Postgres and
 Redis: register → verify → login → refresh → logout, duplicate email, weak password,
-login-before-verification, CSRF, password reset, rate limiting, row-level security,
-and `/health`.
+login-before-verification, CSRF, password reset, rate limiting, **row-level
+security**, and `/health`. The RLS tests connect the app pool as `app_user`, so they
+prove the isolation guarantee actually holds.
 
 ```powershell
-backend\.venv\Scripts\python.exe -m pytest backend\tests -c backend\pytest.ini
+& $PY -m pytest backend\tests -c backend\pytest.ini
 ```
 
-**What/why:** runs pytest. The test setup automatically creates the `finai_test`
-database (if missing), migrates it, and uses Redis database index **15** (kept
-separate from the app's index 0) so tests never touch your real data. **Success:**
-the final line looks like `===== NN passed in X.XXs =====` with no failures. **If it
-fails:**
-- *"connection refused" to Postgres/Redis* — infra isn't up (Step 3).
-- *"database finai_test does not exist"* and it isn't auto-created — create it
-  manually as in Step 4a.
-- *A single rate-limit test flakes* — re-run; it depends on timing windows.
+**What/why:** the test setup creates `finai_test` (if missing), migrates it, and uses
+Redis database index **15** (separate from the app's index 0). The app pool inside the
+tests connects as `app_user` (`TEST_APP_DATABASE_URL`); the setup/cleanup uses `finai`
+(`TEST_DATABASE_URL`). **Success:** the final line is `===== 20 passed in X.XXs =====`.
+**If it fails:**
+- *connection refused* — infra isn't up (Step 4) or Step 1 wasn't dot-sourced.
+- *permission denied for table ...* — the `finai_test` DB was migrated with an OLD
+  `0007`. Re-migrate on a fresh volume (see the box below).
+- *the two RLS tests fail (user A sees another user's rows / unset GUC returns rows)*
+  — same cause: the app pool is connecting as a superuser. Confirm
+  `TEST_APP_DATABASE_URL` uses `app_user` (Step 1 sets it) and that `0007` ran.
 
-> The tests read the JWT/Fernet keys from your `.env`. If `.env` is missing they fall
-> back to throwaway keys for the test process, so tests still run — but you should
-> have done Step 2 anyway for the app itself.
+> **⚠ Upgrading from an earlier build? Re-migrate on a FRESH volume.**
+> Migration `0007` changed (it now makes `app_user` a real login role and grants it
+> schema access). If you already had the old schema, wipe the database volume and
+> rebuild so the new `0007` runs cleanly:
+> ```powershell
+> docker compose down -v
+> docker compose up -d postgres redis pgbouncer
+> . .\scripts\dev-env.ps1
+> docker compose exec postgres createdb -U finai finai_test
+> & $PY -m alembic -c backend\db\migrations\alembic.ini upgrade head
+> & $PY -m pytest backend\tests -c backend\pytest.ini
+> ```
+> After this, **all 20 tests pass.**
 
 ---
 
-## Step 6 — Look inside what you built
+## Step 7 — Look inside what you built
 
-Now *see* the database and cache you created.
-
-**6a. List the tables in PostgreSQL:**
+**7a. List the tables in PostgreSQL:**
 
 ```powershell
 docker compose exec postgres psql -U finai -d finai -c "\dt"
 ```
 
-**What/why:** opens `psql` (the Postgres command-line client) inside the container
-and runs `\dt` ("describe tables"). **Success:** a table listing including `users`,
-`refresh_tokens`, `decisions`, `audit_logs`, `portfolios`, `sip_registrations`,
-`kite_tokens`, `bias_profiles`, `market_cache`, `mfa_backup_codes`,
-`mfa_recovery_requests`, `profile_change_log`. (You'll only see rows if you ran the
-app or tests against `finai`.)
+**Success:** a listing including `users`, `refresh_tokens`, `decisions`,
+`audit_logs`, `portfolios`, `sip_registrations`, `kite_tokens`, `bias_profiles`,
+`market_cache`, `mfa_backup_codes`, `mfa_recovery_requests`, `profile_change_log`.
 
-Try a couple more, to build intuition:
+Confirm the `app_user` role and the admin view exist:
 
 ```powershell
-# See the columns of the users table:
-docker compose exec postgres psql -U finai -d finai -c "\d users"
-# Confirm the admin aggregate view exists:
+docker compose exec postgres psql -U finai -d finai -c "\du app_user"
 docker compose exec postgres psql -U finai -d finai -c "\dv"
 ```
 
-**6b. Confirm Redis is alive:**
+**7b. Confirm Redis is alive:**
 
 ```powershell
-docker compose exec redis redis-cli ping
+docker compose exec redis redis-cli ping        # -> PONG
+docker compose exec redis redis-cli KEYS "*"     # live keys after using the app
 ```
 
-**What/why:** sends a `PING` to Redis. **Success:** it replies `PONG`. To peek at
-live keys created by the app (e.g. after a registration), use:
-
-```powershell
-docker compose exec redis redis-cli KEYS "*"
-```
-
-You might see keys like `email_verify:<token>` (a pending verification),
-`blacklist:<jti>` (a revoked token), or `csrf:<user_id>`. **If it fails:** Redis
-isn't up — redo Step 3.
-
-> **Run the API yourself (optional):** with infra up and `.env` in place, start the
-> server and open the docs:
+> **Run the API yourself (optional):** with infra up, migrations done, and `.env` in
+> place, start the server and open the docs:
 > ```powershell
-> backend\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --port 8000
+> & $PY -m uvicorn backend.main:app --reload --port 8000
 > ```
 > Then visit `http://localhost:8000/health` (should return `{"status":"ok",...}`) and
-> the interactive API docs at `http://localhost:8000/api/v1/docs`.
+> the interactive docs at `http://localhost:8000/api/v1/docs`. This app connects as
+> `app_user` through PgBouncer — RLS is live.
 
 ---
 
-## Step 7 — Shut everything down
-
-When you're done for the day:
+## Step 8 — Shut everything down
 
 ```powershell
-docker compose down
+docker compose down        # stop & remove containers, KEEP data (volume survives)
+docker compose down -v     # the same PLUS delete the database data (clean slate)
 ```
 
-**What/why:** stops and removes the containers but **keeps your data** (Postgres
-stores it in a Docker "volume" that survives). Next time, `docker compose up -d
-postgres redis pgbouncer` brings everything back with your data intact.
-
-To wipe the data too (start completely fresh — you'll need to re-run migrations):
-
-```powershell
-docker compose down -v
-```
-
-**What/why:** the `-v` also deletes the named volumes, so the database is emptied.
-Use this if you want a clean slate. **Difference in one line:** `down` = pause &
-remove containers (data kept); `down -v` = the same **plus** delete the database
-data.
+Use `down -v` whenever `0007` (or any migration) changes and you want to re-migrate
+from scratch. After `down` (without `-v`), just `docker compose up -d ...` brings your
+data back.
 
 ---
 
 ## Quick reference (once you know the flow)
 
 ```powershell
+# every new shell
+. .\scripts\dev-env.ps1
+
 # start infra
 docker compose up -d postgres redis pgbouncer
 docker compose ps
 
-# migrate the main DB (one time, or after new migrations)
-$env:ALEMBIC_DATABASE_URL = "postgresql://finai:finai@localhost:5432/finai"
-backend\.venv\Scripts\python.exe -m alembic -c backend\db\migrations\alembic.ini upgrade head
+# create test DB + migrate the main DB (as finai, direct 5433)
+docker compose exec postgres createdb -U finai finai_test
+& $PY -m alembic -c backend\db\migrations\alembic.ini upgrade head
 
-# run tests
-backend\.venv\Scripts\python.exe -m pytest backend\tests -c backend\pytest.ini
+# run tests (20 total; RLS tests use app_user)
+& $PY -m pytest backend\tests -c backend\pytest.ini
 
 # inspect
 docker compose exec postgres psql -U finai -d finai -c "\dt"
 docker compose exec redis redis-cli ping
 
-# stop (keep data) / stop and wipe data
+# stop (keep data) / wipe data (re-migrate needed after)
 docker compose down
 docker compose down -v
 ```
@@ -321,4 +321,4 @@ docker compose down -v
   Cloud Console (for "Sign in with Google"). Put them in `.env` as
   `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
 - **Resend API key** (optional): only if you want *real* emails in dev. Without it,
-  emails are printed to the server log — which is enough to develop and test.
+  emails are printed to the server log — enough to develop and test.

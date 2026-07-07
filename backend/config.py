@@ -63,7 +63,14 @@ class Settings(BaseSettings):
     ENV: str = "development"
 
     # --- Datastores ---
-    DATABASE_URL: str = "postgresql://finai:finai@localhost:6432/finai"
+    # The running app connects as the NON-superuser role `app_user` THROUGH
+    # PgBouncer (6432) so Row-Level Security is actually enforced — a superuser
+    # would silently bypass every §2E policy. Migrations connect as `finai`
+    # DIRECT to Postgres (see sync_database_url + env.py).
+    DATABASE_URL: str = "postgresql://app_user:app_user@localhost:6432/finai"
+    # Password for the app_user login role; consumed by migration 0007 (via the
+    # APP_DB_PASSWORD env var) and must match the credentials in DATABASE_URL.
+    APP_DB_PASSWORD: str = "app_user"
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # --- JWT (RS256) ---
