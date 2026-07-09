@@ -1,6 +1,6 @@
-# FinAI Backend — Local Setup (Milestone 1)
+# FinAI Backend — Local Setup (Milestones 1+2)
 
-This is a **step-by-step runbook** for bringing up the Milestone 1 backend on your
+This is a **step-by-step runbook** for bringing up the backend (Milestones 1+2) on your
 own machine (Windows 11 + PowerShell). It assumes you have **never used Docker,
 PostgreSQL, Redis, or Alembic before**, so each step explains *what* the command
 does, *why*, what a *successful* result looks like, and *what to do if it fails*.
@@ -16,8 +16,9 @@ Run every command from the repository root:
 >   PostgreSQL).
 > - **Alembic** is a "migration" tool: it runs versioned SQL scripts that build the
 >   database tables. You run it once to create the schema.
-> - **The backend** is a FastAPI (Python) web server. In Milestone 1 it exposes the
->   authentication API (`/v1/auth/*`) and a `/health` check.
+> - **The backend** is a FastAPI (Python) web server. It exposes the authentication
+>   API (`/v1/auth/*` — email/password, TOTP MFA, Google OAuth), profile management
+>   (`/v1/users/me/*`), the admin MFA reset (`/v1/admin/*`), and a `/health` check.
 
 > **Two database roles — this is a SECURITY design, not a detail.**
 > The database has two login roles and they are used on purpose:
@@ -202,8 +203,22 @@ inspect real tables in Step 7 and run the app.)*
 The tests exercise the whole auth surface against the **real** local Postgres and
 Redis: register → verify → login → refresh → logout, duplicate email, weak password,
 login-before-verification, CSRF, password reset, rate limiting, **row-level
-security**, and `/health`. The RLS tests connect the app pool as `app_user`, so they
+security**, `/health` — and the Milestone 2 features: the full **TOTP MFA**
+lifecycle (setup → QR secret → backup codes → two-step login → disable), MFA
+recovery + the admin reset, **Google OAuth** (all four §1F cases with a mocked
+Google exchange — no test ever contacts Google, even with real credentials in
+`.env`), and the **sensitive-profile** re-verification flows (password / TOTP /
+email-change OTP). The RLS tests connect the app pool as `app_user`, so they
 prove the isolation guarantee actually holds.
+
+If you haven't since Milestone 2 landed, install the two new dependencies first
+(`pyotp` for TOTP, `Authlib` for OAuth):
+
+```powershell
+& $PY -m pip install -r backend\requirements.txt
+```
+
+Then run the suite:
 
 ```powershell
 & $PY -m pytest backend\tests -c backend\pytest.ini
@@ -212,7 +227,7 @@ prove the isolation guarantee actually holds.
 **What/why:** the test setup creates `finai_test` (if missing), migrates it, and uses
 Redis database index **15** (separate from the app's index 0). The app pool inside the
 tests connects as `app_user` (`TEST_APP_DATABASE_URL`); the setup/cleanup uses `finai`
-(`TEST_DATABASE_URL`). **Success:** the final line is `===== 20 passed in X.XXs =====`.
+(`TEST_DATABASE_URL`). **Success:** the final line is `===== 43 passed in X.XXs =====`.
 **If it fails:**
 - *connection refused* — infra isn't up (Step 4) or Step 1 wasn't dot-sourced.
 - *permission denied for table ...* — the `finai_test` DB was migrated with an OLD
@@ -233,7 +248,9 @@ tests connects as `app_user` (`TEST_APP_DATABASE_URL`); the setup/cleanup uses `
 > & $PY -m alembic -c backend\db\migrations\alembic.ini upgrade head
 > & $PY -m pytest backend\tests -c backend\pytest.ini
 > ```
-> After this, **all 20 tests pass.**
+> After this, **all 43 tests pass.** (Milestone 2 added no new migrations — the
+> MFA/OAuth/profile tables were already in 0001–0007, so no re-migrate is needed
+> when coming from a working Milestone 1 schema.)
 
 ---
 
@@ -301,7 +318,7 @@ docker compose ps
 docker compose exec postgres createdb -U finai finai_test
 & $PY -m alembic -c backend\db\migrations\alembic.ini upgrade head
 
-# run tests (20 total; RLS tests use app_user)
+# run tests (43 total; RLS tests use app_user, OAuth tests mock Google)
 & $PY -m pytest backend\tests -c backend\pytest.ini
 
 # inspect
@@ -315,10 +332,35 @@ docker compose down -v
 
 ---
 
-## Milestone 2 will need from you
+## Google OAuth — Cloud Console setup (for live "Sign in with Google")
 
-- **Google OAuth** credentials: a **Client ID** and **Client Secret** from the Google
-  Cloud Console (for "Sign in with Google"). Put them in `.env` as
-  `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
-- **Resend API key** (optional): only if you want *real* emails in dev. Without it,
-  emails are printed to the server log — enough to develop and test.
+The test suite never contacts Google (the exchange is mocked), but to try the
+real flow in a browser you need an OAuth client:
+
+1. Go to **console.cloud.google.com** → create (or pick) a project.
+2. **APIs & Services → OAuth consent screen**: choose **External**, fill in the
+   app name + your email, add yourself under **Test users** (while the app is in
+   "Testing" mode only listed test users can log in). Scopes: the defaults —
+   `openid`, `email`, `profile` — are all this app requests.
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
+   - Application type: **Web application**
+   - Authorized redirect URI (must match EXACTLY):
+     `http://localhost:8000/v1/auth/google/callback`
+   (No "authorized JavaScript origins" needed for this server-side flow.)
+4. Copy the **Client ID** and **Client Secret** into `.env` as
+   `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`. Leave
+   `GOOGLE_OAUTH_REDIRECT_URI` empty in local dev — the backend derives the
+   `localhost:8000` callback automatically. (Set it explicitly at deploy time
+   when the public URL differs.)
+5. Try it: start the API (`& $PY -m uvicorn backend.main:app --reload --port 8000`),
+   open `http://localhost:8000/v1/auth/google/login` in a browser, pick your
+   Google account, and you should land back on the callback with a JSON body
+   containing your new `user` (cookies are set — `GET /v1/auth/me` now works).
+   While the credentials are empty, the endpoint returns
+   503 "Google login not configured" by design.
+
+## Still optional
+
+- **Resend API key**: only if you want *real* emails in dev. Without it, emails
+  (verification links, password resets, email-change OTPs, MFA notices) are
+  printed to the server log — enough to develop and test.
