@@ -100,6 +100,14 @@ os.environ["DATABASE_URL"] = _TEST_APP_DB_URL
 os.environ["REDIS_URL"] = _TEST_REDIS_URL
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("RESEND_API_KEY", "")  # force dev email fallback
+# Force OAuth UNCONFIGURED for the suite regardless of any REAL credentials in
+# .env (pydantic-settings would otherwise read them). Env vars take precedence
+# over the dotenv file, so empty strings here guarantee: (a) the unconfigured
+# 503 test is deterministic, and (b) no test can ever hit Google — the OAuth
+# tests set their own fake ids via monkeypatch and mock the exchange function.
+os.environ["GOOGLE_OAUTH_CLIENT_ID"] = ""
+os.environ["GOOGLE_OAUTH_CLIENT_SECRET"] = ""
+os.environ["GOOGLE_OAUTH_REDIRECT_URI"] = ""
 _ensure_keys()
 
 

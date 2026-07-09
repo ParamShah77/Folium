@@ -60,3 +60,66 @@ async def login_user(
     return await client.post(
         "/v1/auth/login", json={"email": email, "password": password}
     )
+
+
+# --------------------------------------------------------------------------- #
+# MFA helpers (Milestone 2)
+# --------------------------------------------------------------------------- #
+def totp_now(secret: str) -> str:
+    import pyotp
+
+    return pyotp.TOTP(secret).now()
+
+
+def wrong_totp(secret: str) -> str:
+    """A 6-digit code guaranteed NOT to verify within the ±1 window."""
+    import time
+
+    import pyotp
+
+    totp = pyotp.TOTP(secret)
+    now = time.time()
+    valid = {totp.at(now - 30), totp.at(now), totp.at(now + 30)}
+    for candidate in ("000000", "123456", "999999", "111111", "222222"):
+        if candidate not in valid:
+            return candidate
+    raise AssertionError("could not find an invalid TOTP candidate")
+
+
+async def enable_mfa(client: httpx.AsyncClient) -> tuple[str, list[str]]:
+    """Run setup -> verify-setup for the logged-in client.
+
+    Returns (totp_secret, backup_codes). Requires an authenticated session
+    (login already done) — both endpoints are CSRF-protected.
+    """
+    setup = await client.post("/v1/auth/mfa/setup", headers=csrf_header(client))
+    assert setup.status_code == 200, setup.text
+    secret = setup.json()["secret"]
+    assert setup.json()["qr_code_url"].startswith("otpauth://")
+
+    verify = await client.post(
+        "/v1/auth/mfa/verify-setup",
+        json={"totp_code": totp_now(secret)},
+        headers=csrf_header(client),
+    )
+    assert verify.status_code == 200, verify.text
+    codes = verify.json()["backup_codes"]
+    assert len(codes) == 8
+    return secret, codes
+
+
+async def login_with_mfa(
+    client: httpx.AsyncClient, email: str, secret: str,
+    password: str = STRONG_PASSWORD,
+) -> httpx.Response:
+    """Full two-step login for an MFA-enabled account."""
+    first = await client.post(
+        "/v1/auth/login", json={"email": email, "password": password}
+    )
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body.get("mfa_required") is True, body
+    return await client.post(
+        "/v1/auth/login/mfa",
+        json={"temp_token": body["temp_token"], "totp_code": totp_now(secret)},
+    )
