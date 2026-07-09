@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     # --- Google OAuth (Milestone 2) ---
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_CLIENT_SECRET: str = ""
+    # Callback URL registered in the Google Cloud Console. Empty = derived from
+    # the incoming request ({base_url}/v1/auth/google/callback) — fine in dev.
+    GOOGLE_OAUTH_REDIRECT_URI: str = ""
 
     # --- Sentry (empty = disabled) ---
     SENTRY_DSN: str = ""

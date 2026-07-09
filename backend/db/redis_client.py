@@ -92,6 +92,14 @@ class RedisService:
     async def set_with_ttl(self, key: str, value: str, ttl_seconds: int) -> None:
         await self._client.set(key, value, ex=int(ttl_seconds))
 
+    async def set_if_absent(self, key: str, value: str, ttl_seconds: int) -> bool:
+        """SET NX with TTL. Returns True if the key was set (i.e. was absent).
+
+        Used for single-use cooldowns like ``mfa_recovery:{email}`` (§1E: one
+        request per email per 24 hours).
+        """
+        return bool(await self._client.set(key, value, ex=int(ttl_seconds), nx=True))
+
     async def get(self, key: str) -> Optional[str]:
         return await self._client.get(key)
 

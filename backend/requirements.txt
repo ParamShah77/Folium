@@ -1,4 +1,4 @@
-# FinAI backend — Milestone 1 dependencies.
+# FinAI backend — Milestone 1+2 dependencies.
 # Pinned to versions supporting BOTH host Python 3.13 and container Python 3.11.
 # Do NOT edit the repo-root requirements.txt (that holds the prototype pins).
 
@@ -25,6 +25,8 @@ PyJWT==2.10.1                      # RS256 sign/verify (preferred over python-jo
 cryptography==44.0.0               # RSA key handling + Fernet
 bcrypt==4.2.1                      # password hashing (cost 12)
 zxcvbn==4.4.28                     # password strength scoring
+pyotp==2.9.0                       # TOTP MFA (M2, §1D)
+Authlib==1.4.0                     # Google OAuth2 flow (M2, §1F)
 
 # --- Middleware / observability ---
 slowapi==0.1.9                     # rate limiting (Redis-backed via limits)

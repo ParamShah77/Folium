@@ -48,8 +48,34 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
-    # TODO(M2): totp_code required here when the user has mfa_enabled=true (§1G).
+    # Required (and verified) when the user has mfa_enabled=true (§1G).
     totp_code: Optional[str] = None
+
+
+# --- MFA (§1C/§1D/§1E) ---
+
+class MfaLoginRequest(BaseModel):
+    temp_token: str
+    # A 6-digit TOTP code OR an 8-char backup code (XXXX-XXXX accepted).
+    totp_code: str
+
+
+class MfaVerifySetupRequest(BaseModel):
+    totp_code: str
+
+
+class MfaDisableRequest(BaseModel):
+    password: str
+    totp_code: str
+
+
+class MfaRecoveryRequestInput(BaseModel):
+    email: EmailStr
+    message: str = Field(..., min_length=1, max_length=2000)
+
+
+class AdminMfaResetRequest(BaseModel):
+    admin_totp_code: str
 
 
 class MeResponse(BaseModel):

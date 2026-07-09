@@ -23,11 +23,12 @@ _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 _EXEMPT_SUFFIXES = (
     "/auth/register",
     "/auth/login",
-    "/auth/login/mfa",  # TODO(M2): MFA second step — still pre-session
+    "/auth/login/mfa",             # MFA second step — temp_token, still pre-session
     "/auth/verify-email",
     "/auth/forgot-password",
     "/auth/reset-password",
     "/auth/refresh",
+    "/auth/mfa-recovery-request",  # §1E — user is locked out, no session exists
 )
 
 

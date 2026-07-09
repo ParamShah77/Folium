@@ -1,12 +1,17 @@
-"""/v1/auth/* endpoints (Milestone 1 — non-MFA, non-OAuth branches).
+"""/v1/auth/* endpoints (Milestones 1+2).
 
-Implements §1B/1C/1G/1H exactly (status codes, messages, Redis keys, cookie
-flags). MFA (§1D/1E) and Google OAuth (§1F) are Milestone 2 and are left as
-clean ``TODO(M2)`` seams — login only handles the ``mfa_enabled=false`` branch.
+Implements §1B/1C/1D/1E/1F/1G/1H exactly (status codes, messages, Redis keys,
+cookie flags): email/password auth, TOTP MFA (setup / verify-setup / disable /
+login second step with backup codes), MFA recovery requests, and Google OAuth
+(cases A–D with the MFA interaction).
 
 Redis keys (§2B):
-    email_verify:{token}  TTL 86400
-    pw_reset:{token}      TTL 900
+    email_verify:{token}   TTL 86400
+    pw_reset:{token}       TTL 900
+    mfa_temp:{token}       TTL 300   (login -> TOTP step)
+    mfa_setup:{user_id}    TTL 600   (setup -> verify-setup)
+    mfa_recovery:{email}   TTL 86400 (1-per-24h recovery cooldown)
+    oauth_state:{state}    TTL 600   (OAuth CSRF state, single-use)
 Blacklisting (Amendment 10): logout and refresh rotation blacklist BOTH the
 refresh jti and the current access jti.
 
@@ -15,8 +20,11 @@ With PEP 563 string annotations, FastAPI cannot resolve the body-parameter type
 through slowapi's ``@limiter.limit`` wrapper and misclassifies the Pydantic body
 as a query parameter. Keeping real (evaluated) annotations avoids that.
 """
+import secrets
+
 import structlog
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 
 from ..config import get_settings
 from ..db import Database, RedisService
@@ -33,11 +41,17 @@ from ..schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     MeResponse,
+    MfaDisableRequest,
+    MfaLoginRequest,
+    MfaRecoveryRequestInput,
+    MfaVerifySetupRequest,
     RegisterRequest,
     ResetPasswordRequest,
 )
 from ..services.email_service import EmailService
+from ..services.profile_log import log_profile_change
 from ..state import get_db, get_redis_service
+from . import mfa_handler, oauth_handler
 from .cookies import clear_auth_cookies, set_auth_cookies
 from .csrf import issue_csrf_token, revoke_csrf_token
 from .dependencies import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, get_current_user
@@ -59,8 +73,11 @@ from .password import (
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
-_EMAIL_VERIFY_TTL = 86400  # 24h (§1B / §2B)
-_PW_RESET_TTL = 900        # 15m (§1G / §2B)
+_EMAIL_VERIFY_TTL = 86400   # 24h (§1B / §2B)
+_PW_RESET_TTL = 900         # 15m (§1G / §2B)
+_MFA_TEMP_TTL = 300         # 5m  (§1C / §2B)
+_MFA_SETUP_TTL = 600        # 10m (§1D / §2B)
+_MFA_RECOVERY_TTL = 86400   # 24h cooldown (§1E / §2B)
 
 _email_service = EmailService()
 
@@ -194,7 +211,7 @@ async def verify_email(
 
 
 # --------------------------------------------------------------------------- #
-# Login (non-MFA branch only — Milestone 1)
+# Login (§1C — MFA users get a temp token; see /login/mfa below)
 # --------------------------------------------------------------------------- #
 @router.post("/login")
 @limiter.limit(LOGIN_LIMIT)
@@ -225,16 +242,80 @@ async def login(
             message="Please verify your email before logging in.",
         )
 
-    # TODO(M2): if record["mfa_enabled"] -> issue mfa_temp token + return
-    #           {mfa_required: true, temp_token}. Milestone 1 handles only the
-    #           mfa_enabled=false branch.
-
     await db.execute("UPDATE users SET last_login_at = NOW() WHERE user_id = $1", record["user_id"])
+
+    if record["mfa_enabled"]:
+        # §1C: hand back a short-lived temp token; the session is only issued
+        # after the TOTP (or backup-code) step at POST /login/mfa.
+        temp_token = secrets.token_hex(16)  # 32-char random hex (§1C)
+        await redis.set_with_ttl(
+            f"mfa_temp:{temp_token}", str(record["user_id"]), _MFA_TEMP_TTL
+        )
+        logger.info("login_mfa_required", user_id=str(record["user_id"]))
+        return {"mfa_required": True, "temp_token": temp_token}
+
     await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
 
     user = User.from_record(record)
     logger.info("user_login", user_id=str(user.user_id))
     return {"user": user.public_dict()}
+
+
+# --------------------------------------------------------------------------- #
+# Login — MFA second step (§1C)
+# --------------------------------------------------------------------------- #
+@router.post("/login/mfa")
+@limiter.limit(LOGIN_LIMIT)
+async def login_mfa(
+    request: Request,
+    response: Response,
+    payload: MfaLoginRequest,
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    key = f"mfa_temp:{payload.temp_token}"
+    user_id = await redis.get(key)
+    if not user_id:
+        raise AppError(
+            status_code=401,
+            error="MFA_SESSION_EXPIRED",
+            message="Session expired. Please log in again.",
+        )
+
+    record = await db.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
+    if record is None or not record["mfa_enabled"] or record["deleted_at"] is not None:
+        await redis.delete(key)
+        raise AppError(
+            status_code=401,
+            error="MFA_SESSION_EXPIRED",
+            message="Session expired. Please log in again.",
+        )
+
+    warning = None
+    if mfa_handler.verify_user_totp(record["mfa_secret_enc"], payload.totp_code):
+        pass  # TOTP accepted
+    else:
+        # §1C step 5: also accept single-use backup codes.
+        remaining = await mfa_handler.try_consume_backup_code(
+            db, str(record["user_id"]), payload.totp_code
+        )
+        if remaining is None:
+            raise AppError(
+                status_code=401,
+                error="INVALID_MFA_CODE",
+                message="Invalid code. Please try again.",
+            )
+        warning = f"You used a backup code. {remaining} backup codes remaining."
+
+    await redis.delete(key)  # temp token is single-use
+    await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
+
+    user = User.from_record(record)
+    logger.info("user_login_mfa", user_id=str(user.user_id), used_backup=warning is not None)
+    body = {"user": user.public_dict()}
+    if warning:
+        body["warning"] = warning
+    return body
 
 
 # --------------------------------------------------------------------------- #
@@ -381,7 +462,7 @@ async def reset_password(
     # Invalidate ALL refresh tokens for this user (§1G: re-auth everywhere).
     await db.execute("DELETE FROM refresh_tokens WHERE user_id = $1", user_id)
     await revoke_csrf_token(redis, user_id)
-    await _log_profile_change(db, user_id, "password", verified_via="email_token")
+    await log_profile_change(db, user_id, "password", verified_via="email_token")
 
     logger.info("password_reset", user_id=user_id)
     return {"message": "Password updated. Please log in."}
@@ -399,12 +480,25 @@ async def change_password(
     redis: RedisService = Depends(get_redis_service),
 ):
     record = await db.fetchrow(
-        "SELECT password_hash FROM users WHERE user_id = $1", user.user_id
+        "SELECT password_hash, mfa_secret_enc FROM users WHERE user_id = $1", user.user_id
     )
     if not verify_password(payload.current_password, record["password_hash"] or ""):
         raise AppError(status_code=401, error="INVALID_CREDENTIALS", message="Invalid credentials")
 
-    # TODO(M2): if user.mfa_enabled -> require + verify payload.totp_code (§1G).
+    # §1G: when MFA is enabled, changing the password additionally requires TOTP.
+    if user.mfa_enabled:
+        if not payload.totp_code:
+            raise AppError(
+                status_code=400,
+                error="TOTP_REQUIRED",
+                message="TOTP code is required to change your password.",
+            )
+        if not mfa_handler.verify_user_totp(record["mfa_secret_enc"], payload.totp_code):
+            raise AppError(
+                status_code=401,
+                error="INVALID_MFA_CODE",
+                message="Invalid code. Please try again.",
+            )
 
     try:
         assert_password_strength(payload.new_password, user_inputs=[user.email, user.name])
@@ -419,10 +513,294 @@ async def change_password(
     # Rotate all refresh tokens (§1G).
     await db.execute("DELETE FROM refresh_tokens WHERE user_id = $1", user.user_id)
     await revoke_csrf_token(redis, str(user.user_id))
-    await _log_profile_change(db, str(user.user_id), "password", verified_via="password")
+    verified_via = "password+totp" if user.mfa_enabled else "password"
+    await log_profile_change(db, str(user.user_id), "password", verified_via=verified_via)
 
     logger.info("password_changed", user_id=str(user.user_id))
     return {"message": "Password updated. Please log in."}
+
+
+# --------------------------------------------------------------------------- #
+# MFA setup / verify-setup / disable (§1D)
+# --------------------------------------------------------------------------- #
+@router.post("/mfa/setup")
+async def mfa_setup(
+    request: Request,
+    user: User = Depends(get_current_user),
+    redis: RedisService = Depends(get_redis_service),
+):
+    if user.mfa_enabled:
+        raise AppError(
+            status_code=400,
+            error="MFA_ALREADY_ENABLED",
+            message="MFA is already enabled on this account.",
+        )
+
+    secret = mfa_handler.generate_totp_secret()
+    # Stored in Redis ONLY — nothing touches the DB until verify-setup succeeds.
+    await redis.set_with_ttl(f"mfa_setup:{user.user_id}", secret, _MFA_SETUP_TTL)
+
+    return {
+        "secret": secret,
+        "qr_code_url": mfa_handler.provisioning_uri(secret, user.email),
+    }
+
+
+@router.post("/mfa/verify-setup")
+async def mfa_verify_setup(
+    request: Request,
+    payload: MfaVerifySetupRequest,
+    user: User = Depends(get_current_user),
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    key = f"mfa_setup:{user.user_id}"
+    secret = await redis.get(key)
+    if not secret:
+        raise AppError(
+            status_code=400,
+            error="MFA_SETUP_EXPIRED",
+            message="Setup session expired. Start again.",
+        )
+
+    if not mfa_handler.verify_totp(secret, payload.totp_code):
+        raise AppError(status_code=400, error="INVALID_MFA_CODE", message="Invalid code")
+
+    display_codes, hashes = mfa_handler.generate_backup_codes()
+    await db.execute(
+        "UPDATE users SET mfa_secret_enc = $1, mfa_enabled = TRUE, updated_at = NOW() "
+        "WHERE user_id = $2",
+        mfa_handler.encrypt_totp_secret(secret),
+        user.user_id,
+    )
+    await mfa_handler.store_backup_codes(db, str(user.user_id), hashes)
+    await redis.delete(key)
+    await log_profile_change(db, str(user.user_id), "mfa_status", verified_via="totp")
+
+    logger.info("mfa_enabled", user_id=str(user.user_id))
+    # Shown ONCE — the frontend must force the user to save these (§1D).
+    return {"backup_codes": display_codes}
+
+
+@router.post("/mfa/disable")
+async def mfa_disable(
+    request: Request,
+    payload: MfaDisableRequest,
+    user: User = Depends(get_current_user),
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    record = await db.fetchrow(
+        "SELECT password_hash, mfa_secret_enc, mfa_enabled FROM users WHERE user_id = $1",
+        user.user_id,
+    )
+    if not record["mfa_enabled"]:
+        raise AppError(
+            status_code=400, error="MFA_NOT_ENABLED", message="MFA is not enabled."
+        )
+    if not verify_password(payload.password, record["password_hash"] or ""):
+        raise AppError(status_code=401, error="INVALID_CREDENTIALS", message="Invalid credentials")
+    if not mfa_handler.verify_user_totp(record["mfa_secret_enc"], payload.totp_code):
+        raise AppError(
+            status_code=401,
+            error="INVALID_MFA_CODE",
+            message="Invalid code. Please try again.",
+        )
+
+    await mfa_handler.wipe_mfa(db, str(user.user_id))
+    await log_profile_change(
+        db, str(user.user_id), "mfa_status", verified_via="password+totp"
+    )
+    # §1D step 6: force re-login everywhere.
+    await db.execute("DELETE FROM refresh_tokens WHERE user_id = $1", user.user_id)
+    await revoke_csrf_token(redis, str(user.user_id))
+
+    logger.info("mfa_disabled", user_id=str(user.user_id))
+    return {"message": "MFA disabled."}
+
+
+# --------------------------------------------------------------------------- #
+# MFA recovery request (§1E) — pre-session (user is locked out of MFA)
+# --------------------------------------------------------------------------- #
+@router.post("/mfa-recovery-request")
+async def mfa_recovery_request(
+    request: Request,
+    payload: MfaRecoveryRequestInput,
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    # §1E step 1: 1 request per email per 24h (single-use Redis cooldown key).
+    allowed = await redis.set_if_absent(
+        f"mfa_recovery:{payload.email}", "1", _MFA_RECOVERY_TTL
+    )
+    if not allowed:
+        raise AppError(
+            status_code=429,
+            error="RATE_LIMITED",
+            message="You can only request MFA recovery once per 24 hours.",
+        )
+
+    row = await db.fetchrow(
+        "SELECT user_id FROM users WHERE email = $1", payload.email
+    )
+    created = await db.fetchrow(
+        """
+        INSERT INTO mfa_recovery_requests (user_id, email, message)
+        VALUES ($1, $2, $3)
+        RETURNING request_id, created_at
+        """,
+        row["user_id"] if row else None,
+        payload.email,
+        payload.message,
+    )
+    await _email_service.send_mfa_recovery_admin_notification(
+        user_email=payload.email,
+        message=payload.message,
+        requested_at=created["created_at"].isoformat(),
+    )
+
+    logger.info("mfa_recovery_requested", email=payload.email)
+    return {"message": "Request submitted. We'll contact you within 24 hours."}
+
+
+# --------------------------------------------------------------------------- #
+# Google OAuth (§1F)
+# --------------------------------------------------------------------------- #
+def _oauth_redirect_uri(request: Request) -> str:
+    settings = get_settings()
+    if settings.GOOGLE_OAUTH_REDIRECT_URI:
+        return settings.GOOGLE_OAUTH_REDIRECT_URI
+    return str(request.base_url).rstrip("/") + "/v1/auth/google/callback"
+
+
+def _require_oauth_configured() -> None:
+    if not oauth_handler.is_configured():
+        raise AppError(
+            status_code=503,
+            error="OAUTH_NOT_CONFIGURED",
+            message="Google login not configured",
+        )
+
+
+@router.get("/google/login")
+async def google_login(
+    request: Request,
+    redis: RedisService = Depends(get_redis_service),
+):
+    _require_oauth_configured()
+
+    state = oauth_handler.generate_state()
+    await redis.set_with_ttl(f"oauth_state:{state}", "1", oauth_handler.OAUTH_STATE_TTL)
+    url = oauth_handler.build_authorize_url(state, _oauth_redirect_uri(request))
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    response: Response,
+    code: str,
+    state: str,
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    _require_oauth_configured()
+
+    # State CSRF check — must exist in Redis and is single-use (§1F/§1H).
+    state_key = f"oauth_state:{state}"
+    if not await redis.get(state_key):
+        raise AppError(
+            status_code=403,
+            error="OAUTH_STATE_INVALID",
+            message="OAuth state validation failed. Start the login again.",
+        )
+    await redis.delete(state_key)
+
+    # Exchange the code for the Google profile. Module attribute access so
+    # tests can monkeypatch backend.auth.oauth_handler.exchange_code.
+    try:
+        profile = await oauth_handler.exchange_code(code, _oauth_redirect_uri(request))
+    except oauth_handler.OAuthExchangeError as exc:
+        raise AppError(
+            status_code=502,
+            error="OAUTH_EXCHANGE_FAILED",
+            message="Google login failed. Please try again.",
+        ) from exc
+
+    record = await db.fetchrow("SELECT * FROM users WHERE email = $1", profile.email)
+
+    # CASE D — soft-deleted account (checked before anything else).
+    if record is not None and record["deleted_at"] is not None:
+        raise AppError(
+            status_code=403,
+            error="ACCOUNT_DELETED",
+            message="This account has been scheduled for deletion.",
+            extra={"recovery_link": "/auth/cancel-deletion"},
+        )
+
+    if record is None:
+        # CASE A — new user: auto-register. Google has verified the email.
+        user_id = await db.fetchval(
+            """
+            INSERT INTO users (email, name, profile_picture,
+                               oauth_provider, oauth_id,
+                               email_verified, is_active)
+            VALUES ($1, $2, $3, 'google', $4, TRUE, TRUE)
+            RETURNING user_id
+            """,
+            profile.email,
+            profile.name,
+            profile.picture,
+            profile.sub,
+        )
+        record = await db.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
+        logger.info("oauth_registered", user_id=str(user_id))
+    elif record["oauth_id"] is None:
+        # CASE B — existing email/password user, first Google login: link
+        # silently (same email = same person, §1F). Google also proves email
+        # ownership, so an unverified local account becomes verified.
+        await db.execute(
+            """
+            UPDATE users SET oauth_id = $1, oauth_provider = 'google',
+                             email_verified = TRUE, is_active = TRUE,
+                             profile_picture = COALESCE(profile_picture, $2),
+                             updated_at = NOW()
+            WHERE user_id = $3
+            """,
+            profile.sub,
+            profile.picture,
+            record["user_id"],
+        )
+        record = await db.fetchrow(
+            "SELECT * FROM users WHERE user_id = $1", record["user_id"]
+        )
+        logger.info("oauth_linked", user_id=str(record["user_id"]))
+    elif record["oauth_id"] != profile.sub:
+        # Defensive: same email but a different Google account id.
+        raise AppError(
+            status_code=409,
+            error="OAUTH_ACCOUNT_MISMATCH",
+            message="This email is linked to a different Google account.",
+        )
+    # else: CASE C — returning OAuth user; fall through to login.
+
+    await db.execute(
+        "UPDATE users SET last_login_at = NOW() WHERE user_id = $1", record["user_id"]
+    )
+
+    # §1F: MFA enabled = TOTP required regardless of login method.
+    if record["mfa_enabled"]:
+        temp_token = secrets.token_hex(16)
+        await redis.set_with_ttl(
+            f"mfa_temp:{temp_token}", str(record["user_id"]), _MFA_TEMP_TTL
+        )
+        logger.info("oauth_login_mfa_required", user_id=str(record["user_id"]))
+        return {"mfa_required": True, "temp_token": temp_token}
+
+    await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
+    user = User.from_record(record)
+    logger.info("oauth_login", user_id=str(user.user_id))
+    return {"user": user.public_dict()}
 
 
 # --------------------------------------------------------------------------- #
@@ -431,20 +809,3 @@ async def change_password(
 @router.get("/me", response_model=MeResponse)
 async def me(user: User = Depends(get_current_user)) -> MeResponse:
     return MeResponse(**user.public_dict())
-
-
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
-async def _log_profile_change(db: Database, user_id: str, field: str, verified_via: str) -> None:
-    """Append a profile_change_log row inside an RLS transaction (Amendment 9)."""
-    async with db.rls_transaction(user_id) as conn:
-        await conn.execute(
-            """
-            INSERT INTO profile_change_log (user_id, field_changed, verified_via)
-            VALUES ($1, $2, $3)
-            """,
-            user_id,
-            field,
-            verified_via,
-        )
