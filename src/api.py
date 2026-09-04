@@ -1,6 +1,6 @@
 """
-GAP 1 + GAP 2 – FastAPI Backend
-================================
+GAP 1 + GAP 2 + GAP 3 – FastAPI Backend
+========================================
 Exposes the unified bias-detection + causal-intervention pipeline
 as a REST API.  Includes user management, market data, SHAP
 explanations, tamper-evident audit trails, and the Monte Carlo
@@ -26,6 +26,9 @@ Endpoints
   POST /simulate/individual         → GAP 2: single-scenario simulation
   GET  /simulate/validate/{id}      → GAP 2: validate vs ground-truth
   GET  /simulate/bias_impact        → GAP 2: population-level bias cost
+  POST /explain                     → GAP 3: plain-language explanation (EN/HI)
+  POST /explain/report              → GAP 3: downloadable report (md/html/pdf)
+  GET  /explain/status              → GAP 3: languages, formats, LLM flag
 
 Install & Run
 -------------
@@ -647,7 +650,7 @@ def get_user_profile(user_id: str = Path(..., description="Registered user ID"))
                         "risk_tolerance": float(row.get("risk_tolerance", 0.5)),
                         "investment_horizon": int(row.get("investment_horizon", 10)),
                         "has_emergency_fund": int(row.get("has_emergency_fund", 1)),
-                        "name": f"Synthetic User {user_id}",
+                        "name": f"User {user_id}",
                     }
             except Exception:
                 pass
@@ -871,6 +874,176 @@ def simulate_bias_impact(
         return result
     except HTTPException:
         raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# GAP 3 — PYDANTIC MODELS FOR THE EXPLAINER
+# ══════════════════════════════════════════════════════════════════════════
+
+class ExplainInput(BaseModel):
+    """
+    Plain-language explanation request.
+
+    Runs Objective 1 (bias detection) and Objective 2 (long-horizon
+    simulation) internally, then narrates the result, so a single call gives
+    a complete answer.
+    """
+    user_id          : int   = Field(42,        description="User ID from synthetic_users.csv")
+    current_wealth   : float = Field(75_000.0,  description="Current portfolio value (₹)", gt=0)
+    unrealized_gl    : float = Field(-0.15,     description="Unrealised gain/loss fraction (e.g. -0.15 = -15%)")
+    n_simulations    : int   = Field(1_000,     description="Monte Carlo paths per scenario (100–5000)", ge=100, le=5000)
+    lang             : str   = Field("en",      description="Explanation language: 'en' or 'hi'")
+    decision_intent  : str   = Field("Thinking of selling",
+                                     description="What the user says they intend to do")
+
+    # Optional context — falls back to the same defaults Objective 1 uses
+    market_return       : Optional[float] = Field(None, description="Recent market return (auto-fetched if omitted)")
+    market_volatility   : Optional[float] = Field(None, description="Current volatility (auto-fetched if omitted)")
+    crowd_ratio         : Optional[float] = Field(None, description="Fraction of crowd selling [0, 1]")
+    age                 : Optional[int]   = Field(None, description="Investor age (defaults to the user profile)")
+    investment_horizon  : Optional[int]   = Field(None, description="Years until the money is needed")
+    risk_tolerance      : Optional[float] = Field(None, description="Risk tolerance [0–1]")
+    monthly_income      : Optional[float] = Field(None, description="Monthly income (₹)")
+    monthly_expense     : Optional[float] = Field(None, description="Monthly expense (₹)")
+    has_emergency_fund  : int             = Field(1,    description="1 = has emergency fund, 0 = does not")
+    position_size_pct   : float           = Field(0.10, description="Position size as a fraction of the portfolio")
+    holding_period_months: int            = Field(6,    description="Months the position has been held")
+
+
+class ExplainReportInput(ExplainInput):
+    """Explanation request plus the download format."""
+    format: str = Field("html", description="Report format: 'md', 'html', or 'pdf' (English only)")
+
+
+def _explain_payload(payload: "ExplainInput") -> dict:
+    """
+    Build the user_input dict the explainer expects, dropping unset optional
+    fields so Objective 1 and Objective 2 apply their own defaults.
+    """
+    data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    data.pop("format", None)
+    data.pop("lang", None)
+    return {k: v for k, v in data.items() if v is not None}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# GAP 3 — ROUTES
+# ══════════════════════════════════════════════════════════════════════════
+
+@app.post("/explain", summary="GAP 3: Plain-language explanation of a decision (EN / HI)")
+def explain_decision(payload: ExplainInput) -> dict:
+    """
+    The full decision story, in language anyone can read.
+
+    Runs bias detection (Objective 1) and the long-horizon simulation
+    (Objective 2), then returns six plain-language sections:
+
+    1. **In short** — what you're about to do, and whether it's wise
+    2. **What's going on right now** — the bias in human words
+    3. **Your two possible futures** — HOLD vs SELL in rupees
+    4. **The story of your money** — year-by-year
+    5. **Why we're telling you this** — what drove the conclusion
+    6. **What to do now** — one clear action, with an honest caveat
+
+    Set `lang` to `hi` for Hindi.  The `technical` block carries the SHAP
+    values, causal chain and raw statistics for anyone who wants them.
+    """
+    try:
+        from explainer import explain_from_inputs
+
+        lang = payload.lang if payload.lang in ("en", "hi") else "en"
+        explanation = explain_from_inputs(_explain_payload(payload), lang=lang)
+
+        # Trajectory arrays stay (they drive the charts); raw path dumps do not.
+        explanation["technical"]["hold_stats"].pop("outcomes", None)
+        explanation["technical"]["sell_stats"].pop("outcomes", None)
+        return explanation
+
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/explain/report", summary="GAP 3: Download the explanation as a report")
+def explain_report(payload: ExplainReportInput):
+    """
+    The same explanation as a keepable document.
+
+    - `md`   — Markdown, both languages
+    - `html` — styled and print-ready, both languages (recommended)
+    - `pdf`  — English only
+
+    Hindi PDF is deliberately not offered: ReportLab cannot shape Devanagari,
+    so the output would be wrong.  The HTML report prints to a correct PDF
+    from any browser.
+    """
+    try:
+        from fastapi.responses import Response
+
+        import explanation_report as report_mod
+        from explainer import explain_from_inputs
+
+        lang = payload.lang if payload.lang in ("en", "hi") else "en"
+        fmt  = (payload.format or "html").lower()
+
+        if fmt not in report_mod.available_formats(lang):
+            raise HTTPException(
+                status_code=400,
+                detail=(f"Format '{fmt}' is not available for language '{lang}'. "
+                        f"Available: {report_mod.available_formats(lang)}"),
+            )
+
+        explanation = explain_from_inputs(_explain_payload(payload), lang=lang)
+        filename    = report_mod.filename_for(explanation, fmt)
+
+        if fmt == "pdf":
+            body, media = report_mod.to_pdf(explanation), "application/pdf"
+        elif fmt == "html":
+            body, media = report_mod.to_html(explanation).encode("utf-8"), "text/html; charset=utf-8"
+        else:
+            body, media = report_mod.to_markdown(explanation).encode("utf-8"), "text/markdown; charset=utf-8"
+
+        return Response(
+            content=body,
+            media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except HTTPException:
+        raise
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/explain/status", summary="GAP 3: Explainer configuration and language support")
+def explain_status() -> dict:
+    """
+    What the explainer can currently do: which languages, which report
+    formats, and whether the optional LLM polish layer is switched on.
+    """
+    try:
+        import explanation_report as report_mod
+        import explanation_templates as tpl
+        from llm_polish import circuit_status, provider_info
+
+        info = provider_info()
+        return {
+            "languages"        : {code: tpl.LANG_NAMES[code] for code in tpl.SUPPORTED_LANGS},
+            "sections"         : tpl.SECTIONS,
+            "report_formats"   : {lang: report_mod.available_formats(lang)
+                                  for lang in tpl.SUPPORTED_LANGS},
+            "llm_polish"       : info,
+            # If the key or quota fails, the layer pauses itself and
+            # explanations keep coming from templates. This is where to look
+            # when polishing has quietly stopped happening.
+            "llm_circuit"      : circuit_status(),
+            "deterministic"    : not info["enabled"],
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

@@ -49,6 +49,20 @@ tqdm>=4.66           # progress bars for Monte Carlo runs
 joblib>=1.3          # parallel simulation runs
 
 # ─────────────────────────────────────────────────────────────────────
+# Objective 3 — Decision-Centric Explainability (Gap 3)
+jinja2>=3.1          # renders the English/Hindi explanation templates
+textstat>=0.7        # Flesch Reading Ease scoring (English readability target)
+reportlab>=4.0       # PDF explanation reports (English only - see explanation_report.py)
+
+# Optional: LLM fluency polish for explanations. The system is fully
+# functional without it - templates are the authoritative path and the
+# numeric guard discards any polish that alters a figure.
+#   pip install google-genai        (installed)
+#   then copy .env.example -> .env and set EXPLAINER_LLM=on + GEMINI_API_KEY
+google-genai>=1.0    # optional; only used when EXPLAINER_LLM=on
+python-dotenv>=1.0   # reads the gitignored .env so keys never enter a shell
+
+# ─────────────────────────────────────────────────────────────────────
 # Notebook support
 jupyter>=1.0
 ipykernel>=6.0

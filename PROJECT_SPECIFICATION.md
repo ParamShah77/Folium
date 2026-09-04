@@ -230,7 +230,8 @@ else:
 **Wealth Projection Formulae**:
 
 **Scenario A - HOLD**:
-$$W_{\text{hold}} = W_0 \times (1 + g) \times \prod_{t=1}^{H} (1 + r_t)$$
+$$W_{\text{hold}} = W_0 
+\times (1 + g) \times \prod_{t=1}^{H} (1 + r_t)$$
 
 **Scenario B - SELL**:
 $$W_{\text{sell}} = W_0 \times (1 + 0.9g) \times \prod_{t=1}^{H} (1 + 0.7r_t)$$
@@ -1626,17 +1627,33 @@ print(f"Expected wealth: ${outcomes['mean']:,.0f}")
 - [x] 1000+ Monte Carlo paths
 - [x] Uncertainty quantification
 
-### **Objective 3: Decision-Centric Explainability** ✓
-- [x] Counterfactual explanations
-- [x] Human-readable narratives
-- [x] Temporal reasoning (year-by-year)
-- [x] Visualizations
+### **Objective 3: Decision-Centric Explainability** ✓ COMPLETE
+- [x] Counterfactual explanations (HOLD vs SELL, in rupees, over the user's own horizon)
+- [x] Human-readable narratives — six sections, **English and Hindi**
+      (`src/explanation_templates.py`, `src/explainer.py`)
+- [x] Temporal reasoning (year-by-year story at years 1 / 5 / 10 / horizon)
+- [x] Visualizations (wealth trajectory rendered inside the narrative)
+- [x] Jargon translation layer — SHAP / percentile / causal-effect notation never
+      reaches the user; enforced by a blocklist test
+- [x] Downloadable reports — Markdown, HTML (both languages), PDF (English)
+- [x] API: `POST /explain`, `POST /explain/report`, `GET /explain/status`
+- [x] Optional LLM fluency layer with a numeric guard that makes an invented
+      figure structurally unable to reach the user (`src/llm_polish.py`)
+- [x] Validation metrics — `scripts/evaluate_explanations.py` →
+      `results/reports/explanation_quality.json`
+      (mean Flesch 76.5 vs target 60; 0 jargon leaks; 100% complete / actionable /
+      personalised, both languages)
+- [x] Tests: `tests/test_explainer.py` (79 tests) · Notebook: `notebooks/09_explainability.ipynb`
 
-### **Objective 4: Verifiable Auditability** ✓
-- [x] Cryptographic hashing
-- [x] Tamper detection
-- [x] Blockchain-style chain
-- [x] Audit report generation
+### **Objective 4: Verifiable Auditability** ⚠️ PARTIAL — NOT YET COMPLETE
+- [x] Cryptographic hashing (SHA-256 of input / output / explanation, `src/database.py`)
+- [x] Per-record tamper detection (`get_audit_trail()` recomputes and compares)
+- [x] Append-only audit table + `GET /audit/{decision_id}`
+- [ ] **Blockchain-style chain** — `previous_hash` does not exist yet, so records
+      self-verify in isolation: deleting a record is undetectable
+- [ ] Audit report generation / compliance queries (`AuditQueryEngine`)
+- [ ] Counterfactual outcome verification wired into the audit trail
+- [ ] Capture of what the user actually did (`user_action` / `followed_advice`)
 
 ---
 

@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-08-22T20:07:36.908278+00:00",
+  "n_users": 28,
+  "n_template_coverage_cases": 4,
+  "n_simulations": 300,
+  "seed": 42,
+  "llm_polish": false,
+  "targets": {
+    "flesch_reading_ease_en": ">= 60.0",
+    "words_per_sentence_hi": "<= 20.0",
+    "completeness": "100%",
+    "actionability": "100%",
+    "personalisation": "100%",
+    "jargon_leaks": "0"
+  },
+  "by_language": {
+    "en": {
+      "n_explanations": 32,
+      "completeness_pct": 100.0,
+      "readability_pass_pct": 100.0,
+      "actionability_pct": 100.0,
+      "personalisation_pct": 100.0,
+      "jargon_leaks": 0,
+      "mean_words_per_sentence": 10.9,
+      "mean_word_count": 975.1,
+      "mean_flesch": 78.3,
+      "min_flesch": 77.4,
+      "flesch_target": 60.0,
+      "all_targets_met": true
+    },
+    "hi": {
+      "n_explanations": 32,
+      "completeness_pct": 100.0,
+      "readability_pass_pct": 100.0,
+      "actionability_pct": 100.0,
+      "personalisation_pct": 100.0,
+      "jargon_leaks": 0,
+      "mean_words_per_sentence": 12.2,
+      "mean_word_count": 1079.2,
+      "mean_flesch": null,
+      "words_per_sentence_target": 20.0,
+      "all_targets_met": true
+    }
+  },
+  "bias_coverage": {
+    "disposition": 2,
+    "herd": 21,
+    "loss_aversion": 8,
+    "rational": 1
+  },
+  "failures": []
+}
