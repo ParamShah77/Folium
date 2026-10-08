@@ -1,0 +1,202 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Folium palette v2 — teal + blush + cream, with orange used sparingly.
+ * Every colour is a token so light and dark switch together. Text-on-colour
+ * pairs (primary/primary-foreground, blush/rose, orange-mist/orange-ink) are
+ * chosen for >= 4.5:1 contrast.
+ */
+:root {
+  --background: #faf8f3;
+  --surface: #ffffff;
+  --surface-2: #f4f0e8;
+  --sand: #e4decd;
+  --border: #e6e1d8;
+  --border-strong: #d6cfc2;
+  --foreground: #2f2b29;
+  --muted-foreground: #6e6a66;
+  --subtle-foreground: #8d8781;
+
+  --primary: #277c78;
+  --primary-hover: #1f6966;
+  --primary-foreground: #ffffff;
+  --teal: #5cbdb9;
+  --teal-mist: #ebf6f5;
+  --teal-ink: #1f6966;
+
+  --blush: #fbe3e8;
+  --rose: #9c3d52;
+  --peach: #fba45c;
+  --orange-mist: #fdebdd;
+  --orange-ink: #b8500f;
+
+  --bias-loss: #ee8e4f;
+  --bias-herd: #7e9bb8;
+  --bias-disposition: #c9a55a;
+  --bias-rational: #6fae9c;
+  --hold: #5cbdb9;
+  --hold-mist: #ebf6f5;
+  --sell: #a08f86;
+  --sell-mist: #f1ece8;
+
+  --success: #3e8f68;
+  --success-mist: #e6f3ec;
+  --danger: #b5473f;
+  --danger-mist: #fbeae8;
+  --warning-ink: #8a5a0c;
+  --warning-mist: #fbf1dd;
+
+  --ring: #5cbdb9;
+  --shadow-soft: 0 1px 2px rgb(47 43 41 / 0.04), 0 10px 30px -16px rgb(47 43 41 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(47 43 41 / 0.05), 0 18px 40px -20px rgb(47 43 41 / 0.2);
+}
+
+.dark {
+  --background: #171614;
+  --surface: #211f1c;
+  --surface-2: #2a2723;
+  --sand: #3a352e;
+  --border: #35312d;
+  --border-strong: #463f38;
+  --foreground: #eee9e1;
+  --muted-foreground: #a8a098;
+  --subtle-foreground: #857e76;
+
+  --primary: #6fd0cb;
+  --primary-hover: #8adbd6;
+  --primary-foreground: #102624;
+  --teal: #6fd0cb;
+  --teal-mist: #1c3533;
+  --teal-ink: #8adbd6;
+
+  --blush: #3a2229;
+  --rose: #f0b3c0;
+  --peach: #fba45c;
+  --orange-mist: #3d2a1c;
+  --orange-ink: #fbb57e;
+
+  --bias-loss: #f3a06a;
+  --bias-herd: #98b2cc;
+  --bias-disposition: #d8b874;
+  --bias-rational: #86c3b2;
+  --hold: #6fd0cb;
+  --hold-mist: #1c3533;
+  --sell: #b8a79d;
+  --sell-mist: #2e2925;
+
+  --success: #79c9a0;
+  --success-mist: #1d3329;
+  --danger: #ee9a92;
+  --danger-mist: #3b2321;
+  --warning-ink: #f1c879;
+  --warning-mist: #3a2f1a;
+
+  --ring: #6fd0cb;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.25), 0 10px 30px -16px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 18px 40px -20px rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sand: var(--sand);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-teal: var(--teal);
+  --color-teal-mist: var(--teal-mist);
+  --color-teal-ink: var(--teal-ink);
+  --color-blush: var(--blush);
+  --color-rose: var(--rose);
+  --color-peach: var(--peach);
+  --color-orange-mist: var(--orange-mist);
+  --color-orange-ink: var(--orange-ink);
+  --color-bias-loss: var(--bias-loss);
+  --color-bias-herd: var(--bias-herd);
+  --color-bias-disposition: var(--bias-disposition);
+  --color-bias-rational: var(--bias-rational);
+  --color-hold: var(--hold);
+  --color-hold-mist: var(--hold-mist);
+  --color-sell: var(--sell);
+  --color-sell-mist: var(--sell-mist);
+  --color-success: var(--success);
+  --color-success-mist: var(--success-mist);
+  --color-danger: var(--danger);
+  --color-danger-mist: var(--danger-mist);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-mist: var(--warning-mist);
+  --color-ring: var(--ring);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces Variable", ui-serif, Georgia, serif;
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lift: var(--shadow-lift);
+
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-soft-pulse: soft-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: var(--teal-mist);
+    color: var(--teal-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
