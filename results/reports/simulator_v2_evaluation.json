@@ -1,0 +1,667 @@
+{
+  "generated": "2026-10-07",
+  "history": {
+    "months": 228,
+    "from": "2007-10-31",
+    "to": "2026-09-30",
+    "equity_growth_a_year": 0.096,
+    "equity_volatility": 0.2048,
+    "gold_growth_a_year": 0.1476,
+    "gold_volatility": 0.1765,
+    "equity_gold_correlation": -0.078
+  },
+  "assumptions": {
+    "equity_growth": 0.11,
+    "gold_growth": 0.09,
+    "fd_rate": 0.0675,
+    "savings_rate": 0.03,
+    "dividend_yield": 0.0125,
+    "stock_specific_vol": 0.21,
+    "fund_tracking_vol": 0.03,
+    "sale_cost": 0.0015,
+    "block_months": 12
+  },
+  "tax": {
+    "cess": 0.04,
+    "equity_stcg": 0.2,
+    "equity_ltcg": 0.125,
+    "equity_ltcg_after_months": 12,
+    "ltcg_exemption": 125000.0,
+    "gold_ltcg": 0.125,
+    "gold_ltcg_after_months": 24,
+    "standard_deduction": 75000.0,
+    "rebate_up_to": 1200000.0
+  },
+  "base_case": {
+    "position_value": 100000.0,
+    "cost_basis": 120000.0,
+    "months_held": 18,
+    "asset_type": "equity",
+    "horizon_years": 20,
+    "annual_income": 1800000.0,
+    "other_equity": 350000.0,
+    "gold": 150000.0,
+    "fixed_deposits": 350000.0,
+    "savings": 150000.0,
+    "monthly_sip": 15000.0
+  },
+  "realism": {
+    "simulated (long-run assumptions)": {
+      "1y_return_p10": -0.069,
+      "1y_return_median": 0.116,
+      "1y_return_p90": 0.347,
+      "share_of_years_below_minus_20pct": 0.043,
+      "10y_growth_a_year_p10": 0.024,
+      "10y_growth_a_year_median": 0.112,
+      "10y_growth_a_year_p90": 0.198,
+      "worst_fall_in_10y_median": -0.349
+    },
+    "simulated (historical)": {
+      "1y_return_p10": -0.081,
+      "1y_return_median": 0.103,
+      "1y_return_p90": 0.33,
+      "share_of_years_below_minus_20pct": 0.046,
+      "10y_growth_a_year_p10": 0.008,
+      "10y_growth_a_year_median": 0.099,
+      "10y_growth_a_year_p90": 0.185,
+      "worst_fall_in_10y_median": -0.353
+    },
+    "real NIFTY (rolling windows)": {
+      "1y_return_p10": -0.075,
+      "1y_return_median": 0.113,
+      "1y_return_p90": 0.333,
+      "share_of_years_below_minus_20pct": 0.046,
+      "10y_growth_a_year_p10": 0.088,
+      "10y_growth_a_year_median": 0.128,
+      "10y_growth_a_year_p90": 0.148,
+      "windows": {
+        "1y": 217,
+        "10y": 109
+      }
+    },
+    "v1 synthetic paths": {
+      "1y_return_p10": -0.158,
+      "1y_return_median": 0.095,
+      "1y_return_p90": 0.351,
+      "share_of_years_below_minus_20pct": 0.068
+    }
+  },
+  "horizon_effect": {
+    "stock_down_17pct": [
+      {
+        "horizon": 1,
+        "prob_hold_better": 0.551,
+        "typical_gap": 3592,
+        "hold_median": 108764,
+        "sell_median": 104737,
+        "hold_bad_case": 76743,
+        "sell_bad_case": 100827
+      },
+      {
+        "horizon": 3,
+        "prob_hold_better": 0.596,
+        "typical_gap": 13950,
+        "hold_median": 130801,
+        "sell_median": 116631,
+        "hold_bad_case": 68668,
+        "sell_bad_case": 108678
+      },
+      {
+        "horizon": 5,
+        "prob_hold_better": 0.587,
+        "typical_gap": 21124,
+        "hold_median": 153042,
+        "sell_median": 129637,
+        "hold_bad_case": 66017,
+        "sell_bad_case": 118054
+      },
+      {
+        "horizon": 10,
+        "prob_hold_better": 0.622,
+        "typical_gap": 59925,
+        "hold_median": 236527,
+        "sell_median": 171202,
+        "hold_bad_case": 68676,
+        "sell_bad_case": 148516
+      },
+      {
+        "horizon": 20,
+        "prob_hold_better": 0.639,
+        "typical_gap": 180546,
+        "hold_median": 512512,
+        "sell_median": 302648,
+        "hold_bad_case": 108530,
+        "sell_bad_case": 240494
+      },
+      {
+        "horizon": 30,
+        "prob_hold_better": 0.614,
+        "typical_gap": 349422,
+        "hold_median": 993853,
+        "sell_median": 578445,
+        "hold_bad_case": 152945,
+        "sell_bad_case": 392700
+      }
+    ],
+    "fund_up_30pct": [
+      {
+        "horizon": 1,
+        "prob_hold_better": 0.655,
+        "typical_gap": 6377,
+        "hold_median": 111515,
+        "sell_median": 104737,
+        "hold_bad_case": 92377,
+        "sell_bad_case": 100827
+      },
+      {
+        "horizon": 3,
+        "prob_hold_better": 0.699,
+        "typical_gap": 22244,
+        "hold_median": 138560,
+        "sell_median": 116631,
+        "hold_bad_case": 87119,
+        "sell_bad_case": 108678
+      },
+      {
+        "horizon": 5,
+        "prob_hold_better": 0.703,
+        "typical_gap": 41640,
+        "hold_median": 171003,
+        "sell_median": 129637,
+        "hold_bad_case": 91262,
+        "sell_bad_case": 118054
+      },
+      {
+        "horizon": 10,
+        "prob_hold_better": 0.753,
+        "typical_gap": 108605,
+        "hold_median": 284771,
+        "sell_median": 171202,
+        "hold_bad_case": 119305,
+        "sell_bad_case": 148516
+      },
+      {
+        "horizon": 20,
+        "prob_hold_better": 0.796,
+        "typical_gap": 409258,
+        "hold_median": 745484,
+        "sell_median": 302648,
+        "hold_bad_case": 241853,
+        "sell_bad_case": 240494
+      },
+      {
+        "horizon": 30,
+        "prob_hold_better": 0.813,
+        "typical_gap": 1388557,
+        "hold_median": 2044487,
+        "sell_median": 578445,
+        "hold_bad_case": 469622,
+        "sell_bad_case": 392700
+      }
+    ]
+  },
+  "v1_vs_v2": {
+    "stock_down_17pct": {
+      "v1": {
+        "horizon": "20 (fixed 20 years)",
+        "prob_hold_better": 0.623,
+        "average_gap": 47359,
+        "hold_median": 323422,
+        "sell_median": 288633,
+        "sell_start": 95950
+      },
+      "v2_20y": {
+        "horizon": 20,
+        "prob_hold_better": 0.639,
+        "typical_gap": 180546,
+        "hold_median": 512512,
+        "sell_median": 302648,
+        "hold_bad_case": 108530,
+        "sell_bad_case": 240494,
+        "sale": {
+          "value": 100000.0,
+          "gain": -20000.0,
+          "tax_kind": "long_term",
+          "tax": 0.0,
+          "costs": 150.0,
+          "proceeds": 99850.0,
+          "destination": {
+            "gold": 0.2308,
+            "fixed_deposits": 0.5385,
+            "savings": 0.2308
+          }
+        }
+      },
+      "v2_5y": {
+        "horizon": 5,
+        "prob_hold_better": 0.587,
+        "typical_gap": 21124,
+        "hold_median": 153042,
+        "sell_median": 129637,
+        "hold_bad_case": 66017,
+        "sell_bad_case": 118054
+      }
+    },
+    "stock_up_30pct_long_term": {
+      "v1": {
+        "horizon": "20 (fixed 20 years)",
+        "prob_hold_better": 0.638,
+        "average_gap": 53665,
+        "hold_median": 323422,
+        "sell_median": 282478,
+        "sell_start": 93904
+      },
+      "v2_20y": {
+        "horizon": 20,
+        "prob_hold_better": 0.636,
+        "typical_gap": 174946,
+        "hold_median": 506912,
+        "sell_median": 302648,
+        "hold_bad_case": 108530,
+        "sell_bad_case": 240494,
+        "sale": {
+          "value": 100000.0,
+          "gain": 23076.92,
+          "tax_kind": "long_term",
+          "tax": 0.0,
+          "costs": 150.0,
+          "proceeds": 99850.0,
+          "destination": {
+            "gold": 0.2308,
+            "fixed_deposits": 0.5385,
+            "savings": 0.2308
+          }
+        }
+      },
+      "v2_5y": {
+        "horizon": 5,
+        "prob_hold_better": 0.587,
+        "typical_gap": 21124,
+        "hold_median": 153042,
+        "sell_median": 129637,
+        "hold_bad_case": 66017,
+        "sell_bad_case": 118054
+      }
+    },
+    "stock_up_30pct_short_term": {
+      "v1": {
+        "horizon": "20 (fixed 20 years)",
+        "prob_hold_better": 0.638,
+        "average_gap": 53665,
+        "hold_median": 323422,
+        "sell_median": 282478,
+        "sell_start": 93904
+      },
+      "v2_20y": {
+        "horizon": 20,
+        "prob_hold_better": 0.646,
+        "typical_gap": 188990,
+        "hold_median": 506912,
+        "sell_median": 288099,
+        "hold_bad_case": 108530,
+        "sell_bad_case": 228933,
+        "sale": {
+          "value": 100000.0,
+          "gain": 23076.92,
+          "tax_kind": "short_term",
+          "tax": 4800.0,
+          "costs": 150.0,
+          "proceeds": 95050.0,
+          "destination": {
+            "gold": 0.2308,
+            "fixed_deposits": 0.5385,
+            "savings": 0.2308
+          }
+        }
+      },
+      "v2_5y": {
+        "horizon": 5,
+        "prob_hold_better": 0.614,
+        "typical_gap": 27349,
+        "hold_median": 153042,
+        "sell_median": 123405,
+        "hold_bad_case": 66017,
+        "sell_bad_case": 112379
+      }
+    },
+    "fund_up_30pct": {
+      "v1": {
+        "horizon": "20 (fixed 20 years)",
+        "prob_hold_better": 0.638,
+        "average_gap": 53665,
+        "hold_median": 323422,
+        "sell_median": 282478,
+        "sell_start": 93904
+      },
+      "v2_20y": {
+        "horizon": 20,
+        "prob_hold_better": 0.796,
+        "typical_gap": 409258,
+        "hold_median": 745484,
+        "sell_median": 302648,
+        "hold_bad_case": 241853,
+        "sell_bad_case": 240494,
+        "sale": {
+          "value": 100000.0,
+          "gain": 23076.92,
+          "tax_kind": "long_term",
+          "tax": 0.0,
+          "costs": 150.0,
+          "proceeds": 99850.0,
+          "destination": {
+            "gold": 0.2308,
+            "fixed_deposits": 0.5385,
+            "savings": 0.2308
+          }
+        }
+      },
+      "v2_5y": {
+        "horizon": 5,
+        "prob_hold_better": 0.703,
+        "typical_gap": 41640,
+        "hold_median": 171003,
+        "sell_median": 129637,
+        "hold_bad_case": 91262,
+        "sell_bad_case": 118054
+      }
+    }
+  },
+  "sensitivity": {
+    "base": {
+      "horizon": 20,
+      "prob_hold_better": 0.639,
+      "typical_gap": 180546,
+      "hold_median": 512512,
+      "sell_median": 302648,
+      "hold_bad_case": 108530,
+      "sell_bad_case": 240494
+    },
+    "history_replayed_exactly": {
+      "horizon": 20,
+      "prob_hold_better": 0.417,
+      "typical_gap": -123199,
+      "hold_median": 404640,
+      "sell_median": 501543,
+      "hold_bad_case": 84173,
+      "sell_bad_case": 327439
+    },
+    "equity_9pct": {
+      "horizon": 20,
+      "prob_hold_better": 0.542,
+      "typical_gap": 44036,
+      "hold_median": 365976,
+      "sell_median": 302648,
+      "hold_bad_case": 75443,
+      "sell_bad_case": 240494
+    },
+    "equity_13pct": {
+      "horizon": 20,
+      "prob_hold_better": 0.721,
+      "typical_gap": 386038,
+      "hold_median": 718837,
+      "sell_median": 302648,
+      "hold_bad_case": 155116,
+      "sell_bad_case": 240494
+    },
+    "stock_risk_15pct": {
+      "horizon": 20,
+      "prob_hold_better": 0.715,
+      "typical_gap": 309412,
+      "hold_median": 637970,
+      "sell_median": 302648,
+      "hold_bad_case": 159381,
+      "sell_bad_case": 240494
+    },
+    "stock_risk_35pct": {
+      "horizon": 20,
+      "prob_hold_better": 0.446,
+      "typical_gap": -70915,
+      "hold_median": 255319,
+      "sell_median": 302648,
+      "hold_bad_case": 27173,
+      "sell_bad_case": 240494
+    },
+    "gold_6pct": {
+      "horizon": 20,
+      "prob_hold_better": 0.683,
+      "typical_gap": 242588,
+      "hold_median": 512512,
+      "sell_median": 255414,
+      "hold_bad_case": 108530,
+      "sell_bad_case": 219847
+    },
+    "sale_all_to_fd": {
+      "horizon": 20,
+      "prob_hold_better": 0.697,
+      "typical_gap": 229562,
+      "hold_median": 512512,
+      "sell_median": 282950,
+      "hold_bad_case": 108530,
+      "sell_bad_case": 282950
+    },
+    "sale_all_to_gold": {
+      "horizon": 20,
+      "prob_hold_better": 0.503,
+      "typical_gap": 2365,
+      "hold_median": 512512,
+      "sell_median": 491421,
+      "hold_bad_case": 108530,
+      "sell_bad_case": 222126
+    },
+    "low_income_no_slab_tax": {
+      "horizon": 20,
+      "prob_hold_better": 0.599,
+      "typical_gap": 129591,
+      "hold_median": 512512,
+      "sell_median": 353602,
+      "hold_bad_case": 108530,
+      "sell_bad_case": 291449
+    }
+  },
+  "measured_stocks": {
+    "stocks": [
+      {
+        "stock": "HDFCBANK",
+        "beta": 1.033,
+        "specific_vol": 0.1418,
+        "prob_hold_better_20y": 0.73,
+        "hold_median": 667203
+      },
+      {
+        "stock": "INFY",
+        "beta": 0.659,
+        "specific_vol": 0.2361,
+        "prob_hold_better_20y": 0.532,
+        "hold_median": 357664
+      },
+      {
+        "stock": "RELIANCE",
+        "beta": 1.114,
+        "specific_vol": 0.2029,
+        "prob_hold_better_20y": 0.653,
+        "hold_median": 584812
+      },
+      {
+        "stock": "ITC",
+        "beta": 0.765,
+        "specific_vol": 0.1822,
+        "prob_hold_better_20y": 0.641,
+        "hold_median": 474512
+      },
+      {
+        "stock": "ASIANPAINT",
+        "beta": 0.774,
+        "specific_vol": 0.2137,
+        "prob_hold_better_20y": 0.593,
+        "hold_median": 421679
+      },
+      {
+        "stock": "SBIN",
+        "beta": 1.371,
+        "specific_vol": 0.2522,
+        "prob_hold_better_20y": 0.633,
+        "hold_median": 577775
+      },
+      {
+        "stock": "TCS",
+        "beta": 0.755,
+        "specific_vol": 0.2124,
+        "prob_hold_better_20y": 0.59,
+        "hold_median": 416615
+      },
+      {
+        "stock": "ICICIBANK",
+        "beta": 1.207,
+        "specific_vol": 0.1731,
+        "prob_hold_better_20y": 0.708,
+        "hold_median": 705989
+      },
+      {
+        "stock": "LT",
+        "beta": 1.173,
+        "specific_vol": 0.1704,
+        "prob_hold_better_20y": 0.708,
+        "hold_median": 691004
+      },
+      {
+        "stock": "HINDUNILVR",
+        "beta": 0.435,
+        "specific_vol": 0.1981,
+        "prob_hold_better_20y": 0.536,
+        "hold_median": 344359
+      },
+      {
+        "stock": "BHARTIARTL",
+        "beta": 0.783,
+        "specific_vol": 0.2126,
+        "prob_hold_better_20y": 0.597,
+        "hold_median": 427548
+      },
+      {
+        "stock": "KOTAKBANK",
+        "beta": 0.96,
+        "specific_vol": 0.1836,
+        "prob_hold_better_20y": 0.66,
+        "hold_median": 544246
+      },
+      {
+        "stock": "AXISBANK",
+        "beta": 1.356,
+        "specific_vol": 0.2003,
+        "prob_hold_better_20y": 0.69,
+        "hold_median": 715091
+      },
+      {
+        "stock": "MARUTI",
+        "beta": 0.999,
+        "specific_vol": 0.2249,
+        "prob_hold_better_20y": 0.625,
+        "hold_median": 478918
+      },
+      {
+        "stock": "SUNPHARMA",
+        "beta": 0.716,
+        "specific_vol": 0.2507,
+        "prob_hold_better_20y": 0.521,
+        "hold_median": 350373
+      },
+      {
+        "stock": "TITAN",
+        "beta": 1.031,
+        "specific_vol": 0.2385,
+        "prob_hold_better_20y": 0.611,
+        "hold_median": 464828
+      },
+      {
+        "stock": "BAJFINANCE",
+        "beta": 1.677,
+        "specific_vol": 0.2944,
+        "prob_hold_better_20y": 0.617,
+        "hold_median": 591703
+      },
+      {
+        "stock": "WIPRO",
+        "beta": 0.597,
+        "specific_vol": 0.2473,
+        "prob_hold_better_20y": 0.504,
+        "hold_median": 317017
+      },
+      {
+        "stock": "NTPC",
+        "beta": 0.765,
+        "specific_vol": 0.2236,
+        "prob_hold_better_20y": 0.577,
+        "hold_median": 406635
+      },
+      {
+        "stock": "TATASTEEL",
+        "beta": 1.289,
+        "specific_vol": 0.2823,
+        "prob_hold_better_20y": 0.584,
+        "hold_median": 458741
+      },
+      {
+        "stock": "ONGC",
+        "beta": 0.967,
+        "specific_vol": 0.2669,
+        "prob_hold_better_20y": 0.546,
+        "hold_median": 386087
+      },
+      {
+        "stock": "M&M",
+        "beta": 1.331,
+        "specific_vol": 0.2296,
+        "prob_hold_better_20y": 0.648,
+        "hold_median": 621248
+      },
+      {
+        "stock": "ULTRACEMCO",
+        "beta": 1.026,
+        "specific_vol": 0.1865,
+        "prob_hold_better_20y": 0.664,
+        "hold_median": 579370
+      },
+      {
+        "stock": "NESTLEIND",
+        "beta": 0.533,
+        "specific_vol": 0.1859,
+        "prob_hold_better_20y": 0.582,
+        "hold_median": 392619
+      }
+    ],
+    "median_specific_vol": 0.2137,
+    "median_beta": 0.999
+  },
+  "portfolio_context": {
+    "no_sip": {
+      "liquid_today": 1100000.0,
+      "hold_median_end": 6120108.17,
+      "sell_median_end": 5760501.39,
+      "decision_share_of_end_wealth": 0.0295,
+      "monthly_sip": 0.0,
+      "education_freed_from_year": null,
+      "basis": "the rest of the portfolio before tax; this decision after tax"
+    },
+    "sip_15000": {
+      "liquid_today": 1100000.0,
+      "hold_median_end": 15734077.51,
+      "sell_median_end": 15429328.16,
+      "decision_share_of_end_wealth": 0.0115,
+      "monthly_sip": 15000.0,
+      "education_freed_from_year": null,
+      "basis": "the rest of the portfolio before tax; this decision after tax"
+    },
+    "sip_plus_fees_freed_in_6y": {
+      "liquid_today": 1100000.0,
+      "hold_median_end": 22287610.22,
+      "sell_median_end": 22008805.97,
+      "decision_share_of_end_wealth": 0.0081,
+      "monthly_sip": 15000.0,
+      "education_freed_from_year": 6,
+      "basis": "the rest of the portfolio before tax; this decision after tax"
+    },
+    "gap_unchanged_by_sip": true
+  },
+  "runtime_ms_30y_1000_paths": 103.4,
+  "runtime_seconds": 12.2
+}

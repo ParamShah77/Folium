@@ -1,0 +1,913 @@
+{
+  "generated": "2026-10-08",
+  "runtime_seconds": 81.4,
+  "data": {
+    "cases": 20000,
+    "dev": 16000,
+    "test": 4000,
+    "features": 22,
+    "label_boundary_rows": 5,
+    "regime_real_share": {
+      "normal": 0.3937,
+      "bull": 0.2896,
+      "correction": 0.1989,
+      "crash": 0.0659,
+      "euphoria": 0.0518
+    },
+    "regime_sample_share": {
+      "crash": 0.2447,
+      "correction": 0.2438,
+      "normal": 0.2376,
+      "bull": 0.1782,
+      "euphoria": 0.0958
+    }
+  },
+  "training": {
+    "cv_best_iterations": [
+      423,
+      330,
+      329,
+      381,
+      364
+    ],
+    "n_trees": 402,
+    "cv": {
+      "accuracy": 0.8494,
+      "macro_f1": 0.8238,
+      "accuracy_real_freq": 0.8633,
+      "macro_f1_real_freq": 0.8287,
+      "log_loss_real_freq": 0.2792,
+      "ece_real_freq": 0.0159
+    }
+  },
+  "test": {
+    "model_only": {
+      "accuracy": 0.8595,
+      "macro_f1": 0.8341,
+      "accuracy_real_freq": 0.8792,
+      "macro_f1_real_freq": 0.8401,
+      "log_loss_real_freq": 0.2482,
+      "ece_real_freq": 0.0132,
+      "rule_violations": 0.0
+    },
+    "with_guard": {
+      "accuracy": 0.8595,
+      "macro_f1": 0.8341,
+      "accuracy_real_freq": 0.8792,
+      "macro_f1_real_freq": 0.8401,
+      "log_loss_real_freq": 0.2473,
+      "ece_real_freq": 0.0122,
+      "rule_violations": 0.0
+    },
+    "with_guard_calibrated": {
+      "accuracy": 0.8595,
+      "macro_f1": 0.8341,
+      "accuracy_real_freq": 0.8792,
+      "macro_f1_real_freq": 0.8401,
+      "log_loss_real_freq": 0.2463,
+      "ece_real_freq": 0.014,
+      "rule_violations": 0.0
+    },
+    "guard_changed_answer": 0.0,
+    "per_class_real_freq": {
+      "disposition": {
+        "precision": 0.8435,
+        "recall": 0.9181,
+        "f1": 0.8793
+      },
+      "herd": {
+        "precision": 0.8187,
+        "recall": 0.8376,
+        "f1": 0.828
+      },
+      "loss_aversion": {
+        "precision": 0.6674,
+        "recall": 0.8487,
+        "f1": 0.7472
+      },
+      "rational": {
+        "precision": 0.9385,
+        "recall": 0.8751,
+        "f1": 0.9057
+      }
+    },
+    "confusion_matrix_real_freq": [
+      [
+        0.9181,
+        0.0,
+        0.0,
+        0.0819
+      ],
+      [
+        0.0312,
+        0.8376,
+        0.0801,
+        0.0512
+      ],
+      [
+        0.0,
+        0.0293,
+        0.8487,
+        0.122
+      ],
+      [
+        0.0644,
+        0.0396,
+        0.0208,
+        0.8751
+      ]
+    ],
+    "reliability_before": [
+      {
+        "bin": "0.25-0.50",
+        "n": 54,
+        "share": 0.0068,
+        "mean_confidence": 0.4599,
+        "share_right": 0.4795
+      },
+      {
+        "bin": "0.50-0.60",
+        "n": 419,
+        "share": 0.0946,
+        "mean_confidence": 0.5499,
+        "share_right": 0.5656
+      },
+      {
+        "bin": "0.60-0.70",
+        "n": 439,
+        "share": 0.1037,
+        "mean_confidence": 0.6505,
+        "share_right": 0.6521
+      },
+      {
+        "bin": "0.70-0.80",
+        "n": 368,
+        "share": 0.077,
+        "mean_confidence": 0.7418,
+        "share_right": 0.6959
+      },
+      {
+        "bin": "0.80-0.90",
+        "n": 286,
+        "share": 0.0555,
+        "mean_confidence": 0.8491,
+        "share_right": 0.8075
+      },
+      {
+        "bin": "0.90-0.95",
+        "n": 333,
+        "share": 0.0896,
+        "mean_confidence": 0.933,
+        "share_right": 0.9475
+      },
+      {
+        "bin": "0.95-1.00",
+        "n": 2101,
+        "share": 0.5728,
+        "mean_confidence": 0.9923,
+        "share_right": 0.9977
+      }
+    ],
+    "reliability_after": [
+      {
+        "bin": "0.25-0.50",
+        "n": 42,
+        "share": 0.0053,
+        "mean_confidence": 0.4231,
+        "share_right": 0.4609
+      },
+      {
+        "bin": "0.50-0.60",
+        "n": 636,
+        "share": 0.1442,
+        "mean_confidence": 0.5587,
+        "share_right": 0.5863
+      },
+      {
+        "bin": "0.60-0.70",
+        "n": 539,
+        "share": 0.1214,
+        "mean_confidence": 0.6384,
+        "share_right": 0.6784
+      },
+      {
+        "bin": "0.70-0.80",
+        "n": 128,
+        "share": 0.0237,
+        "mean_confidence": 0.7348,
+        "share_right": 0.6641
+      },
+      {
+        "bin": "0.80-0.90",
+        "n": 135,
+        "share": 0.0259,
+        "mean_confidence": 0.8335,
+        "share_right": 0.8844
+      },
+      {
+        "bin": "0.90-0.95",
+        "n": 89,
+        "share": 0.0177,
+        "mean_confidence": 0.9344,
+        "share_right": 0.8693
+      },
+      {
+        "bin": "0.95-1.00",
+        "n": 2431,
+        "share": 0.6619,
+        "mean_confidence": 0.9913,
+        "share_right": 0.9909
+      }
+    ],
+    "confidence_bands_before": {
+      "High": {
+        "threshold": "0.85-1.00",
+        "n": 2567,
+        "share_of_analyses": 0.6889,
+        "share_right": 0.9871
+      },
+      "Medium": {
+        "threshold": "0.65-0.85",
+        "n": 743,
+        "share_of_analyses": 0.1589,
+        "share_right": 0.6944
+      },
+      "Low": {
+        "threshold": "0.00-0.65",
+        "n": 690,
+        "share_of_analyses": 0.1522,
+        "share_right": 0.5835
+      }
+    },
+    "confidence_bands_after": {
+      "High": {
+        "threshold": "0.85-1.00",
+        "n": 2542,
+        "share_of_analyses": 0.6838,
+        "share_right": 0.9871
+      },
+      "Medium": {
+        "threshold": "0.65-0.85",
+        "n": 361,
+        "share_of_analyses": 0.0709,
+        "share_right": 0.7445
+      },
+      "Low": {
+        "threshold": "0.00-0.65",
+        "n": 1097,
+        "share_of_analyses": 0.2453,
+        "share_right": 0.6172
+      }
+    },
+    "single_reading_share_real_freq": 0.4433,
+    "open_cases": {
+      "accuracy_real_freq": 0.783,
+      "macro_f1_real_freq": 0.7465,
+      "confidence_bands": {
+        "High": {
+          "threshold": "0.85-1.00",
+          "n": 854,
+          "share_of_analyses": 0.432,
+          "share_right": 0.9634
+        },
+        "Medium": {
+          "threshold": "0.65-0.85",
+          "n": 361,
+          "share_of_analyses": 0.1273,
+          "share_right": 0.7445
+        },
+        "Low": {
+          "threshold": "0.00-0.65",
+          "n": 1097,
+          "share_of_analyses": 0.4407,
+          "share_right": 0.6172
+        }
+      }
+    }
+  },
+  "by_regime": {
+    "normal": {
+      "n": 950,
+      "accuracy": 0.8947,
+      "macro_f1": 0.7932
+    },
+    "bull": {
+      "n": 713,
+      "accuracy": 0.878,
+      "macro_f1": 0.8344
+    },
+    "correction": {
+      "n": 975,
+      "accuracy": 0.8779,
+      "macro_f1": 0.839
+    },
+    "crash": {
+      "n": 979,
+      "accuracy": 0.7763,
+      "macro_f1": 0.7708
+    },
+    "euphoria": {
+      "n": 383,
+      "accuracy": 0.9034,
+      "macro_f1": 0.8946
+    }
+  },
+  "by_action": {
+    "sell": {
+      "n": 1582,
+      "accuracy_real_freq": 0.8489
+    },
+    "hold": {
+      "n": 1641,
+      "accuracy_real_freq": 0.9
+    },
+    "buy_more": {
+      "n": 777,
+      "accuracy_real_freq": 0.8941
+    }
+  },
+  "forced_sales": {
+    "cases": 167,
+    "read_as_rational": 0.7186,
+    "read_as_rational_when_stated": 0.9057,
+    "read_as_rational_when_not_stated": 0.3934,
+    "v4_0_read_as_rational": 0.3772
+  },
+  "v4_0_on_new_data": {
+    "accuracy": 0.8512,
+    "macro_f1": 0.8272,
+    "accuracy_real_freq": 0.8712,
+    "macro_f1_real_freq": 0.8337,
+    "log_loss_real_freq": 0.2991,
+    "ece_real_freq": 0.0305,
+    "rule_violations": 0.0
+  },
+  "baselines": {
+    "always_rational": {
+      "accuracy_real_freq": 0.5745
+    },
+    "rules_only": {
+      "accuracy_real_freq": 0.852,
+      "macro_f1_real_freq": 0.8247,
+      "v4_disagrees_share": 0.0961,
+      "when_they_disagree_v4_right": 0.6398,
+      "when_they_disagree_rules_right": 0.3567,
+      "two_biases_possible_share": 0.0532,
+      "two_biases_possible_v4_accuracy": 0.5821,
+      "two_biases_possible_rules_accuracy": 0.5682
+    },
+    "without_rule_inputs": {
+      "accuracy": 0.8568,
+      "macro_f1": 0.8292,
+      "accuracy_real_freq": 0.8755,
+      "macro_f1_real_freq": 0.8322,
+      "log_loss_real_freq": 0.2657,
+      "ece_real_freq": 0.0193,
+      "rule_violations": 0.0008
+    },
+    "ceiling_with_hidden_tendencies": {
+      "accuracy_real_freq": 0.8999,
+      "macro_f1_real_freq": 0.8658
+    }
+  },
+  "out_of_time": {
+    "train_rows": 13601,
+    "test_rows": 6399,
+    "train_period": "2008-06 to 2019-12",
+    "test_period": "2020-01 to 2026-10 (includes the COVID crash)",
+    "accuracy": 0.86,
+    "accuracy_real_freq": 0.8654,
+    "macro_f1_real_freq": 0.8256
+  },
+  "v3_comparison": {
+    "v3_on_v4_test": {
+      "accuracy": 0.5098,
+      "macro_f1": 0.3156,
+      "accuracy_real_freq": 0.5343,
+      "macro_f1_real_freq": 0.3094,
+      "log_loss_real_freq": 1.611,
+      "ece_real_freq": 0.2544,
+      "rule_violations": 0.135
+    },
+    "v4_on_v4_test": {
+      "accuracy": 0.8595,
+      "macro_f1": 0.8341,
+      "accuracy_real_freq": 0.8792,
+      "macro_f1_real_freq": 0.8401,
+      "log_loss_real_freq": 0.2463,
+      "ece_real_freq": 0.014,
+      "rule_violations": 0.0
+    },
+    "calm_market_by_action": {
+      "sell": {
+        "n": 648,
+        "truth": {
+          "disposition": 0.69,
+          "herd": 0.0338,
+          "loss_aversion": 0.0047,
+          "rational": 0.2716
+        },
+        "v3": {
+          "disposition": 0.1438,
+          "herd": 0.0031,
+          "loss_aversion": 0.0154,
+          "rational": 0.8377
+        },
+        "v4": {
+          "disposition": 0.7192,
+          "herd": 0.0169,
+          "loss_aversion": 0.0016,
+          "rational": 0.2624
+        }
+      },
+      "hold": {
+        "n": 808,
+        "truth": {
+          "disposition": 0.1734,
+          "herd": 0.0,
+          "loss_aversion": 0.0383,
+          "rational": 0.7883
+        },
+        "v3": {
+          "disposition": 0.12,
+          "herd": 0.0012,
+          "loss_aversion": 0.0409,
+          "rational": 0.8378
+        },
+        "v4": {
+          "disposition": 0.2142,
+          "herd": 0.0,
+          "loss_aversion": 0.0396,
+          "rational": 0.7462
+        }
+      },
+      "buy_more": {
+        "n": 207,
+        "truth": {
+          "disposition": 0.0,
+          "herd": 0.3355,
+          "loss_aversion": 0.0,
+          "rational": 0.6645
+        },
+        "v3": {
+          "disposition": 0.1109,
+          "herd": 0.0,
+          "loss_aversion": 0.0339,
+          "rational": 0.8552
+        },
+        "v4": {
+          "disposition": 0.0,
+          "herd": 0.3978,
+          "loss_aversion": 0.0,
+          "rational": 0.6022
+        }
+      }
+    },
+    "action_sensitivity": {
+      "cases": 600,
+      "v4_answer_depends_on_action": 0.8367,
+      "v3_answer_depends_on_action": 0.0
+    },
+    "explanations": {
+      "v3_bars_explained_a_different_pattern": 0.986,
+      "v3_method_applied_to_v4_would_mismatch": 1.0,
+      "v4_method": "exact TreeSHAP of the chosen pattern, grouped into drivers",
+      "v4_shap_additivity_max_error": 8.106231689453125e-06
+    },
+    "note": "v3 is given each case's true years of investing (the app passes 5); risk appetite is derived from risk tolerance in thirds."
+  },
+  "driver_importance": {
+    "fits_disposition": 0.2474,
+    "fits_herd": 0.1609,
+    "action": 0.1579,
+    "fits_loss_aversion": 0.0903,
+    "gain_loss": 0.0791,
+    "position_size": 0.0314,
+    "horizon": 0.0308,
+    "age": 0.0272,
+    "cash_need": 0.0268,
+    "asset_mix": 0.0243,
+    "market_month": 0.0222,
+    "risk_tolerance": 0.0215,
+    "market_fear": 0.0198,
+    "market_swings": 0.0174,
+    "cash_flow": 0.012,
+    "holding_period": 0.012,
+    "property_loans": 0.0106,
+    "emergency_fund": 0.0084
+  },
+  "sense_checks": {
+    "scenarios": [
+      {
+        "id": "S1",
+        "scenario": "Calm market: selling a winner up 35% (small position)",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "disposition"
+        ],
+        "v4": "disposition",
+        "v4_confidence": 0.9785,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_disposition",
+          "action",
+          "gain_loss"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.7586,
+        "v3_pass": false
+      },
+      {
+        "id": "S2",
+        "scenario": "Calm market: holding a loser down 15%",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "disposition"
+        ],
+        "v4": "disposition",
+        "v4_confidence": 0.597,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_disposition",
+          "holding_period",
+          "gain_loss"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.7601,
+        "v3_pass": false
+      },
+      {
+        "id": "S3",
+        "scenario": "Calm market: holding a deep loser down 40%",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "loss_aversion"
+        ],
+        "v4": "loss_aversion",
+        "v4_confidence": 0.6475,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_loss_aversion",
+          "market_fear",
+          "holding_period"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.8297,
+        "v3_pass": false
+      },
+      {
+        "id": "S4",
+        "scenario": "Calm market: selling at a 20% loss (cutting a loss)",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 1.0,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "action",
+          "fits_herd",
+          "fits_disposition"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.7774,
+        "v3_pass": true
+      },
+      {
+        "id": "S5",
+        "scenario": "Crash: panic-selling at a 35% loss",
+        "market": {
+          "nifty_1m_return": -0.25,
+          "vix": 55.0,
+          "nifty_volatility_30d": 0.04
+        },
+        "expected": [
+          "loss_aversion"
+        ],
+        "v4": "loss_aversion",
+        "v4_confidence": 0.5987,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_loss_aversion",
+          "gain_loss",
+          "market_swings"
+        ],
+        "v3": "loss_aversion",
+        "v3_confidence": 0.9377,
+        "v3_pass": true
+      },
+      {
+        "id": "S6",
+        "scenario": "Crash: selling a winner up 25% into the fear",
+        "market": {
+          "nifty_1m_return": -0.25,
+          "vix": 55.0,
+          "nifty_volatility_30d": 0.04
+        },
+        "expected": [
+          "herd"
+        ],
+        "v4": "herd",
+        "v4_confidence": 0.978,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_herd",
+          "gain_loss",
+          "action"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.6203,
+        "v3_pass": false
+      },
+      {
+        "id": "S7",
+        "scenario": "Euphoric rally: buying more with little to spare",
+        "market": {
+          "nifty_1m_return": 0.08,
+          "vix": 12.5,
+          "nifty_volatility_30d": 0.007
+        },
+        "expected": [
+          "herd"
+        ],
+        "v4": "herd",
+        "v4_confidence": 0.9795,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_herd",
+          "action",
+          "position_size"
+        ],
+        "v3": "disposition",
+        "v3_confidence": 0.5725,
+        "v3_pass": false
+      },
+      {
+        "id": "S8",
+        "scenario": "Fearful market: buying more with spare cash and a long horizon",
+        "market": {
+          "nifty_1m_return": -0.07,
+          "vix": 27.0,
+          "nifty_volatility_30d": 0.018
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 1.0,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "action",
+          "fits_herd",
+          "fits_disposition"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.6687,
+        "v3_pass": true
+      },
+      {
+        "id": "S9",
+        "scenario": "Calm market: holding a winner up 10%",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 1.0,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "action",
+          "fits_herd",
+          "gain_loss"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.8919,
+        "v3_pass": true
+      },
+      {
+        "id": "S10",
+        "scenario": "Calm market: adding a little to a holding up 5%",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 1.0,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "action",
+          "fits_herd",
+          "fits_disposition"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.9915,
+        "v3_pass": true
+      },
+      {
+        "id": "S11",
+        "scenario": "Today's market: selling at a 12% loss",
+        "market": {
+          "nifty_1m_return": -0.0568,
+          "vix": 14.78,
+          "nifty_volatility_30d": 0.00663
+        },
+        "expected": [
+          "herd",
+          "loss_aversion"
+        ],
+        "v4": "loss_aversion",
+        "v4_confidence": 0.6448,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "fits_loss_aversion",
+          "gain_loss",
+          "market_month"
+        ],
+        "v3": "rational",
+        "v3_confidence": 0.7312,
+        "v3_pass": false
+      },
+      {
+        "id": "S12",
+        "scenario": "Calm market: selling a winner up 20%, paying out more than earned, no emergency fund",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 0.6443,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "cash_flow",
+          "action",
+          "fits_disposition"
+        ],
+        "v3": "disposition",
+        "v3_confidence": 0.5536,
+        "v3_pass": false
+      },
+      {
+        "id": "S13",
+        "scenario": "Calm market: selling a winner up 20%, says the money is needed",
+        "market": {
+          "nifty_1m_return": 0.015,
+          "vix": 13.0,
+          "nifty_volatility_30d": 0.0075
+        },
+        "expected": [
+          "rational"
+        ],
+        "v4": "rational",
+        "v4_confidence": 0.6355,
+        "v4_pass": true,
+        "v4_top_drivers": [
+          "cash_need",
+          "fits_disposition",
+          "action"
+        ],
+        "v3": "disposition",
+        "v3_confidence": 0.6127,
+        "v3_pass": false
+      }
+    ],
+    "relational": [
+      {
+        "id": "C1",
+        "check": "Calm market, holding up 35%: the action changes the reading (sell -> disposition, hold -> rational, buy more -> rational)",
+        "v4": {
+          "sell": "disposition",
+          "hold": "rational",
+          "buy_more": "rational"
+        },
+        "v3": {
+          "sell": "rational",
+          "hold": "rational",
+          "buy_more": "rational"
+        },
+        "v4_pass": true,
+        "v3_pass": false
+      },
+      {
+        "id": "C2",
+        "check": "Selling a calm-market winner reads less like the disposition effect when the holding is oversized (45% of liquid assets) and selling rebalances",
+        "v4": {
+          "position_8pct": 0.9617,
+          "position_45pct": 0.5586
+        },
+        "v4_pass": true
+      },
+      {
+        "id": "C3",
+        "check": "Crash sale: as the loss deepens (-8%, -20%, -40%), loss aversion gains on herd behaviour as the explanation (share of the two biased readings)",
+        "v4": [
+          0.5227,
+          0.6397,
+          0.6951
+        ],
+        "v4_pass": true
+      },
+      {
+        "id": "C4",
+        "check": "Buying more: in every rally band, the model's herd reading is within 3 points of how often herd behaviour actually drove the purchase",
+        "v4": [
+          {
+            "band": "+4% to +6%",
+            "n": 495,
+            "actual_herd_share": 0.7455,
+            "model_herd_reading": 0.733
+          },
+          {
+            "band": "+6% to +8%",
+            "n": 725,
+            "actual_herd_share": 0.7738,
+            "model_herd_reading": 0.7655
+          },
+          {
+            "band": "+8% to +10%",
+            "n": 328,
+            "actual_herd_share": 0.7683,
+            "model_herd_reading": 0.762
+          },
+          {
+            "band": "+10% to +14%",
+            "n": 233,
+            "actual_herd_share": 0.7682,
+            "model_herd_reading": 0.7484
+          },
+          {
+            "band": "+14% to +40%",
+            "n": 222,
+            "actual_herd_share": 0.7342,
+            "model_herd_reading": 0.7323
+          }
+        ],
+        "v4_pass": true
+      },
+      {
+        "id": "C5",
+        "check": "Selling a winner reads as more rational when the goal is 2 years away than 20",
+        "v4": {
+          "horizon_2y": 0.4941,
+          "horizon_20y": 0.0484
+        },
+        "v4_pass": true
+      },
+      {
+        "id": "C7",
+        "check": "Fearful market, selling at a 15% loss: saying the money is needed makes the sale read as more rational",
+        "v4": {
+          "not_stated": 0.0872,
+          "stated": 0.4894
+        },
+        "v4_pass": true
+      },
+      {
+        "id": "C8",
+        "check": "Calm market, selling a winner: paying out more than earned makes it read as more rational than with money to spare",
+        "v4": {
+          "paying_out_more": 0.7076,
+          "money_to_spare": 0.0596
+        },
+        "v4_pass": true
+      },
+      {
+        "id": "C6",
+        "check": "Gold share alone (5% vs 35%) barely moves the reading (largest change < 0.10)",
+        "v4": 0.0521,
+        "v4_pass": true
+      }
+    ],
+    "v4_passed": 21,
+    "total": 21,
+    "v3_passed_scenarios": 5
+  }
+}

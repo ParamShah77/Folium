@@ -492,6 +492,17 @@ class LongHorizonSimulator:
                 "stock_allocation" : float(sell_alloc),
                 "outcomes"         : sell_outcomes.tolist(),
             },
+            # Model assumptions — surfaced so the explainer (GAP 3) can tell the
+            # user how these figures were produced instead of asking them to
+            # trust two bare numbers.
+            "assumptions": {
+                "transaction_cost"  : float(self.transaction_cost),
+                "sell_stock_ratio"  : float(self.sell_stock_ratio),
+                "bond_mean"         : float(self.bond_mean),
+                "bond_vol"          : float(self.bond_vol),
+                "realization_factor": 0.95,
+                "n_market_paths"    : int(len(self.market_paths)),
+            },
             "comparison": {
                 "opportunity_cost_inr" : opportunity_cost,
                 "opportunity_cost_pct" : float(opportunity_cost / current_wealth * 100) if current_wealth else 0.0,

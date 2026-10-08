@@ -241,3 +241,75 @@ class TestMarketContext:
         assert "market_return"     in body
         assert "market_volatility" in body
         assert "crowd_ratio"       in body
+
+
+# ─────────────────────────────────────────────
+# GAP 3 — EXPLANATION ENDPOINTS
+# ─────────────────────────────────────────────
+
+class TestExplainEndpoint:
+    """
+    The explanation must survive anything the optional LLM layer does. A user
+    asking why they are being told to hold gets an answer, not a 500.
+    """
+
+    PAYLOAD = {"user_id": 42, "current_wealth": 75_000, "unrealized_gl": -0.15,
+               "n_simulations": 200}
+
+    def test_explain_returns_all_six_sections(self, client):
+        resp = client.post("/explain", json=self.PAYLOAD)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["sections"]) == 6
+        assert all(s["text"].strip() for s in body["sections"])
+
+    def test_explain_supports_hindi(self, client):
+        resp = client.post("/explain", json={**self.PAYLOAD, "lang": "hi"})
+        assert resp.status_code == 200
+        assert resp.json()["lang"] == "hi"
+
+    def test_explain_survives_a_failing_llm_key(self, client, monkeypatch):
+        """
+        The whole point of the fallback: a dead key costs the wording, never
+        the explanation, and never surfaces as an error.
+        """
+        import llm_polish
+
+        monkeypatch.setenv("EXPLAINER_LLM", "on")
+        monkeypatch.setenv("GEMINI_API_KEY", "definitely-not-a-valid-key")
+        monkeypatch.setenv("EXPLAINER_LLM_PROVIDER", "stub")
+        monkeypatch.setattr(llm_polish, "_env_loaded", True, raising=False)
+        monkeypatch.setitem(
+            llm_polish._PROVIDERS, "stub",
+            lambda prompt, timeout: (_ for _ in ()).throw(RuntimeError("401 API_KEY_INVALID")))
+        llm_polish.clear_cache()
+
+        resp = client.post("/explain", json=self.PAYLOAD)
+        assert resp.status_code == 200, f"a bad key surfaced as {resp.status_code}"
+        body = resp.json()
+        assert len(body["sections"]) == 6
+        assert body["polished"] is False
+        assert all(s["text"].strip() for s in body["sections"])
+
+    def test_report_download_survives_a_failing_llm_key(self, client, monkeypatch):
+        import llm_polish
+
+        monkeypatch.setenv("EXPLAINER_LLM", "on")
+        monkeypatch.setenv("GEMINI_API_KEY", "definitely-not-a-valid-key")
+        monkeypatch.setenv("EXPLAINER_LLM_PROVIDER", "stub")
+        monkeypatch.setattr(llm_polish, "_env_loaded", True, raising=False)
+        monkeypatch.setitem(
+            llm_polish._PROVIDERS, "stub",
+            lambda prompt, timeout: (_ for _ in ()).throw(ConnectionError("no network")))
+        llm_polish.clear_cache()
+
+        resp = client.post("/explain/report", json={**self.PAYLOAD, "format": "html"})
+        assert resp.status_code == 200
+        assert b"<table>" in resp.content
+
+    def test_status_reports_llm_configuration(self, client):
+        body = client.get("/explain/status").json()
+        assert set(body["languages"]) == {"en", "hi"}
+        assert "llm_polish" in body
+        assert "key_set" in body["llm_polish"]
+        assert "GEMINI" not in str(body), "configuration must never echo a key"

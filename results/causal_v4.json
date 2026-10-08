@@ -1,0 +1,791 @@
+{
+  "version": "v4",
+  "generated": "2026-10-08",
+  "dataset": "data/v4/decisions_v4.csv",
+  "mechanism_check": {
+    "cases": 20000,
+    "max_abs_error": 0.0,
+    "share_exact_to_4dp": 1.0
+  },
+  "causal_effects": {
+    "loss_aversion": {
+      "label": "A stronger pull of loss aversion",
+      "unit": "+0.1 on the 0-1 tendency scale",
+      "column": "latent_loss_aversion",
+      "negative_control": false,
+      "true": {
+        "sell": 0.003,
+        "hold": 0.0021,
+        "buy_more": -0.0051
+      },
+      "g_computation": {
+        "sell": 0.0035,
+        "hold": 0.0018,
+        "buy_more": -0.0053
+      },
+      "dowhy_linear": {
+        "sell": 0.0057,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.0010373042635367035,
+            "p_value": 0.47342121748381494
+          },
+          "random common cause": {
+            "new_effect": 0.05772000797561969,
+            "p_value": 0.4069961402942528
+          },
+          "data subset": {
+            "new_effect": 0.056784194830123626,
+            "p_value": 0.4611934778052833
+          }
+        }
+      },
+      "causal_effect": 0.0035,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "herd_sensitivity": {
+      "label": "Being more swayed by the crowd",
+      "unit": "+0.1 on the 0-1 tendency scale",
+      "column": "latent_herd",
+      "negative_control": false,
+      "true": {
+        "sell": 0.0192,
+        "hold": -0.0281,
+        "buy_more": 0.0089
+      },
+      "g_computation": {
+        "sell": 0.0179,
+        "hold": -0.0251,
+        "buy_more": 0.0072
+      },
+      "dowhy_linear": {
+        "sell": 0.0185,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.005158583394930816,
+            "p_value": 0.40032587913235007
+          },
+          "random common cause": {
+            "new_effect": 0.1854596824556885,
+            "p_value": 0.47873108613839926
+          },
+          "data subset": {
+            "new_effect": 0.18612347260726378,
+            "p_value": 0.47010663115665335
+          }
+        }
+      },
+      "causal_effect": 0.0179,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "disposition_strength": {
+      "label": "A stronger disposition tendency",
+      "unit": "+0.1 on the 0-1 tendency scale",
+      "column": "latent_disposition",
+      "negative_control": false,
+      "true": {
+        "sell": 0.0146,
+        "hold": -0.0095,
+        "buy_more": -0.0051
+      },
+      "g_computation": {
+        "sell": 0.0141,
+        "hold": -0.0102,
+        "buy_more": -0.0039
+      },
+      "dowhy_linear": {
+        "sell": 0.0158,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.008169828341238666,
+            "p_value": 0.2825630232416463
+          },
+          "random common cause": {
+            "new_effect": 0.15827775472861247,
+            "p_value": 0.45347923348438995
+          },
+          "data subset": {
+            "new_effect": 0.16305618401166871,
+            "p_value": 0.28106891134533907
+          }
+        }
+      },
+      "causal_effect": 0.0141,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "crowd_ratio": {
+      "label": "Higher market fear (India VIX)",
+      "unit": "VIX 10 points higher",
+      "column": "vix",
+      "negative_control": false,
+      "true": {
+        "sell": 0.0639,
+        "hold": -0.0468,
+        "buy_more": -0.017
+      },
+      "g_computation": {
+        "sell": 0.0388,
+        "hold": -0.0289,
+        "buy_more": -0.0099
+      },
+      "dowhy_linear": {
+        "sell": 0.0317,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 6.283539614383437e-05,
+            "p_value": 0.31284541669136556
+          },
+          "random common cause": {
+            "new_effect": 0.0031698828891838504,
+            "p_value": 0.4274598300483286
+          },
+          "data subset": {
+            "new_effect": 0.003060372118757054,
+            "p_value": 0.34292107538444583
+          }
+        }
+      },
+      "causal_effect": 0.0388,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "market_return": {
+      "label": "A weaker month for NIFTY",
+      "unit": "a month 5 points worse",
+      "column": "nifty_1m_return",
+      "negative_control": false,
+      "true": {
+        "sell": 0.0558,
+        "hold": -0.0388,
+        "buy_more": -0.0169
+      },
+      "g_computation": {
+        "sell": 0.0575,
+        "hold": -0.0369,
+        "buy_more": -0.0206
+      },
+      "dowhy_linear": {
+        "sell": 0.0699,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.0015420435860375782,
+            "p_value": 0.48335375978779044
+          },
+          "random common cause": {
+            "new_effect": -1.3976112203890536,
+            "p_value": 0.48627602700381595
+          },
+          "data subset": {
+            "new_effect": -1.3964074386321492,
+            "p_value": 0.4358606495903058
+          }
+        }
+      },
+      "causal_effect": 0.0575,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "unrealized_gl": {
+      "label": "A deeper loss or smaller gain",
+      "unit": "10 points lower (deeper loss, smaller gain)",
+      "column": "unrealized_gl",
+      "negative_control": false,
+      "true": {
+        "sell": -0.0166,
+        "hold": 0.0223,
+        "buy_more": -0.0058
+      },
+      "g_computation": {
+        "sell": -0.015,
+        "hold": 0.0203,
+        "buy_more": -0.0054
+      },
+      "dowhy_linear": {
+        "sell": -0.0111,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.002234262523878838,
+            "p_value": 0.37699302150107594
+          },
+          "random common cause": {
+            "new_effect": 0.11056214404372491,
+            "p_value": 0.4325809561768216
+          },
+          "data subset": {
+            "new_effect": 0.11222580317832995,
+            "p_value": 0.3994920936614173
+          }
+        }
+      },
+      "causal_effect": -0.015,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "position_share": {
+      "label": "A bigger holding",
+      "unit": "+10 points of liquid assets",
+      "column": "position_share",
+      "negative_control": false,
+      "true": {
+        "sell": 0.0477,
+        "hold": 0.0272,
+        "buy_more": -0.0749
+      },
+      "g_computation": {
+        "sell": 0.0474,
+        "hold": 0.0279,
+        "buy_more": -0.0753
+      },
+      "dowhy_linear": {
+        "sell": 0.0519,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.006774267776033682,
+            "p_value": 0.4369676132923981
+          },
+          "random common cause": {
+            "new_effect": 0.5189456907062581,
+            "p_value": 0.15004032027640335
+          },
+          "data subset": {
+            "new_effect": 0.5140683742832317,
+            "p_value": 0.3815726646270893
+          }
+        }
+      },
+      "causal_effect": 0.0474,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "surplus_ratio": {
+      "label": "More money left each month",
+      "unit": "+10% of income",
+      "column": "surplus_ratio",
+      "negative_control": false,
+      "true": {
+        "sell": -0.0018,
+        "hold": 0.0002,
+        "buy_more": 0.0016
+      },
+      "g_computation": {
+        "sell": -0.0016,
+        "hold": 0.0002,
+        "buy_more": 0.0014
+      },
+      "dowhy_linear": {
+        "sell": -0.0073,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.0018946579945072761,
+            "p_value": 0.41402254848228104
+          },
+          "random common cause": {
+            "new_effect": -0.07337185591358206,
+            "p_value": 0.37949837649857565
+          },
+          "data subset": {
+            "new_effect": -0.07680539577511411,
+            "p_value": 0.23080618046315737
+          }
+        }
+      },
+      "causal_effect": -0.0016,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "has_emergency_fund": {
+      "label": "Having an emergency fund",
+      "unit": "having one vs not",
+      "column": "has_emergency_fund",
+      "negative_control": false,
+      "true": {
+        "sell": -0.075,
+        "hold": 0.0137,
+        "buy_more": 0.0613
+      },
+      "g_computation": {
+        "sell": -0.056,
+        "hold": -0.0012,
+        "buy_more": 0.0571
+      },
+      "dowhy_linear": {
+        "sell": -0.0801,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.002260530682679851,
+            "p_value": 0.37543792689980016
+          },
+          "random common cause": {
+            "new_effect": -0.08013379967740861,
+            "p_value": 0.4547054547654744
+          },
+          "data subset": {
+            "new_effect": -0.08011466466676172,
+            "p_value": 0.49759991509241996
+          }
+        }
+      },
+      "causal_effect": -0.056,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "investment_horizon": {
+      "label": "More years until the money is needed",
+      "unit": "+5 years",
+      "column": "investment_horizon",
+      "negative_control": false,
+      "true": {
+        "sell": -0.0238,
+        "hold": 0.0142,
+        "buy_more": 0.0096
+      },
+      "g_computation": {
+        "sell": -0.0232,
+        "hold": 0.0137,
+        "buy_more": 0.0096
+      },
+      "dowhy_linear": {
+        "sell": -0.0141,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 7.014299872948326e-05,
+            "p_value": 0.42417838730981516
+          },
+          "random common cause": {
+            "new_effect": -0.0028154907402082987,
+            "p_value": 0.3999876762141131
+          },
+          "data subset": {
+            "new_effect": -0.002904034463704075,
+            "p_value": 0.4021336872735549
+          }
+        }
+      },
+      "causal_effect": -0.0232,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "years_investing": {
+      "label": "More investing experience",
+      "unit": "+5 years",
+      "column": "years_investing",
+      "negative_control": false,
+      "true": {
+        "sell": -0.0109,
+        "hold": 0.0101,
+        "buy_more": 0.0007
+      },
+      "g_computation": {
+        "sell": -0.0106,
+        "hold": 0.0085,
+        "buy_more": 0.0022
+      },
+      "dowhy_linear": {
+        "sell": -0.0584,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 1.2977384603213294e-05,
+            "p_value": 0.4899693136306423
+          },
+          "random common cause": {
+            "new_effect": -0.011677657906898514,
+            "p_value": 0.45916752893154045
+          },
+          "data subset": {
+            "new_effect": -0.011776678149605752,
+            "p_value": 0.27241651133641653
+          }
+        }
+      },
+      "causal_effect": -0.0106,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "cash_shock": {
+      "label": "A cash shock (job loss, medical bill, fees due)",
+      "unit": "having one vs not",
+      "column": "latent_cash_shock",
+      "negative_control": false,
+      "true": {
+        "sell": 0.3181,
+        "hold": -0.2362,
+        "buy_more": -0.0819
+      },
+      "g_computation": {
+        "sell": 0.3131,
+        "hold": -0.2333,
+        "buy_more": -0.0797
+      },
+      "dowhy_linear": {
+        "sell": 0.3286,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.00432057628977856,
+            "p_value": 0.38995680168183167
+          },
+          "random common cause": {
+            "new_effect": 0.32868146686440314,
+            "p_value": 0.2042486087692153
+          },
+          "data subset": {
+            "new_effect": 0.3276838286370426,
+            "p_value": 0.3868780015882388
+          }
+        }
+      },
+      "causal_effect": 0.3131,
+      "refutation_passed": true,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    },
+    "gold_share": {
+      "label": "More gold (negative control)",
+      "unit": "+10 points",
+      "column": "gold_share",
+      "negative_control": true,
+      "true": {
+        "sell": 0.0,
+        "hold": 0.0,
+        "buy_more": 0.0
+      },
+      "g_computation": {
+        "sell": -0.0023,
+        "hold": 0.0044,
+        "buy_more": -0.0021
+      },
+      "dowhy_linear": {
+        "sell": -0.0002,
+        "refutation_passed": false,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.007149026927430691,
+            "p_value": 0.36660788331660243
+          },
+          "random common cause": {
+            "new_effect": -0.0018058143627441236,
+            "p_value": 0.44652096284333986
+          },
+          "data subset": {
+            "new_effect": -0.006800097184798637,
+            "p_value": 0.31478344616807985
+          }
+        }
+      },
+      "causal_effect": -0.0023,
+      "refutation_passed": false,
+      "method": "g-computation (gradient boosting), checked against the true mechanism"
+    }
+  },
+  "situations": {
+    "loss_aversion:sell": {
+      "situation": "When holding a loss in a falling market",
+      "cases": 3345,
+      "share_taking_action_observed": 0.6117,
+      "share_taking_action_true": 0.6136,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0313,
+        "g_computation": 0.0187,
+        "dowhy_linear": 0.0342,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.007213535063199638,
+            "p_value": 0.38103927341350646
+          },
+          "random common cause": {
+            "new_effect": 0.34161742532370687,
+            "p_value": 0.4611463817382548
+          },
+          "data subset": {
+            "new_effect": 0.34297112302238303,
+            "p_value": 0.4725929750458246
+          }
+        }
+      },
+      "habits": {
+        "reframe_loss": {
+          "description": "Reframing the loss as one step in a long-term plan",
+          "before_true": 0.6136,
+          "after_true": 0.5517,
+          "before_estimated": 0.5911,
+          "after_estimated": 0.5426
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.6136,
+          "after_true": 0.4765,
+          "before_estimated": 0.5911,
+          "after_estimated": 0.4585
+        }
+      }
+    },
+    "loss_aversion:hold": {
+      "situation": "When a holding is down 25% or more",
+      "cases": 2944,
+      "share_taking_action_observed": 0.4195,
+      "share_taking_action_true": 0.4298,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0325,
+        "g_computation": 0.0185,
+        "dowhy_linear": 0.0316,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.01471855326266086,
+            "p_value": 0.34539716849956426
+          },
+          "random common cause": {
+            "new_effect": 0.31573180396673217,
+            "p_value": 0.4262965773226191
+          },
+          "data subset": {
+            "new_effect": 0.30954330763738497,
+            "p_value": 0.3599780000855257
+          }
+        }
+      },
+      "habits": {
+        "reframe_loss": {
+          "description": "Reframing the loss as one step in a long-term plan",
+          "before_true": 0.4298,
+          "after_true": 0.3567,
+          "before_estimated": 0.4117,
+          "after_estimated": 0.3704
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.4298,
+          "after_true": 0.4215,
+          "before_estimated": 0.4117,
+          "after_estimated": 0.4305
+        }
+      }
+    },
+    "herd:sell": {
+      "situation": "When the market is fearful or falling",
+      "cases": 9656,
+      "share_taking_action_observed": 0.4799,
+      "share_taking_action_true": 0.4831,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0456,
+        "g_computation": 0.0364,
+        "dowhy_linear": 0.046,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.007639559594164541,
+            "p_value": 0.35631471220119604
+          },
+          "random common cause": {
+            "new_effect": 0.4603221230530372,
+            "p_value": 0.4434763621334703
+          },
+          "data subset": {
+            "new_effect": 0.4647812677301909,
+            "p_value": 0.3500821810668151
+          }
+        }
+      },
+      "habits": {
+        "pause_for_analysis": {
+          "description": "Pausing for an independent analysis before acting",
+          "before_true": 0.4831,
+          "after_true": 0.3926,
+          "before_estimated": 0.4757,
+          "after_estimated": 0.3991
+        },
+        "tune_out_crowd": {
+          "description": "Not watching what the crowd is doing while you decide",
+          "before_true": 0.4831,
+          "after_true": 0.3745,
+          "before_estimated": 0.4757,
+          "after_estimated": 0.4088
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.4831,
+          "after_true": 0.3684,
+          "before_estimated": 0.4757,
+          "after_estimated": 0.367
+        }
+      }
+    },
+    "herd:buy_more": {
+      "situation": "During a strong rally",
+      "cases": 5923,
+      "share_taking_action_observed": 0.3382,
+      "share_taking_action_true": 0.3314,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0504,
+        "g_computation": 0.0406,
+        "dowhy_linear": 0.0571,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.007715489065033054,
+            "p_value": 0.4026015797573979
+          },
+          "random common cause": {
+            "new_effect": 0.5712171333192801,
+            "p_value": 0.37389178111281385
+          },
+          "data subset": {
+            "new_effect": 0.5628292244988,
+            "p_value": 0.3019739634111317
+          }
+        }
+      },
+      "habits": {
+        "pause_for_analysis": {
+          "description": "Pausing for an independent analysis before acting",
+          "before_true": 0.3314,
+          "after_true": 0.2334,
+          "before_estimated": 0.3295,
+          "after_estimated": 0.2399
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.3314,
+          "after_true": 0.2546,
+          "before_estimated": 0.3295,
+          "after_estimated": 0.2521
+        }
+      }
+    },
+    "disposition:sell": {
+      "situation": "With a winner up 8% or more in a calm market",
+      "cases": 4777,
+      "share_taking_action_observed": 0.5667,
+      "share_taking_action_true": 0.5647,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0665,
+        "g_computation": 0.0523,
+        "dowhy_linear": 0.0711,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": 0.007344001220012819,
+            "p_value": 0.3855720817574212
+          },
+          "random common cause": {
+            "new_effect": 0.7110569883931517,
+            "p_value": 0.32742648345793435
+          },
+          "data subset": {
+            "new_effect": 0.7118803346594248,
+            "p_value": 0.48312589158785296
+          }
+        }
+      },
+      "habits": {
+        "sell_rules": {
+          "description": "Setting your selling rules in advance (a target and a limit) and sticking to them",
+          "before_true": 0.5647,
+          "after_true": 0.3868,
+          "before_estimated": 0.5412,
+          "after_estimated": 0.4029
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.5647,
+          "after_true": 0.3932,
+          "before_estimated": 0.5412,
+          "after_estimated": 0.3934
+        }
+      }
+    },
+    "disposition:hold": {
+      "situation": "With a loser down 5-25% in a calm market",
+      "cases": 1550,
+      "share_taking_action_observed": 0.7716,
+      "share_taking_action_true": 0.7636,
+      "tendency_effect": {
+        "unit": "+0.1 on the 0-1 tendency scale",
+        "true": 0.0332,
+        "g_computation": 0.0114,
+        "dowhy_linear": 0.0366,
+        "refutation_passed": true,
+        "refutations": {
+          "placebo treatment": {
+            "new_effect": -0.016718908176643878,
+            "p_value": 0.3960435928319558
+          },
+          "random common cause": {
+            "new_effect": 0.3658461143291353,
+            "p_value": 0.4837520673500346
+          },
+          "data subset": {
+            "new_effect": 0.383640098168487,
+            "p_value": 0.3012785010061627
+          }
+        }
+      },
+      "habits": {
+        "sell_rules": {
+          "description": "Setting your selling rules in advance (a target and a limit) and sticking to them",
+          "before_true": 0.7636,
+          "after_true": 0.6758,
+          "before_estimated": 0.7149,
+          "after_estimated": 0.6811
+        },
+        "combined": {
+          "description": "Reframing losses, pausing for an independent view and setting rules in advance, together",
+          "before_true": 0.7636,
+          "after_true": 0.7003,
+          "before_estimated": 0.7149,
+          "after_estimated": 0.6946
+        }
+      }
+    }
+  },
+  "interventions": {
+    "reframe_loss": {
+      "description": "Reframing the loss as one step in a long-term plan"
+    },
+    "pause_for_analysis": {
+      "description": "Pausing for an independent analysis before acting"
+    },
+    "tune_out_crowd": {
+      "description": "Not watching what the crowd is doing while you decide"
+    },
+    "sell_rules": {
+      "description": "Setting your selling rules in advance (a target and a limit) and sticking to them"
+    },
+    "combined": {
+      "description": "Reframing losses, pausing for an independent view and setting rules in advance, together"
+    }
+  },
+  "accuracy": {
+    "g_computation_mean_abs_error": 0.0048,
+    "g_computation_sign_agreement": 0.9722,
+    "effects_compared": 45,
+    "dowhy_linear_mean_abs_error_sell": 0.0107,
+    "g_computation_mean_abs_error_sell": 0.0045,
+    "refutations_passed": 12,
+    "refutations_total": 13
+  },
+  "assumptions": {
+    "habits": "a habit is modelled as halving the tendency it targets; 'not watching the crowd' as market fear no higher than VIX 15",
+    "estimates_shown_in_app": "g-computation from data alone; the true values are for checking"
+  },
+  "runtime_seconds": 54.2
+}

@@ -1,14 +1,19 @@
 """
-GAP 1 – Streamlit Dashboard
-=============================
+GAP 1 + GAP 2 + GAP 3 – Streamlit Dashboard
+============================================
 A multi-page financial decision intelligence dashboard that communicates
 with the FastAPI backend (default: http://localhost:8000).
 
 Pages
 -----
-  1. Decision Analysis  — submit a decision, view bias + SHAP + causal chain
-  2. User Profile       — bias score evolution, decision history table
-  3. Market Context     — live NIFTY data, regime indicator
+  1. Decision Intelligence Hub — end-to-end: detect, simulate, and explain in
+                                 plain language (English / Hindi), with a
+                                 downloadable report
+  2. Decision Analysis         — bias + SHAP + causal chain, with a plain-language
+                                 summary on top
+  3. User Profile              — bias score evolution, decision history table
+  4. Market Context            — live NIFTY data, regime indicator
+  5. Wealth Simulator          — GAP 2 HOLD vs SELL Monte Carlo
 
 Environment variable
 --------------------
@@ -22,11 +27,30 @@ Run
 from __future__ import annotations
 
 import os
+import sys
 import time
 from typing import Any
 
 import requests
 import streamlit as st
+
+# ── GAP 3 explainer ───────────────────────────────────────────────────────
+# These modules only render text from dicts the API already returned — no
+# model loading, no simulation — so importing them here costs nothing and
+# saves a round trip.  If they are unavailable the dashboard degrades to the
+# technical view instead of breaking.
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+try:
+    import explanation_report as _report
+    import explanation_templates as _tpl
+    from explainer import explain_bias_only, generate_complete_explanation
+    _EXPLAINER_OK = True
+except Exception as _exc:                              # noqa: BLE001
+    _report = _tpl = None
+    explain_bias_only = generate_complete_explanation = None
+    _EXPLAINER_OK = False
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -98,6 +122,21 @@ st.markdown(
         border: 1px solid rgba(108,99,255,0.3);
     }
 
+    /* GAP 3 — plain-language narrative */
+    .narrative-headline {
+        font-size: 1.15rem;
+        line-height: 1.65;
+        padding: 1.1rem 1.3rem;
+        border-radius: 10px;
+        border-left: 6px solid #999;
+        margin: 0.4rem 0 1.4rem 0;
+        background: rgba(150,150,150,0.08);
+    }
+    .narr-warn { border-left-color: #d9534f; background: rgba(217,83,79,0.09); }
+    .narr-ok   { border-left-color: #28a745; background: rgba(40,167,69,0.09); }
+    .narr-caption {
+        font-size: 0.78rem; color: #888; margin-top: -0.5rem; margin-bottom: 1rem;
+    }
     /* Audit hash */
     .audit-hash {
         font-family: monospace;
@@ -304,6 +343,23 @@ def _render_sidebar():
         key="page_selector",
     )
 
+    # ── GAP 3: explanation language ──────────────────────────────────────
+    if _EXPLAINER_OK:
+        st.sidebar.markdown("---")
+        names = _tpl.LANG_NAMES
+        codes = list(_tpl.SUPPORTED_LANGS)
+        current = st.session_state.get("explain_lang", "en")
+        chosen = st.sidebar.radio(
+            "Explanation language",
+            codes,
+            index=codes.index(current) if current in codes else 0,
+            format_func=lambda c: names[c],
+            horizontal=True,
+            key="explain_lang_selector",
+            help="Switches the plain-language explanation. Results are not recalculated.",
+        )
+        st.session_state["explain_lang"] = chosen
+
     st.sidebar.markdown("---")
     st.sidebar.subheader("User Session")
 
@@ -501,6 +557,183 @@ def _render_shap_chart(shap_data: list[dict]):
     st.plotly_chart(fig, use_container_width=True)
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# GAP 3 — PLAIN-LANGUAGE NARRATIVE
+# ══════════════════════════════════════════════════════════════════════════
+
+def _lang() -> str:
+    """The explanation language currently selected in the sidebar."""
+    return st.session_state.get("explain_lang", "en")
+
+
+def _build_explanation(result1: dict, result2: dict, user_input: dict) -> dict | None:
+    """
+    Narrate results the API has already returned.
+
+    Rendering happens locally and takes milliseconds, so switching language
+    or downloading a report never re-runs the model or the simulation.
+    """
+    if not _EXPLAINER_OK:
+        return None
+    try:
+        return generate_complete_explanation(result1, result2, user_input, _lang())
+    except Exception as exc:                           # noqa: BLE001
+        st.warning(f"Could not build the plain-language explanation: {exc}")
+        return None
+
+
+def _render_narrative(explanation: dict, sim_result: dict | None = None) -> None:
+    """
+    The story the user actually reads: one headline, then the sections in
+    order, with the wealth chart sitting inside the story rather than after it.
+    """
+    sections = {s["key"]: s for s in explanation.get("sections", [])}
+    calm     = (not explanation.get("is_biased")) or explanation.get("resisted")
+    css      = "narr-ok" if calm else "narr-warn"
+
+    if "headline" in sections:
+        st.markdown(
+            f"<div class='narrative-headline {css}'>{sections['headline']['text']}</div>",
+            unsafe_allow_html=True,
+        )
+
+    for key in ("whats_happening", "two_futures", "money_story", "why_we_say_this"):
+        section = sections.get(key)
+        if not section:
+            continue
+        st.subheader(section["title"])
+        st.markdown(section["text"])
+        if key == "money_story" and sim_result:
+            _render_trajectory_chart(sim_result)
+
+    final = sections.get("what_to_do_now")
+    if final:
+        st.subheader(final["title"])
+        st.info(final["text"])
+
+    if explanation.get("polished"):
+        st.caption("Wording refined by an AI writing assistant. Every figure comes "
+                   "from the simulation and is checked before display.")
+
+
+def _render_download_row(explanation: dict) -> None:
+    """Offer the explanation as a keepable document."""
+    if not _EXPLAINER_OK or _report is None:
+        return
+
+    lang    = explanation.get("lang", "en")
+    formats = _report.available_formats(lang)
+    st.markdown("---")
+    st.markdown("**Take this with you**" if lang == "en" else "**इसे अपने साथ ले जाइए**")
+
+    cols = st.columns(3)
+    try:
+        cols[0].download_button(
+            "Report (HTML)" if lang == "en" else "रिपोर्ट (HTML)",
+            _report.to_html(explanation).encode("utf-8"),
+            file_name=_report.filename_for(explanation, "html"),
+            mime="text/html", use_container_width=True,
+        )
+        cols[1].download_button(
+            "Report (Markdown)" if lang == "en" else "रिपोर्ट (Markdown)",
+            _report.to_markdown(explanation).encode("utf-8"),
+            file_name=_report.filename_for(explanation, "md"),
+            mime="text/markdown", use_container_width=True,
+        )
+        if "pdf" in formats:
+            cols[2].download_button(
+                "Report (PDF)",
+                _report.to_pdf(explanation),
+                file_name=_report.filename_for(explanation, "pdf"),
+                mime="application/pdf", use_container_width=True,
+            )
+        else:
+            # ReportLab cannot shape Devanagari, so a Hindi PDF would come out
+            # wrong. The HTML report prints to a correct PDF from any browser.
+            cols[2].caption("PDF के लिए: HTML रिपोर्ट खोलिए और ब्राउज़र से "
+                            "Print → Save as PDF कीजिए।")
+    except Exception as exc:                           # noqa: BLE001
+        st.caption(f"Report download unavailable: {exc}")
+
+
+def _render_technical_details(result1: dict, result2: dict | None = None) -> None:
+    """
+    Everything the models actually computed — SHAP, the causal chain, the raw
+    distribution statistics. Kept one click away: available to anyone who
+    wants it, out of the way of everyone who doesn't.
+    """
+    with st.expander("Technical details (model output, SHAP, causal chain)", expanded=False):
+        bias_type  = result1.get("bias_type", "unknown")
+        confidence = result1.get("confidence", 0) * 100
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Bias Type",  bias_type.replace("_", " ").title())
+        c2.metric("Confidence", f"{confidence:.1f}%")
+        c3.metric("Risk Score", f"{result1.get('risk_score', 0)*100:.1f}%")
+
+        probs = result1.get("all_probabilities", {})
+        if probs:
+            st.caption("Class probabilities")
+            st.dataframe(
+                {"Bias": [k.replace("_", " ").title() for k in probs],
+                 "Probability": [f"{v*100:.1f}%" for v in probs.values()]},
+                use_container_width=True, hide_index=True,
+            )
+
+        shap_data = result1.get("shap_explanation", [])
+        if shap_data:
+            st.caption("SHAP feature contributions")
+            _render_shap_chart(shap_data)
+
+        causal_chain = result1.get("causal_chain", [])
+        if causal_chain:
+            st.caption("Causal chain (raw effect estimates)")
+            for i, step in enumerate(causal_chain, 1):
+                st.markdown(f"**Step {i}:** {step}")
+
+        if result2:
+            comp = result2.get("comparison", {})
+            hold = result2.get("hold", {})
+            sell = result2.get("sell", {})
+
+            st.caption("Monte Carlo comparison")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("HOLD — mean", f"₹{hold.get('mean', 0):,.0f}")
+            m2.metric("SELL — mean", f"₹{sell.get('mean', 0):,.0f}")
+            m3.metric("Opportunity cost", f"₹{abs(comp.get('opportunity_cost_inr', 0)):,.0f}")
+            m4.metric("P(HOLD better)", f"{comp.get('prob_hold_better', 0)*100:.1f}%")
+
+            tab1, tab2 = st.tabs(["Final-wealth statistics", "Year-by-year table"])
+            with tab1:
+                import pandas as pd
+                keys = ["mean", "median", "std", "p10", "p25", "p50", "p75", "p90"]
+                st.dataframe(pd.DataFrame({
+                    "Statistic" : [k.upper() for k in keys],
+                    "HOLD (₹)"  : [f"₹{hold.get(k, 0):,.0f}" for k in keys],
+                    "SELL (₹)"  : [f"₹{sell.get(k, 0):,.0f}" for k in keys],
+                    "Difference": [f"₹{hold.get(k, 0) - sell.get(k, 0):+,.0f}" for k in keys],
+                }), use_container_width=True, hide_index=True)
+
+            with tab2:
+                import pandas as pd
+                horizon = result2.get("horizon_years", 20)
+                years   = result2.get("years", list(range(1, horizon + 1)))
+                h50     = result2.get("yearly_hold_p50", [])
+                s50     = result2.get("yearly_sell_p50", [])
+                h10     = result2.get("yearly_hold_p10", [])
+                h90     = result2.get("yearly_hold_p90", [])
+                if years and h50:
+                    st.dataframe(pd.DataFrame({
+                        "Year"            : years,
+                        "HOLD Median (₹)" : [f"₹{v:,.0f}" for v in h50],
+                        "HOLD P10 (₹)"    : [f"₹{v:,.0f}" for v in h10] if h10 else ["-"] * len(years),
+                        "HOLD P90 (₹)"    : [f"₹{v:,.0f}" for v in h90] if h90 else ["-"] * len(years),
+                        "SELL Median (₹)" : [f"₹{v:,.0f}" for v in s50] if s50 else ["-"] * len(years),
+                    }), use_container_width=True, hide_index=True)
+                else:
+                    st.info("Trajectory data not available.")
+
+
 def page_unified_pipeline():
     st.title("Decision Intelligence Hub")
     st.markdown("Analyse your investment decision and simulate its long-term financial impact in one click.")
@@ -605,102 +838,46 @@ def page_unified_pipeline():
             
         if result2 is None: return
 
-        st.success("Analysis Completed")
-        st.divider()
+        st.session_state["hub_result"] = {
+            "result1": result1,
+            "result2": result2,
+            "user_input": {
+                "unrealized_gl"     : float(unrealized_gl),
+                "crowd_ratio"       : (result1.get("market_auto_fetched", {}) or {}).get("crowd_ratio", 0.5),
+                "has_emergency_fund": int(emg_fund),
+                "decision_intent"   : decision_intent,
+                "investment_horizon": int(horizon),
+            },
+        }
 
-        # Render Obj 1 Results
-        st.subheader("Objective 1: Behavioral Bias & Causal Analysis")
-        bias_type = result1.get("bias_type", "unknown")
-        confidence = result1.get("confidence", 0) * 100
-        is_biased = result1.get("is_biased", False)
+    # ── Results ──────────────────────────────────────────────────────────
+    # Rendered from session state rather than straight after the API calls,
+    # so switching language or downloading a report re-renders instantly
+    # instead of re-running the model and the simulation.
+    hub = st.session_state.get("hub_result")
+    if not hub:
+        return
 
-        if is_biased:
-            # Check if the user's explicit intent overrides the cognitive hazard
-            resisted = False
-            if decision_intent == "Planning to hold":
-                if bias_type in ["herd", "loss_aversion"]:
-                    resisted = True   # Herd/Loss Aversion causes panic selling. Holding resists it.
-                elif bias_type == "disposition"and float(unrealized_gl) > 0:
-                    resisted = True  # Disposition causes selling winners. Holding a winner resists it.
-                    
-            if resisted:
-                st.markdown(
-                    f'<div class="bias-banner bias-rational"style="border: 2px solid #28a745; background-color: rgba(40, 167, 69, 0.1);"> BIAS RESISTED: You were highly susceptible to <b>{bias_type.replace("_", "").title()}</b> logic ({confidence:.1f}% probability), but your explicit decision to <i>"{decision_intent}"</i> successfully broke the bias!</div>', 
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(f'<div class="bias-banner bias-biased"> BIAS DETECTED: {bias_type.replace("_", "").title()} ({confidence:.1f}% confidence)</div>', unsafe_allow_html=True)
-                st.warning(f"Your intent to '{decision_intent}'aligns with this cognitive hazard. Consider the Objective 2 financial simulation before executing this trade.")
-        else:
-            st.markdown(f'<div class="bias-banner bias-rational"> RATIONAL DECISION ({confidence:.1f}% confidence)</div>', unsafe_allow_html=True)
+    result1, result2 = hub["result1"], hub["result2"]
 
-        causal_chain = result1.get("causal_chain", [])
-        if causal_chain:
-            with st.expander("Causal Chain Details", expanded=True):
-                for i, step in enumerate(causal_chain, 1):
-                    st.markdown(f"**Step {i}:** {step}")
+    st.success("Analysis complete")
+    st.divider()
 
-        st.divider()
+    explanation = _build_explanation(result1, result2, hub["user_input"])
 
-        # Render Obj 2 Results
-        st.subheader("Objective 2: Long-Term Financial Impact Simulator")
-        comp = result2.get("comparison", {})
-        hold = result2.get("hold", {})
-        sell = result2.get("sell", {})
-        
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("HOLD — Expected", f"₹{hold.get('mean', 0):,.0f}")
-        c2.metric("SELL — Expected", f"₹{sell.get('mean', 0):,.0f}")
-        c3.metric("Opportunity Cost", f"₹{abs(comp.get('opportunity_cost_inr', 0)):,.0f}", delta_color="inverse")
-        c4.metric("P(HOLD wins)", f"{comp.get('prob_hold_better', 0)*100:.1f}%")
+    if explanation is None:
+        # Explainer unavailable — fall back to the technical view rather than
+        # showing the user nothing.
+        st.warning("Plain-language explanation unavailable — showing model output.")
+        _render_technical_details(result1, result2)
+        return
 
-        better = comp.get("better_decision", "HOLD")
-        rec_text = comp.get("recommendation_text", "")
-        if better == "HOLD":
-            st.markdown(f'<div class="bias-banner bias-rational"> {rec_text}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="bias-banner bias-biased"> {rec_text}</div>', unsafe_allow_html=True)
+    _render_narrative(explanation, result2)
+    _render_download_row(explanation)
 
-        st.caption("Year-by-Year Wealth Trajectory (Median & P10-P90 range)")
-        _render_trajectory_chart(result2)
+    st.divider()
+    _render_technical_details(result1, result2)
 
-        # ── DETAILED STATS TABLE ────────────────────────────────────────────
-        st.divider()
-        st.subheader("Detailed Statistics")
-        tab1, tab2 = st.tabs(["HOLD vs SELL Summary", "Year-by-Year Table"])
-
-        with tab1:
-            import pandas as pd
-            stat_keys = ["mean", "median", "std", "p10", "p25", "p50", "p75", "p90"]
-            hold_stats = {k: hold.get(k, 0) for k in stat_keys}
-            sell_stats = {k: sell.get(k, 0) for k in stat_keys}
-            stats_df = pd.DataFrame({
-                "Statistic": [k.upper() for k in stat_keys],
-                "HOLD (₹)": [f"₹{hold_stats[k]:,.0f}"for k in stat_keys],
-                "SELL (₹)": [f"₹{sell_stats[k]:,.0f}"for k in stat_keys],
-                "Difference": [f"₹{hold_stats[k] - sell_stats[k]:+,.0f}"for k in stat_keys],
-            })
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
-
-        with tab2:
-            horizon_years = result2.get("horizon_years", 20)
-            years       = result2.get("years", list(range(1, horizon_years + 1)))
-            hold_p50    = result2.get("yearly_hold_p50", [])
-            sell_p50    = result2.get("yearly_sell_p50", [])
-            hold_p10    = result2.get("yearly_hold_p10", [])
-            hold_p90    = result2.get("yearly_hold_p90", [])
-            if years and hold_p50:
-                import pandas as pd
-                traj_data = {
-                    "Year"         : years,
-                    "HOLD Median (₹)": [f"₹{v:,.0f}"for v in hold_p50],
-                    "HOLD P10 (₹)" : [f"₹{v:,.0f}"for v in hold_p10] if hold_p10 else ["-"] * len(years),
-                    "HOLD P90 (₹)" : [f"₹{v:,.0f}"for v in hold_p90] if hold_p90 else ["-"] * len(years),
-                    "SELL Median (₹)": [f"₹{v:,.0f}"for v in sell_p50] if sell_p50 else ["-"] * len(years),
-                }
-                st.dataframe(pd.DataFrame(traj_data), use_container_width=True, hide_index=True)
-            else:
-                st.info("Trajectory data not available.")
 
 def page_decision_analysis():
     st.title("Decision Analysis")
@@ -780,6 +957,45 @@ def page_decision_analysis():
             f'<div class="bias-banner {banner_class}">{msg}</div>',
             unsafe_allow_html=True,
         )
+
+        # ── GAP 3: plain-language summary ────────────────────────────────
+        # This page has no simulation behind it, so only the sections that
+        # describe the person and the bias are rendered — no money figures we
+        # haven't actually computed.
+        if _EXPLAINER_OK:
+            try:
+                plain = explain_bias_only(
+                    result,
+                    {
+                        "unrealized_gl"     : float(unrealized_gl),
+                        "crowd_ratio"       : (result.get("market_auto_fetched", {}) or {}).get("crowd_ratio", 0.5),
+                        "has_emergency_fund": int(emg_fund),
+                        "decision_intent"   : decision_intent,
+                        "investment_horizon": int(horizon),
+                    },
+                    _lang(),
+                )
+                sections = {sec["key"]: sec for sec in plain["sections"]}
+                calm = (not plain.get("is_biased")) or plain.get("resisted")
+                st.markdown(
+                    f"<div class='narrative-headline {'narr-ok' if calm else 'narr-warn'}'>"
+                    f"{sections['headline']['text']}</div>",
+                    unsafe_allow_html=True,
+                )
+                for key in ("whats_happening", "why_we_say_this"):
+                    if key in sections:
+                        st.subheader(sections[key]["title"])
+                        st.markdown(sections[key]["text"])
+                st.caption(
+                    "For the full picture — what each choice is worth over your whole "
+                    "horizon — run this decision through the Decision Intelligence Hub."
+                    if _lang() == "en" else
+                    "पूरी तस्वीर के लिए — हर विकल्प आपकी पूरी अवधि में कितना देता है — "
+                    "यह फ़ैसला Decision Intelligence Hub से चलाइए।"
+                )
+                st.divider()
+            except Exception as exc:                   # noqa: BLE001
+                st.caption(f"Plain-language summary unavailable: {exc}")
 
         # ── Metrics row ──────────────────────────────────────────────────
         mc1, mc2, mc3 = st.columns(3)
