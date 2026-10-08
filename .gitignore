@@ -22,3 +22,23 @@ node_modules/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Secrets / misc (merged from the GAP 3 branch)
+*.key
+secrets.json
+.ipynb_checkpoints/
+venv/
+*.log
+desktop.ini
+*.db-wal
+*.db-shm
+
+# Local tooling and machine-specific folders
+.claude/
+backend.venv/
+scratch/
+
+# Downloads and build output (not project source)
+drive-download-*
+frontend/dist/
+*.tsbuildinfo
