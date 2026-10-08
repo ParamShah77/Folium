@@ -1,5 +1,11 @@
-# Backend image per plan §7A (python:3.11-slim).
-FROM python:3.11-slim
+# Backend image. The plan's §7A said python:3.11-slim; Phase 5 forces 3.13.
+#
+# dowhy 0.14 declares scipy<=1.15.3 for python_version < "3.13", so on 3.11 pip
+# resolves scipy away from the 1.17.1 that the model artefacts in models/ were
+# built under — a silent prediction-drift risk, not a build error. Staying on
+# 3.13 also matches the host venv, removing the 3.11-vs-3.13 split the status
+# report flagged. See backend/requirements-ml.txt.
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -8,10 +14,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY backend/requirements.txt /app/backend-requirements.txt
+COPY backend/requirements-ml.txt /app/backend-requirements-ml.txt
+# Two layers: the base deps change rarely, the ~900 MB ML stack almost never,
+# so an edit to either one alone does not rebuild the other.
 RUN pip install --no-cache-dir -r /app/backend-requirements.txt
+RUN pip install --no-cache-dir -r /app/backend-requirements-ml.txt
 
 COPY backend/ /app/backend/
+# The Phase 5 bridge (backend/core/ml_bridge.py) imports the research modules in
+# place rather than re-deriving them, so src/ is a runtime dependency of the
+# image, not just a dev-time one. Dropping it makes every decision fail with
+# MLUnavailableError.
+COPY src/ /app/src/
 # Trained model artifacts (Amendment 15: models/*.pkl reused as-is; used from Milestone 3)
 COPY models/ /app/models/
+# Phase 5B reads the pre-generated market paths; 5C the precomputed DoWhy results.
+COPY synthetic_market_paths.npy /app/synthetic_market_paths.npy
+COPY results/causal_effects.pkl /app/results/causal_effects.pkl
 
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

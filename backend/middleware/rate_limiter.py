@@ -15,6 +15,15 @@ that require a session are keyed by the authenticated user id when present.
 The limiter storage is Redis in every environment so limits are shared across
 workers; the ``rate:{endpoint}:{ip}`` keys live there (§2B). When
 ``RATE_LIMIT_ENABLED`` is false the limiter is disabled (used by most tests).
+
+⚠ EVERY ``@limiter.limit`` ENDPOINT MUST TAKE ``response: Response``.
+``headers_enabled=True`` makes slowapi inject the X-RateLimit-* headers after
+the handler returns, and it does that by looking for a parameter literally named
+``response``. If it is missing, slowapi raises ``parameter `response` must be an
+instance of starlette.responses.Response`` — a 500 on every call, but ONLY when
+the limiter is enabled. The suite runs with ``RATE_LIMIT_ENABLED=false``, so
+this failure mode is invisible to every test except ``test_rate_limit.py``;
+that file therefore smoke-tests each limited endpoint under a live limiter.
 """
 from __future__ import annotations
 

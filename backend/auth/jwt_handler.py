@@ -65,8 +65,12 @@ def create_access_token(user_id: str, role: str) -> tuple[str, str, datetime]:
     return _encode(payload), jti, exp
 
 
-def create_refresh_token(user_id: str, role: str) -> tuple[str, str, datetime]:
-    """Return (token, jti, expires_at) for a 7-day refresh token."""
+def create_refresh_token(user_id: str, role: str, remember: bool = True) -> tuple[str, str, datetime]:
+    """Return (token, jti, expires_at) for a 7-day refresh token.
+
+    ``rm`` records the "keep me signed in" choice so that /refresh, which
+    rotates the token, can re-issue cookies with the same lifetime.
+    """
     settings = get_settings()
     now = _now()
     exp = now + _timedelta(settings.REFRESH_TOKEN_TTL_SECONDS)
@@ -76,15 +80,16 @@ def create_refresh_token(user_id: str, role: str) -> tuple[str, str, datetime]:
         "role": role,
         "jti": jti,
         "type": "refresh",
+        "rm": bool(remember),
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
     return _encode(payload), jti, exp
 
 
-def create_token_pair(user_id: str, role: str) -> TokenPair:
+def create_token_pair(user_id: str, role: str, remember: bool = True) -> TokenPair:
     access, access_jti, access_exp = create_access_token(user_id, role)
-    refresh, refresh_jti, refresh_exp = create_refresh_token(user_id, role)
+    refresh, refresh_jti, refresh_exp = create_refresh_token(user_id, role, remember)
     return TokenPair(
         access_token=access,
         refresh_token=refresh,

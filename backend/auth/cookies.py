@@ -26,13 +26,20 @@ def set_auth_cookies(
     csrf_token: str,
     access_ttl: int,
     refresh_ttl: int,
+    persistent: bool = True,
 ) -> None:
+    """``persistent=False`` ("keep me signed in" unticked) sets session
+    cookies — no Max-Age — which the browser drops when it closes. The
+    tokens inside still expire on their own schedule either way."""
     secure = get_settings().cookie_secure
+
+    def ttl(seconds: int):
+        return seconds if persistent else None
 
     response.set_cookie(
         key=ACCESS_COOKIE_NAME,
         value=access_token,
-        max_age=access_ttl,
+        max_age=ttl(access_ttl),
         httponly=True,
         secure=secure,
         samesite=_SAMESITE,
@@ -41,7 +48,7 @@ def set_auth_cookies(
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
-        max_age=refresh_ttl,
+        max_age=ttl(refresh_ttl),
         httponly=True,
         secure=secure,
         samesite=_SAMESITE,
@@ -50,7 +57,7 @@ def set_auth_cookies(
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
         value=csrf_token,
-        max_age=refresh_ttl,  # CSRF lifetime matches the session (§1H)
+        max_age=ttl(refresh_ttl),  # CSRF lifetime matches the session (§1H)
         httponly=False,  # must be JS-readable
         secure=secure,
         samesite=_SAMESITE,

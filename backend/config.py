@@ -1,7 +1,7 @@
 """Application configuration.
 
-Pydantic-settings model that reads the repo-root ``.env`` (per the Environment
-Variables Reference table in implementation_plan_Final.md, as amended by
+Pydantic-settings model that reads the repo-root ``.env`` (per the
+Environment variables table in FOLIUM_MASTER.md §11, as amended by
 Amendment 7). Also wires up structlog JSON logging (§3E).
 
 Key material (JWT_PRIVATE_KEY / JWT_PUBLIC_KEY / FERNET_KEY) is produced for
@@ -109,6 +109,48 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     CORS_ALLOWED_ORIGINS: List[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    # --- Analysis pipeline / SSE (§3F, Milestone 3) ---
+    # How long a client may hold an SSE connection before we send a `timeout`
+    # event and close. §3F specifies 2 minutes.
+    SSE_STREAM_TIMEOUT_SECONDS: int = 120
+    # Comment-frame keepalive so proxies (Render, nginx) don't drop an idle stream.
+    SSE_HEARTBEAT_SECONDS: int = 15
+    # TTL on the replayable event backlog (sse_log:{decision_id}) — long enough
+    # for a page reload to reattach and replay, short enough not to accumulate.
+    SSE_BACKLOG_TTL_SECONDS: int = 3600
+    # Until Phase 5 registers the real ML steps, the pipeline runs transparent
+    # placeholder steps so the 3F plumbing is exercisable end-to-end. Setting
+    # this false makes an unregistered step a hard failure instead.
+    PIPELINE_STUB_STEPS: bool = True
+
+    # --- Market data (Phase 5, migration 0008) ---
+    # Capture NIFTY/VIX context via yfinance when a decision is submitted. Off
+    # in the test suite so tests never depend on the network; a disabled or
+    # failed fetch stores NULLs and the model falls back to neutral defaults.
+    MARKET_DATA_ENABLED: bool = True
+    # Upper bound on how long /analyze waits for a cold fetch. The fetcher
+    # caches for 15 minutes, so only the first request in a window pays this.
+    MARKET_DATA_TIMEOUT_SECONDS: float = 8.0
+    # Monte Carlo paths per HOLD/SELL leg (Phase 5B). The research default.
+    SIMULATION_PATHS: int = 1000
+    # Bias classifier (Phase A2). "v4" sees the action and the portfolio and is
+    # calibrated (results/reports/BIAS_MODEL_V4.md); "v3" is kept only for
+    # comparison and as a rollback.
+    BIAS_MODEL_VERSION: str = "v4"
+    # Simulation engine (Phase A3). "v2" uses the investor's horizon, real
+    # history, tax and their own portfolio (results/reports/SIMULATOR_V2.md);
+    # "v1" is the fixed 20-year research engine, kept as a rollback.
+    SIMULATOR_VERSION: str = "v2"
+    # Phase B2: how often the API anonymises accounts whose 30-day grace
+    # period has ended. 0 turns the background purge off (run
+    # scripts/purge_deleted_accounts.py instead).
+    ACCOUNT_PURGE_INTERVAL_SECONDS: int = 6 * 60 * 60
+    # Phase B3: Gemini reads comments and words the case for holding and
+    # selling — only for investors who turn it on (users.ai_consent), and only
+    # when this is on and GEMINI_API_KEY is set. The offline phrase rules and
+    # the number-built cases work either way.
+    AI_HELP: bool = False
 
     # --- Local tuning knobs ---
     RATE_LIMIT_ENABLED: bool = True

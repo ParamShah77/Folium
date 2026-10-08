@@ -37,6 +37,7 @@ from ..middleware.rate_limiter import (
 )
 from ..models import User
 from ..schemas.auth import (
+    CancelDeletionRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -99,10 +100,11 @@ async def _issue_session(
     user_id: str,
     role: str,
     request: Request,
+    remember: bool = True,
 ) -> None:
     """Mint tokens, persist the refresh row, set cookies + CSRF (login/refresh)."""
     settings = get_settings()
-    pair = create_token_pair(user_id, role)
+    pair = create_token_pair(user_id, role, remember)
 
     await db.execute(
         """
@@ -125,6 +127,7 @@ async def _issue_session(
         csrf_token=csrf_token,
         access_ttl=settings.ACCESS_TOKEN_TTL_SECONDS,
         refresh_ttl=settings.REFRESH_TOKEN_TTL_SECONDS,
+        persistent=remember,
     )
 
 
@@ -135,6 +138,7 @@ async def _issue_session(
 @limiter.limit(REGISTER_LIMIT)
 async def register(
     request: Request,
+    response: Response,  # REQUIRED by @limiter.limit — see the note on the limiter
     payload: RegisterRequest,
     db: Database = Depends(get_db),
     redis: RedisService = Depends(get_redis_service),
@@ -154,15 +158,25 @@ async def register(
             raise AppError(status_code=409, error="EMAIL_EXISTS", message="Email already registered")
 
     password_hash = hash_password(payload.password)
+    # §10: the committed monthly outflow is EMIs + rent paid + education. When
+    # any of those is supplied it defines monthly_expense; otherwise a legacy
+    # client's explicit monthly_expense is kept.
+    outflow_parts = (payload.monthly_emi, payload.rent_paid, payload.education_monthly)
+    monthly_expense = (
+        sum(p or 0.0 for p in outflow_parts)
+        if any(p is not None for p in outflow_parts)
+        else payload.monthly_expense
+    )
     user_id = await db.fetchval(
         """
         INSERT INTO users (
             email, password_hash, name,
             age, monthly_income, monthly_expense, risk_tolerance,
             investment_horizon, has_emergency_fund, financial_strategy, goal, phone,
+            monthly_emi, rent_paid, education_monthly, education_end_year,
             is_active, email_verified
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, FALSE, FALSE)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, FALSE, FALSE)
         RETURNING user_id
         """,
         payload.email,
@@ -170,13 +184,17 @@ async def register(
         payload.name,
         payload.age,
         payload.monthly_income,
-        payload.monthly_expense,
+        monthly_expense,
         payload.risk_tolerance,
         payload.investment_horizon,
         payload.has_emergency_fund,
         payload.financial_strategy,
         payload.goal,
         payload.phone,
+        payload.monthly_emi,
+        payload.rent_paid,
+        payload.education_monthly,
+        payload.education_end_year,
     )
 
     token = generate_url_token(32)  # 64 hex chars
@@ -232,7 +250,10 @@ async def login(
             status_code=403,
             error="ACCOUNT_DELETED",
             message="This account has been scheduled for deletion.",
-            extra={"recovery_link": "/auth/cancel-deletion"},
+            extra={
+                "recovery_link": "/auth/cancel-deletion",
+                "purge_after": record["purge_after"].isoformat() if record.get("purge_after") else None,
+            },
         )
 
     if not record["is_active"] or not record["email_verified"]:
@@ -254,7 +275,10 @@ async def login(
         logger.info("login_mfa_required", user_id=str(record["user_id"]))
         return {"mfa_required": True, "temp_token": temp_token}
 
-    await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
+    await _issue_session(
+        response, db, redis, str(record["user_id"]), record["role"], request,
+        remember=payload.remember_me,
+    )
 
     user = User.from_record(record)
     logger.info("user_login", user_id=str(user.user_id))
@@ -308,7 +332,10 @@ async def login_mfa(
         warning = f"You used a backup code. {remaining} backup codes remaining."
 
     await redis.delete(key)  # temp token is single-use
-    await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
+    await _issue_session(
+        response, db, redis, str(record["user_id"]), record["role"], request,
+        remember=payload.remember_me,
+    )
 
     user = User.from_record(record)
     logger.info("user_login_mfa", user_id=str(user.user_id), used_backup=warning is not None)
@@ -364,7 +391,10 @@ async def refresh(
 
     # Delete the old refresh row and issue a fresh session (rotation).
     await db.execute("DELETE FROM refresh_tokens WHERE token_id = $1", row["token_id"])
-    await _issue_session(response, db, redis, str(payload["sub"]), payload["role"], request)
+    await _issue_session(
+        response, db, redis, str(payload["sub"]), payload["role"], request,
+        remember=bool(payload.get("rm", True)),
+    )
 
     logger.info("token_refreshed", user_id=str(payload["sub"]))
     return {"refreshed": True}
@@ -418,6 +448,7 @@ async def logout(
 @limiter.limit(FORGOT_PASSWORD_LIMIT)
 async def forgot_password(
     request: Request,
+    response: Response,  # REQUIRED by @limiter.limit — see the note on the limiter
     payload: ForgotPasswordRequest,
     db: Database = Depends(get_db),
     redis: RedisService = Depends(get_redis_service),
@@ -809,3 +840,29 @@ async def google_callback(
 @router.get("/me", response_model=MeResponse)
 async def me(user: User = Depends(get_current_user)) -> MeResponse:
     return MeResponse(**user.public_dict())
+
+
+
+# --------------------------------------------------------------------------- #
+# POST /v1/auth/cancel-deletion — keep an account during its grace period (B2)
+# --------------------------------------------------------------------------- #
+@router.post("/cancel-deletion")
+@limiter.limit(LOGIN_LIMIT)
+async def cancel_deletion(
+    request: Request,
+    response: Response,  # REQUIRED by @limiter.limit — see the note on the limiter
+    payload: CancelDeletionRequest,
+    db: Database = Depends(get_db),
+):
+    from ..services import account_deletion
+
+    record = await db.fetchrow("SELECT * FROM users WHERE email = $1", payload.email)
+    # Same answer for a wrong password and an unknown email (§1C step 1).
+    if record is None or not verify_password(payload.password, record["password_hash"] or ""):
+        raise AppError(status_code=401, error="INVALID_CREDENTIALS", message="Invalid credentials")
+    if record["deleted_at"] is None:
+        return {"message": "This account isn't scheduled for deletion.", "kept": True}
+    if not await account_deletion.cancel_deletion(db, str(record["user_id"])):
+        raise AppError(status_code=410, error="DELETION_FINAL",
+                       message="The grace period has ended and this account has been deleted.")
+    return {"message": "Your account is kept. You can log in again.", "kept": True}

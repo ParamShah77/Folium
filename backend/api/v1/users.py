@@ -21,18 +21,24 @@ auth/routes.py for the slowapi/PEP 563 body-inference reason).
 import secrets
 
 import structlog
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from ...auth import mfa_handler
 from ...auth.dependencies import get_current_user
 from ...db import Database, RedisService
 from ...errors import AppError
 from ...models import User
-from ...schemas.users import ProfileUpdateRequest, SensitiveProfileUpdateRequest
+from ...schemas.users import AiConsentRequest, DeleteAccountRequest, ProfileUpdateRequest, SensitiveProfileUpdateRequest
+from ...services import account_deletion
+from ...auth.cookies import clear_auth_cookies
+from ...auth.csrf import revoke_csrf_token
+from ...auth.dependencies import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
+from ...auth.jwt_handler import TokenError, decode_token, seconds_until_expiry
 from ...services.email_service import EmailService
 from ...services.profile_log import log_profile_change
 from ...state import get_db, get_redis_service
 from ...auth.password import verify_password
+from ..serialization import jsonable as _jsonable
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -41,6 +47,34 @@ _email_service = EmailService()
 
 _OTP_TTL = 300  # 5 minutes (§2B: otp:{user_id})
 _ALLOWED_STRATEGIES = {"conservative", "moderate", "aggressive"}
+# Sensitive (§4I) fields that PUT /me/profile may set only while still NULL.
+_FIRST_FILL_FIELDS = (
+    "monthly_income", "monthly_expense", "has_emergency_fund",
+    "monthly_emi", "rent_paid", "education_monthly",
+)
+_OUTFLOW_FIELDS = ("monthly_emi", "rent_paid", "education_monthly")
+
+# §10: committed outflow = EMIs + rent paid + education. Re-derived after any
+# change so the bias model's monthly_expense always matches what was entered.
+_DERIVE_EXPENSE_SQL = """
+    UPDATE users
+       SET monthly_expense = COALESCE(monthly_emi, 0) + COALESCE(rent_paid, 0)
+                             + COALESCE(education_monthly, 0)
+     WHERE user_id = $1
+       AND (monthly_emi IS NOT NULL OR rent_paid IS NOT NULL OR education_monthly IS NOT NULL)
+"""
+
+
+def _differs(old, new) -> bool:
+    """Compare a DB value (Decimal/int/bool/None) with a request value."""
+    if old is None or new is None:
+        return old is not new
+    if isinstance(old, bool) or isinstance(new, bool):
+        return bool(old) != bool(new)
+    try:
+        return float(old) != float(new)
+    except (TypeError, ValueError):
+        return old != new
 
 # users columns exposed on GET /me/profile (no hashes/secrets).
 _PROFILE_FIELDS = (
@@ -48,23 +82,9 @@ _PROFILE_FIELDS = (
     "oauth_provider", "profile_picture", "phone",
     "age", "monthly_income", "monthly_expense", "risk_tolerance",
     "investment_horizon", "has_emergency_fund", "financial_strategy", "goal",
-    "created_at", "last_login_at",
+    "monthly_emi", "rent_paid", "education_monthly", "education_end_year",
+    "created_at", "last_login_at", "ai_consent",
 )
-
-
-def _jsonable(value):
-    """Decimal -> float, UUID/datetime -> str, passthrough otherwise."""
-    import datetime
-    import decimal
-    import uuid
-
-    if isinstance(value, decimal.Decimal):
-        return float(value)
-    if isinstance(value, (uuid.UUID,)):
-        return str(value)
-    if isinstance(value, (datetime.datetime, datetime.date)):
-        return value.isoformat()
-    return value
 
 
 # --------------------------------------------------------------------------- #
@@ -115,27 +135,53 @@ async def update_profile(
         )
 
     old = await db.fetchrow(
-        "SELECT name, goal, financial_strategy FROM users WHERE user_id = $1",
-        user.user_id,
-    )
-    await db.execute(
         """
-        UPDATE users SET name = $1, goal = $2, financial_strategy = $3,
-                         updated_at = NOW()
-        WHERE user_id = $4
+        SELECT name, goal, financial_strategy, age, risk_tolerance,
+               investment_horizon, monthly_income, monthly_expense,
+               has_emergency_fund, monthly_emi, rent_paid, education_monthly,
+               education_end_year
+        FROM users WHERE user_id = $1
         """,
-        payload.name,
-        payload.goal,
-        payload.financial_strategy,
         user.user_id,
     )
 
-    for field, new_value in (
-        ("name", payload.name),
-        ("goal", payload.goal),
-        ("financial_strategy", payload.financial_strategy),
-    ):
-        if old[field] != new_value:
+    # Sensitive fields: first-time fill only. A value that already exists can
+    # only be changed via /me/profile/sensitive (password re-verification).
+    for field in _FIRST_FILL_FIELDS:
+        new_value = getattr(payload, field)
+        if new_value is None or old[field] is None:
+            continue
+        if _differs(old[field], new_value):
+            raise AppError(
+                status_code=403,
+                error="REVERIFICATION_REQUIRED",
+                message="Changing this needs your password. Use the secure update form.",
+                extra={"field": field},
+            )
+
+    updates: dict = {
+        "name": payload.name,
+        "goal": payload.goal,
+        "financial_strategy": payload.financial_strategy,
+    }
+    for field in ("age", "risk_tolerance", "investment_horizon", "education_end_year", *_FIRST_FILL_FIELDS):
+        value = getattr(payload, field)
+        if value is not None:
+            updates[field] = value
+
+    assignments = ", ".join(f"{col} = ${i}" for i, col in enumerate(updates, start=1))
+    await db.execute(
+        f"UPDATE users SET {assignments}, updated_at = NOW() "
+        f"WHERE user_id = ${len(updates) + 1}",
+        *updates.values(),
+        user.user_id,
+    )
+
+    if any(f in updates for f in _OUTFLOW_FIELDS):
+        await db.execute(_DERIVE_EXPENSE_SQL, user.user_id)
+
+    for field, new_value in updates.items():
+        if _differs(old[field], new_value):
             await log_profile_change(
                 db, str(user.user_id), field, verified_via="session",
                 old_value=old[field],
@@ -214,6 +260,22 @@ async def update_sensitive_profile(
         )
         applied.append("has_emergency_fund")
 
+    # 3b. Tier 1 outflows (§10) — expenses, so the same re-verification rule.
+    for field in _OUTFLOW_FIELDS:
+        new_value = getattr(payload, field)
+        if new_value is None or new_value == _as_float(record[field]):
+            continue
+        await db.execute(
+            f"UPDATE users SET {field} = $1, updated_at = NOW() WHERE user_id = $2",
+            new_value, user.user_id,
+        )
+        await log_profile_change(
+            db, str(user.user_id), field, verified_via=verified_via, old_value=record[field],
+        )
+        applied.append(field)
+    if any(f in applied for f in _OUTFLOW_FIELDS):
+        await db.execute(_DERIVE_EXPENSE_SQL, user.user_id)
+
     # 4. Email change — two-step: OTP to the OLD address (§4I), then apply.
     if payload.email is not None and payload.email != record["email"]:
         taken = await db.fetchval(
@@ -264,3 +326,86 @@ async def update_sensitive_profile(
 
 def _as_float(value):
     return float(value) if value is not None else None
+
+
+
+# --------------------------------------------------------------------------- #
+# GET /v1/users/me/export — download my data (Phase B2)
+# --------------------------------------------------------------------------- #
+@router.get("/me/export")
+async def export_my_data(
+    user: User = Depends(get_current_user),
+    db: Database = Depends(get_db),
+):
+    import json
+    from datetime import date
+
+    data = await account_deletion.export_user_data(db, str(user.user_id))
+    return Response(
+        content=json.dumps(data, indent=2, ensure_ascii=False, default=str),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="folium-my-data-{date.today().isoformat()}.json"'},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# POST /v1/users/me/delete — delete my account, with a grace period (Phase B2)
+# --------------------------------------------------------------------------- #
+@router.post("/me/delete")
+async def delete_my_account(
+    request: Request,
+    response: Response,
+    payload: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    record = await db.fetchrow("SELECT password_hash, mfa_secret_enc FROM users WHERE user_id = $1", user.user_id)
+    if not verify_password(payload.password, record["password_hash"] or ""):
+        raise AppError(status_code=401, error="INVALID_CREDENTIALS", message="Invalid credentials")
+    if user.mfa_enabled:
+        if not payload.totp_code:
+            raise AppError(status_code=400, error="TOTP_REQUIRED", message="TOTP code is required for sensitive changes.")
+        if not mfa_handler.verify_user_totp(record["mfa_secret_enc"], payload.totp_code):
+            raise AppError(status_code=401, error="INVALID_MFA_CODE", message="Invalid code. Please try again.")
+
+    purge_after = await account_deletion.schedule_deletion(db, str(user.user_id), payload.reason)
+
+    # Signed out here too: the current tokens die now, not when they expire.
+    for cookie, kind in ((ACCESS_COOKIE_NAME, "access"), (REFRESH_COOKIE_NAME, "refresh")):
+        raw = request.cookies.get(cookie)
+        if raw:
+            try:
+                p = decode_token(raw, expected_type=kind)
+                await redis.blacklist_jti(p.get("jti", ""), seconds_until_expiry(p))
+            except TokenError:
+                pass
+    await revoke_csrf_token(redis, str(user.user_id))
+    clear_auth_cookies(response)
+    return {
+        "message": "Your account is scheduled for deletion.",
+        "purge_after": purge_after.isoformat(),
+        "grace_days": account_deletion.GRACE_DAYS,
+    }
+
+
+
+# --------------------------------------------------------------------------- #
+# PUT /v1/users/me/ai-consent — Gemini help on or off (Phase B3)
+# --------------------------------------------------------------------------- #
+@router.put("/me/ai-consent")
+async def set_ai_consent(
+    payload: AiConsentRequest,
+    user: User = Depends(get_current_user),
+    db: Database = Depends(get_db),
+):
+    """Let Gemini read this investor's comments and word the two cases.
+
+    Off by default. Turning it on sends the comment and the analysis's numbers
+    to Google for future analyses; nothing already done is resent.
+    """
+    enabled = payload.enabled
+    await db.execute("UPDATE users SET ai_consent = $1, updated_at = NOW() WHERE user_id = $2", enabled, user.user_id)
+    from ...core.ai_help import available
+
+    return {"ai_consent": enabled, "ai_help_available": available()}

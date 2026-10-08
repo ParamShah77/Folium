@@ -17,6 +17,7 @@ else needs it (CSRF/handlers read it).
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from typing import AsyncIterator
 
@@ -41,6 +42,20 @@ from . import state
 logger = structlog.get_logger(__name__)
 
 
+async def _purge_loop(database: Database, interval: int) -> None:
+    """Phase B2: anonymise accounts whose deletion grace period has ended."""
+    from .services.account_deletion import purge_due_accounts
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            n = await purge_due_accounts(database)
+            if n:
+                logger.info("accounts_purged", count=n)
+        except Exception as exc:  # noqa: BLE001 — never take the API down over housekeeping
+            logger.error("account_purge_failed", error=str(exc))
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -56,9 +71,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = redis_service
     logger.info("app_startup_complete", env=settings.ENV)
 
+    purge_task = None
+    if settings.ACCOUNT_PURGE_INTERVAL_SECONDS > 0:
+        purge_task = asyncio.create_task(_purge_loop(database, settings.ACCOUNT_PURGE_INTERVAL_SECONDS))
+
     try:
         yield
     finally:
+        if purge_task:
+            purge_task.cancel()
         await database.close()
         await redis_service.close()
         state.set_database(None)

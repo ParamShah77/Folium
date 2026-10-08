@@ -1,0 +1,45 @@
+# FinAI backend — Phase 5 / M4 ML stack (Option D adapter bridge).
+#
+# These versions are PINNED EXACTLY to the environment the model artefacts in
+# models/ were trained and serialised under. Loading bias_detector_xgboost_v3.pkl
+# with different xgboost/scikit-learn versions will fail or silently mispredict.
+# Verify with scripts/verify_ml_env.py after any change here.
+#
+# REQUIRES PYTHON 3.13. This is not cosmetic: dowhy 0.14 declares
+#   scipy<=1.15.3 for python_version < "3.13"
+# so on 3.11/3.12 pip downgrades scipy away from the 1.17.1 the artefacts were
+# built under. On 3.13 that marker does not apply and the pins below resolve.
+# Dockerfile.backend must therefore be python:3.13-slim, not 3.11-slim.
+#
+# Installed separately from requirements.txt: ~900 MB, only the pipeline needs it.
+#   pip install -r backend/requirements.txt -r backend/requirements-ml.txt
+
+# --- Core numeric stack ---
+numpy==2.4.2
+pandas==3.0.1
+scipy==1.17.1
+scikit-learn==1.8.0
+
+# --- Bias detector (Phase 5A) ---
+xgboost==3.2.0
+shap==0.51.0                       # TreeExplainer for Objective 3
+
+# --- Causal inference (Phase 5C) ---
+dowhy==0.14
+networkx==3.6.1
+pgmpy==1.0.0
+
+# --- Simulator (Phase 5B) ---
+joblib==1.5.2                      # parallel Monte Carlo runs
+tqdm==4.67.1
+
+# --- Market data (Phase 5 / M5) ---
+yfinance==0.2.66
+
+# --- Debate engine (Phase 5D) ---
+anthropic==0.75.0
+
+# --- Explanations (GAP 3: src/explainer.py, src/explanation_report.py) ---
+jinja2==3.1.6                      # English/Hindi explanation templates
+textstat==0.7.13                   # readability score attached to each explanation
+reportlab==5.0.1                   # PDF reports (English; Hindi is served as HTML)

@@ -30,10 +30,20 @@ class RegisterRequest(BaseModel):
     goal: Optional[str] = None
     phone: Optional[str] = Field(None, description="Optional phone number for future alerts")
 
+    # --- Tier 1 outflows (FOLIUM_MASTER.md §4) ---
+    # When any is given, the stored monthly_expense is derived as their sum.
+    monthly_emi: Optional[float] = Field(None, ge=0)
+    rent_paid: Optional[float] = Field(None, ge=0)
+    education_monthly: Optional[float] = Field(None, ge=0)
+    education_end_year: Optional[int] = Field(None, ge=2000, le=2100)
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    # Unticked in the web app = session cookies that end with the browser.
+    # Defaults to True so existing API clients keep their 7-day sessions.
+    remember_me: bool = True
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -58,6 +68,7 @@ class MfaLoginRequest(BaseModel):
     temp_token: str
     # A 6-digit TOTP code OR an 8-char backup code (XXXX-XXXX accepted).
     totp_code: str
+    remember_me: bool = True
 
 
 class MfaVerifySetupRequest(BaseModel):
@@ -84,3 +95,10 @@ class MeResponse(BaseModel):
     email: EmailStr
     role: str
     mfa_enabled: bool
+
+
+class CancelDeletionRequest(BaseModel):
+    """Phase B2: keep an account during its grace period."""
+
+    email: EmailStr
+    password: str

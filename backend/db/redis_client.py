@@ -9,6 +9,9 @@ Redis key schema (§2B):
     csrf:{user_id}         -> csrf_token     TTL 604800 (7d)
     rate:{endpoint}:{ip}   -> count          TTL per-window (handled by slowapi)
     mfa_recovery:{email}   -> "1"            TTL 86400        [Milestone 2]
+    sse:{decision_id}      PUBLISH channel   (no TTL)         [Milestone 3, §3F]
+    sse_log:{decision_id}  -> LIST of events TTL 3600         [Milestone 3, §3F]
+    sse_seq:{decision_id}  -> counter        TTL 3600         [Milestone 3, §3F]
 
 Blacklisting (Amendment 10): on logout and refresh rotation we blacklist BOTH
 the refresh jti and the current access jti so the per-request check in

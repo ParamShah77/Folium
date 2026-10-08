@@ -10,6 +10,7 @@ from __future__ import annotations
 import structlog
 
 from ..config import Settings, get_settings
+from . import dev_mailbox
 
 logger = structlog.get_logger(__name__)
 
@@ -24,6 +25,7 @@ class EmailService:
 
     async def _send(self, to: str, subject: str, html: str, text: str) -> None:
         if self._use_dev_fallback:
+            dev_mailbox.record(to, subject, text)
             logger.info(
                 "email_dev_fallback",
                 to=to,
@@ -59,13 +61,13 @@ class EmailService:
     # -- Public templates --------------------------------------------- #
     async def send_verification_email(self, to: str, token: str) -> None:
         link = f"{self._settings.FRONTEND_URL}/auth/verify-email?token={token}"
-        subject = "Verify your ScaleAI account"
+        subject = "Verify your Folium account"
         text = (
-            f"Welcome to ScaleAI. Verify your account by opening this link:\n{link}\n\n"
+            f"Welcome to Folium. Verify your account by opening this link:\n{link}\n\n"
             "This link expires in 24 hours."
         )
         html = (
-            f"<p>Welcome to ScaleAI.</p>"
+            f"<p>Welcome to Folium.</p>"
             f'<p><a href="{link}">Verify your account</a></p>'
             f"<p>This link expires in 24 hours.</p>"
         )

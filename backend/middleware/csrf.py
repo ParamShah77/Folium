@@ -29,6 +29,7 @@ _EXEMPT_SUFFIXES = (
     "/auth/reset-password",
     "/auth/refresh",
     "/auth/mfa-recovery-request",  # §1E — user is locked out, no session exists
+    "/auth/cancel-deletion",       # B2 — account locked for deletion, no session exists
 )
 
 

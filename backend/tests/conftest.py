@@ -100,6 +100,12 @@ os.environ["DATABASE_URL"] = _TEST_APP_DB_URL
 os.environ["REDIS_URL"] = _TEST_REDIS_URL
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("RESEND_API_KEY", "")  # force dev email fallback
+# No test may depend on Yahoo Finance being reachable; decisions get NULL
+# market context and the model's documented neutral defaults.
+os.environ["MARKET_DATA_ENABLED"] = "false"
+# 200 paths instead of 1000 keeps the real Monte Carlo step fast in the suite;
+# the step's behaviour does not depend on the path count.
+os.environ.setdefault("SIMULATION_PATHS", "200")
 # Force OAuth UNCONFIGURED for the suite regardless of any REAL credentials in
 # .env (pydantic-settings would otherwise read them). Env vars take precedence
 # over the dotenv file, so empty strings here guarantee: (a) the unconfigured
