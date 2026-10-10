@@ -34,7 +34,6 @@ desktop.ini
 *.db-shm
 
 # Local tooling and machine-specific folders
-.claude/
 backend.venv/
 scratch/
 

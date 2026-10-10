@@ -447,7 +447,6 @@ Logging in to an account scheduled for deletion shows the date and a "Keep my ac
 | `AI_HELP` | Lets investors who opt in have Gemini read their comment and word both sides (needs `GEMINI_API_KEY`); off by default |
 | `ACCOUNT_PURGE_INTERVAL_SECONDS` | How often the API anonymises accounts whose grace period has ended (default 6 hours; 0 turns it off) |
 | `PIPELINE_STUB_STEPS`, `SSE_*`, `RATE_LIMIT_ENABLED`, `BLACKLIST_CACHE_TTL_SECONDS`, `SENTRY_DSN` | Operations |
-| `ANTHROPIC_API_KEY`, `CLAUDE_*` | Present in the settings but unused: Gemini was chosen for the debate |
 
 ---
 

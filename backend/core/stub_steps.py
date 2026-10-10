@@ -1,8 +1,7 @@
 """Placeholder pipeline steps — Milestone 3 only, replaced by Phase 5.
 
 **These are not models.** Every value below comes from a small, deliberately
-transparent arithmetic rule, not from XGBoost, a Monte Carlo run, DoWhy, or
-Claude. They exist so the §3F machinery — status transitions, SSE event
+transparent arithmetic rule, not from XGBoost, a Monte Carlo run, or DoWhy. They exist so the §3F machinery — status transitions, SSE event
 ordering, backlog replay, failure handling, the audit write — can be exercised
 and tested end-to-end before Phase 5 lands.
 
@@ -158,7 +157,7 @@ async def _explanation(ctx: PipelineContext) -> StepResult:
 
 
 # --------------------------------------------------------------------------- #
-# 4. Debate  (Phase 5D replaces this with the AutoGen + Claude debate engine)
+# 4. Debate  (Phase 5D replaces this with the AutoGen debate engine)
 # --------------------------------------------------------------------------- #
 _VERDICT_BY_BIAS = {
     "loss_aversion": "HOLD",

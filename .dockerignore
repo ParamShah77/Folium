@@ -1,6 +1,5 @@
 # Keep the build context small: only backend/ and models/ are copied.
 .git
-.claude
 .venv
 .venv*
 **/__pycache__

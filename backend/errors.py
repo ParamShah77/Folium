@@ -45,7 +45,7 @@ class AppError(Exception):
 
 
 class ServiceUnavailableError(Exception):
-    """External dependency (market data, Claude, email, etc.) is unavailable (§3D)."""
+    """External dependency (market data, LLM, email, etc.) is unavailable (§3D)."""
 
     def __init__(self, service: str, detail: str = "") -> None:
         self.service = service

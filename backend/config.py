@@ -82,11 +82,6 @@ class Settings(BaseSettings):
     # --- Symmetric encryption for TOTP secrets / future Kite tokens ---
     FERNET_KEY: str = ""
 
-    # --- Anthropic (Milestone 3 debate engine) ---
-    ANTHROPIC_API_KEY: str = ""
-    CLAUDE_MODEL: str = "claude-sonnet-5"
-    CLAUDE_MONTHLY_BUDGET_USD: float = 50.00
-
     # --- Ops / email ---
     ADMIN_EMAIL: str = "admin@example.com"
     RESEND_API_KEY: str = ""
