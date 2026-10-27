@@ -1,6 +1,6 @@
 # Folium: master reference
 
-The single source of truth for what Folium is, how it works, every formula it uses, and where the project stands. Last updated **2026-10-08**. Companion documents are listed in §17; everything else that used to describe the project has been retired (kept in the separate `Major Project` folder).
+The single source of truth for what Folium is, how it works, every formula it uses, and where the project stands. Last updated **2026-10-27**. Companion documents are listed in §17; everything else that used to describe the project has been retired (kept in the separate `Major Project` folder).
 
 ---
 
@@ -18,22 +18,22 @@ For each decision it:
 
 It is for information and education, not investment advice. The product rules: no model names or accuracy figures in the UI, confidence shown as High / Medium / Low, plain titles on the live-analysis steps, and an explicit security and data-privacy story.
 
-### Status at a glance (2026-10-08)
+### Status at a glance (2026-10-09)
 
 | Area | State |
 |---|---|
 | Accounts: sign-up, email verification, login, "keep me signed in", password reset, two-step verification (TOTP + backup codes + recovery), profile with re-verification | Built, tested |
-| Google sign-in | Backend built and tested with mocks; **not finished in the web app** (the callback returns JSON instead of returning the browser to the app) |
+| Google sign-in, end to end in the web app (**C1**): returns to the app, two-step, "keep me signed in", keep an account in its grace period, profile step for new accounts, "Set a password" | Built, tested (Google is replaced by a stand-in in tests; the callback address is registered and Google accepts the request) |
 | Portfolio: shares, mutual funds (live prices), gold (live), FDs, savings, property, loans, rent, monthly SIP | Built, tested |
 | Analysis pipeline with live progress (SSE) | Built, tested |
 | Bias model **v4.1**, simulation **v2**, cause-and-effect **v4**, explanation engine (English + Hindi, HTML/PDF reports) | Built, tested |
 | Tamper-evident audit chain with "verify my record" (**B1**) | Built, tested |
 | Account deletion with a 30-day grace period, and data export (**B2**) | Built, tested |
 | Comment reading and "both sides" (**B3**), with optional Gemini help | Built, tested (the Gemini path is tested with a stand-in; it runs live once `AI_HELP` and a key are set) |
-| Admin panel | Pending (only the MFA-reset endpoint exists) |
-| Deployment, repo move to `ParamShah77/Folium`, CI | Pending |
+| Admin panel (**C2**) | Pending (only the MFA-reset endpoint exists) |
+| CI (**C3**), deployment with HTTPS (**C4**) | Pending. The repository is `github.com/ParamShah77/Folium` |
 
-Tests: **255** backend (needs PostgreSQL + Redis; 162 of them run without a database under `backend/tests/unit`), **334** in the root `tests/` folder (models, data, explainer, simulator, causal; no database; 329 run, 5 need an AI key and are skipped without one), **17** frontend.
+Tests: **267** backend (needs PostgreSQL + Redis; 149 of them run without a database under `backend/tests/unit`), **343** in the root `tests/` folder (models, data, explainer, simulator, causal; no database; 338 run, 5 need an AI key and are skipped without one), **25** frontend.
 
 ---
 
@@ -82,7 +82,7 @@ PostgreSQL 18 (native service, :5432)   Redis / Memurai (:6379)
 | `data/v4/` | `decisions_v4.csv` (20,000 cases), `market_history.csv` (real NIFTY/VIX), `DATASET_CARD.md`, `v4.0/` (previous dataset) |
 | `data/sim_v2/` | `monthly_history.csv`: real NIFTY and gold-in-rupee history for the simulation |
 | `results/` | `causal_v4.json`, evaluation JSONs, and `reports/` (the three model reports) |
-| `scripts/` | `with_env.py`, `seed_demo.py`, `purge_deleted_accounts.py`, `train_bias_v4.py`, `evaluate_simulator_v2.py`, `evaluate_explanations.py`, `verify_ml_env.py`, `generate_dev_keys.py`, and earlier research scripts |
+| `scripts/` | `with_env.py`, `seed_demo.py`, `purge_deleted_accounts.py`, `train_bias_v4.py`, `evaluate_simulator_v2.py`, `evaluate_explanations.py`, `evaluate_for_paper.py` (journal-paper evaluations), `verify_ml_env.py`, `generate_dev_keys.py`, and earlier research scripts |
 | `tests/` | Root tests for the models and engines |
 | `notebooks/`, `archive/` | Research notebooks and archived scripts and results |
 | `Dockerfile.backend`, `docker-compose.yml` | Container definitions for a later deployment (not used locally) |
@@ -175,7 +175,10 @@ A failing step marks the decision `failed` and publishes a `failed` event. Step 
 | Page reloaded or opened late during an analysis | The event backlog is replayed, so the full progress history appears; if the live stream cannot open, the page polls |
 | Two analyses finishing at once | A per-investor advisory lock keeps the audit chain linear |
 | An unverified account registering again | The unverified record is replaced; a verified email returns "already registered" |
-| Account scheduled for deletion signing in | Told the deletion date and offered "Keep my account" until the 30-day grace period ends; afterwards the account is gone |
+| Account scheduled for deletion signing in | Told the deletion date and offered "Keep my account" until the 30-day grace period ends; afterwards the account is gone. With Google, Google's confirmation stands in for the password |
+| First sign-in with Google | The account is created, then the investor is asked for the Tier 1 profile before any other page (Settings stays reachable) |
+| Google sign-in cancelled, expired or refused | The app explains what happened and offers to try again; an address Google hasn't verified can't sign in or be linked to an existing account |
+| An account made with Google and no password | Sensitive changes, turning off two-step and deleting the account need a password, so the app offers "Set a password" (the reset-link email) |
 | A comment the rules can't read, or AI help failing | The rules' reading is used (possibly empty); a Gemini reply is discarded unless every quote is word for word from the comment |
 | Explanation or AI rewording fails | The template text is used; an analysis never fails because of its wording |
 | Hindi PDF requested | Refused with an explanation; the HTML report is offered |
@@ -286,13 +289,21 @@ Compares **holding** with **selling** across the investor's own horizon (1–30 
 
 | Item | Rule |
 |---|---|
-| Equity, held under 12 months | 20% short-term |
-| Equity, held 12 months or more | 12.5% on gains above ₹1,25,000 |
+| Equity, held 12 months or less | 20% short-term |
+| Equity, held more than 12 months | 12.5% on gains above ₹1,25,000 |
 | Gold | 12.5% after 24 months |
 | FD and savings interest | At the investor's slab rate every year |
 | Cess | 4% on top |
 
 Slab rate for extra interest income: taxable income = gross − ₹75,000 standard deduction; up to ₹12,00,000 taxable the Section 87A rebate leaves slab income untaxed; above that, slabs of 0–4 L 0%, 4–8 L 5%, 8–12 L 10%, 12–16 L 15%, 16–20 L 20%, 20–24 L 25%, above 24 L 30%, each ×1.04.
+
+The app collects income **after** tax, so the gross income behind it is found first, by inverting the same tax (`income_tax`, `gross_from_take_home`, including the 87A marginal relief just above ₹12 lakh):
+
+```
+gross for the slab = gross_from_take_home(12 × monthly take-home) + 12 × 0.7 × rent received
+```
+
+Rent counts at 70% (the 30% standard deduction on house property). Example: ₹1.6 lakh a month take-home is about ₹21.5 lakh gross, so interest is taxed at 26%, not the 20.8% the take-home figure alone would give.
 
 **Monthly investing.** The SIP and freed-up education fees go into the investor's current mix in **both** futures, so they set the size of the portfolio without changing the gap.
 
@@ -301,6 +312,8 @@ Slab rate for extra interest income: taxable income = gross − ₹75,000 standa
 **Realism check against the real index** (rolling 12 months): bad year (1 in 10) −6.9% simulated vs −7.5% real; typical +11.6% vs +11.3%; good year +34.7% vs +33.3%. The old v1 paths had bad years twice as bad as reality.
 
 Results depend most on how fast shares are assumed to grow, and on how jumpy the particular stock is; the assumptions are stated on the result page. Full detail, sensitivity table and per-stock figures: `results/reports/SIMULATOR_V2.md`. Rollback: `SIMULATOR_VERSION=v1`.
+
+For evaluation only, `simulate()` also accepts `paths=` (given market paths instead of resampled ones, to replay real windows or force the kind of starting year), `return_gaps=True` (the future-by-future gap for every year), and a `block_months` entry in `assumptions`; the app uses none of them. Against GBM and an independent-months bootstrap, only the 12-month blocks reproduce both the spread of real one-year returns and volatility clustering; replaying history exactly (gold at ~15% a year) flips 86% of verdicts over 1,000 investors. Details: `results/reports/PAPER_EVALUATION.md`.
 
 ### 7.4 Cause and effect v4 (`src/causal_v4.py`)
 
@@ -318,7 +331,7 @@ Evidence rules, not a language model. `p` = the share of simulated futures in wh
 | Hold | `p ≤ 0.40` → SELL; otherwise HOLD |
 | Buy more | Herd behaviour, or a bias with confidence ≥ 0.60 → HOLD; otherwise BUY MORE if `p ≥ 0.50`, else HOLD |
 
-Every verdict stores its reasons and the exact numbers used, so it can be checked by hand (`debate_transcript.engine = "evidence_rules_v1"`). The same transcript then carries the two cases of §7.8, which are written after the verdict and never read by it; `llm_debate` is true only when Gemini worded them.
+Confidence in a reason is written in words (high, medium or low, the same cut-offs as the app), never as a percentage. Every verdict stores its reasons and the exact numbers used, so it can be checked by hand (`debate_transcript.engine = "evidence_rules_v1"`). The same transcript then carries the two cases of §7.8, which are written after the verdict and never read by it; `llm_debate` is true only when Gemini worded them.
 
 ### 7.6 Explanation engine (`src/explainer.py`, `explanation_templates.py`, `explanation_report.py`, `llm_polish.py`)
 
@@ -372,7 +385,7 @@ genesis       = sha256( "GENESIS:{user_id}:{created_at}" )          (chain_versi
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/login` (`remember_me`), `POST /auth/login/mfa`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/change-password`, `GET /auth/me`, `POST /auth/cancel-deletion` (keep an account during its grace period; pre-session), `GET /auth/google/login`, `GET /auth/google/callback` |
+| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/login` (`remember_me`), `POST /auth/login/mfa`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/change-password`, `GET /auth/me`, `POST /auth/cancel-deletion` (keep an account during its grace period; pre-session), `GET /auth/google/login?remember=&next=`, `GET /auth/google/callback` (always a redirect to `/auth/google#…` in the app), `POST /auth/google/keep-account` (pre-session, single-use token) |
 | Two-step | `POST /auth/mfa/setup`, `/mfa/verify-setup`, `/mfa/disable`, `/mfa-recovery-request` |
 | Profile and your data | `GET`/`PUT /users/me/profile`, `PUT /users/me/profile/sensitive`, `PUT /users/me/ai-consent`, `GET /users/me/export` (JSON download), `POST /users/me/delete` (password, and TOTP when two-step is on) |
 | Portfolio | `GET /portfolio`, `POST /portfolio/holdings`, `PUT`/`DELETE /portfolio/holdings/{id}`, `PUT /portfolio/assets`, `GET /portfolio/mf-search`, `GET /portfolio/quote` |
@@ -395,6 +408,7 @@ Errors share one shape: `{ "error": "MACHINE_CODE", "message": "…", "request_i
 | "Keep me signed in" | Unticked (default) = session cookies that end when the browser closes; the choice survives token refresh |
 | CSRF | Double-submit cookie: `csrf_token` must equal the `X-CSRF-Token` header on every mutating request |
 | Two-step verification | TOTP (`valid_window=1`), secret encrypted with Fernet, 8 bcrypt-hashed backup codes, recovery requests (one per email per 24 h) resolved by an admin who must prove their own TOTP |
+| Google sign-in | OpenID Connect via Authlib. A single-use `state` (Redis, 10 min) guards the round trip and carries "keep me signed in" and the page to return to (in-app paths only). Only an address Google has verified can sign in; it opens a new account or links to the existing one with that email. The callback answers with a redirect whose outcome is in the URL fragment, which browsers never send to a server, and the app wipes it from the address bar once read. Two-step verification still applies |
 | Re-verification | Changing email, income, EMIs, rent, education fees or the emergency fund needs the password (and TOTP); an email change also needs a code sent to the old address. Every change is logged with the old value hashed |
 | Data isolation | PostgreSQL row-level security on every user-owned table (§6) |
 | Rate limiting | slowapi with a Redis store on auth and analysis endpoints |
@@ -418,12 +432,14 @@ Single-page app, soft palette (teal, blush, cream; orange used sparingly; serif 
 | `/` | Landing: "Create your free account", how it works, the four patterns, Security and data privacy |
 | `/privacy` | Privacy policy |
 | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/check-email`, `/auth/verify-email`, `/dev/mailbox` | Authentication, with a development inbox when no email service is configured |
+| `/auth/google` | Where Google sign-in returns: signs in, asks for the two-step code, offers "Keep my account", or explains a failure |
+| `/app/welcome` | The Tier 1 profile for an account made with Google; every other signed-in page except Settings sends the investor here until it is filled |
 | `/app` | Overview: bias pattern, wealth at stake, portfolio snapshot, recent decisions |
 | `/app/portfolio` | Net worth, liquid assets, surplus, loans, allocation; add/edit/remove holdings; gold, deposits, property, loans, rent, SIP |
 | `/app/new` | Pick a holding and an action; live market card |
 | `/app/decisions/:id` | Live five-step progress, then the result: recommendation with reasons, position against the whole portfolio, both futures chart, pattern found, six-part explanation (EN/हिंदी), report downloads, what weighed most, cause and effect, both sides in numbers, "In your own words", "Verify this record", "How this was worked out" |
 | `/app/history` | Filter by pattern, search by holding |
-| `/app/settings` | Profile (with the secure-update dialog), security (two-step setup with QR and backup codes, change password), your data (download, delete with a 30-day grace period, AI help switch), appearance |
+| `/app/settings` | Profile (with the secure-update dialog), security (two-step setup with QR and backup codes, change password, or "Set a password" for an account made with Google), your data (download, delete with a 30-day grace period, AI help switch), appearance |
 
 Logging in to an account scheduled for deletion shows the date and a "Keep my account" button. Route guards: signed-out visitors go to `/login` (remembering where they were going); a deliberate logout goes to the home page; a signed-in user never sees the sign-in pages.
 
@@ -440,7 +456,7 @@ Logging in to an account scheduled for deletion shows the date and a "Keep my ac
 | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `FERNET_KEY` | Generate with `scripts/generate_dev_keys.py` |
 | `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS` | Used in email links and CORS |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_EMAIL` | Email; empty in development means mail goes to the dev mailbox |
-| `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` | Google sign-in; empty hides the button |
+| `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` | Google sign-in; empty id or secret hides the button. The redirect URI defaults to `{FRONTEND_URL}/v1/auth/google/callback` (locally `http://localhost:3000/v1/auth/google/callback`), which must be listed under the OAuth client's authorised redirect URIs |
 | `BIAS_MODEL_VERSION` (`v4`), `SIMULATOR_VERSION` (`v2`) | Switch to `v3` / `v1` to roll back |
 | `MARKET_DATA_ENABLED`, `MARKET_DATA_TIMEOUT_SECONDS`, `SIMULATION_PATHS` | Market capture and simulation size (tests turn market data off) |
 | `EXPLAINER_LLM`, `GEMINI_API_KEY`, `EXPLAINER_LLM_*` | Optional wording polish; off by default |
@@ -463,13 +479,13 @@ npm --prefix frontend run dev
 | Check | Command | Needs |
 |---|---|---|
 | ML environment (versions, artefacts, specimens) | `python scripts\verify_ml_env.py` | the venv |
-| Backend (255) | `python scripts\with_env.py -m pytest backend\tests` | PostgreSQL + Redis; ~15 min. Run one at a time: two runs share the test database and wipe each other's rows |
+| Backend (267) | `python scripts\with_env.py -m pytest backend\tests` | PostgreSQL + Redis; ~15 min. Run one at a time: two runs share the test database and wipe each other's rows |
 | Backend, no database | `python -m pytest backend\tests\unit` | the venv |
-| Models and engines (334; 5 skipped without an AI key) | `python -m pytest tests` | the venv |
-| Frontend (17) | `npm --prefix frontend test` | Node |
+| Models and engines (343; 5 skipped without an AI key) | `python -m pytest tests` | the venv |
+| Frontend (25) | `npm --prefix frontend test` | Node |
 | Frontend build | `npm --prefix frontend run build` | Node |
 
-Regenerate the models and reports: `python -m src.dataset_v4`, `python scripts\train_bias_v4.py`, `python scripts\evaluate_simulator_v2.py`, `python -m src.causal_v4`. After regenerating the demo's analyses: `python scripts\with_env.py scripts\seed_demo.py --refresh` (it also re-reads comments and fills newly added snapshot fields). Anonymise accounts whose grace period has ended now: `python scripts\with_env.py scripts\purge_deleted_accounts.py`.
+Regenerate the models and reports: `python -m src.dataset_v4`, `python scripts\train_bias_v4.py`, `python scripts\evaluate_simulator_v2.py`, `python -m src.causal_v4`; the journal paper's numbers: `python scripts\evaluate_for_paper.py` (about 4 minutes). After regenerating the models, refresh the demo's analyses: `python scripts\with_env.py scripts\seed_demo.py --refresh`. It re-reads comments, fills newly added snapshot fields, and rebuilds each snapshot's asset mix from one moment so every share adds up; each re-run adds a new entry to the audit chain. Anonymise accounts whose grace period has ended now: `python scripts\with_env.py scripts\purge_deleted_accounts.py`.
 
 ---
 
@@ -489,6 +505,8 @@ Regenerate the models and reports: `python -m src.dataset_v4`, `python scripts\t
 | Accounts are anonymised, not deleted | `audit_logs` is append-only and the user row anchors the chain's genesis; everything personal is erased instead |
 | A stated fact in a comment can change the reading; a feeling never does | A cash need is a constraint the model should know; quoting feelings back helps the investor without letting text move the analysis |
 | Gemini quotes must be word for word | An AI can't put words in the investor's mouth or change a number |
+| Google's answer travels back to the app in the URL fragment | A fragment never reaches a server, so the single-use tokens it carries stay out of logs and Referer headers |
+| Only an email Google has verified can sign in with Google | Otherwise anyone could link an unverified address to someone else's account |
 
 ---
 
@@ -496,7 +514,7 @@ Regenerate the models and reports: `python -m src.dataset_v4`, `python scripts\t
 
 **Built:** everything in §1's status table marked built.
 
-**Next:** finish Google sign-in in the web app; admin panel (usage statistics, user management, MFA recovery queue); moving the repository to `github.com/ParamShah77/Folium`, CI, and deployment with HTTPS; turning on AI help with a Gemini key and checking it live.
+**Phase C (in progress):** C1 Google sign-in end to end (done 2026-10-09); C2 admin panel (usage statistics, user management, MFA recovery queue); C3 CI on GitHub (backend, root and frontend tests, build); C4 deployment with HTTPS. Alongside: turning on AI help with a Gemini key and checking it live.
 
 **Later:** widening the comment rules from real comments; learning the model's weights from real user feedback; the original plan's deferred items (broker integration, WhatsApp alerts, outcome tracking and monthly retraining).
 
@@ -516,7 +534,7 @@ Regenerate the models and reports: `python -m src.dataset_v4`, `python scripts\t
 - **An unstated cash need is often missed**: forced sales read as rational 91% of the time when the need is stated in the comment, 39% when it isn't.
 - **Comment rules are phrase lists.** They catch common English, Hinglish and Hindi wording but miss paraphrase; Gemini (with consent) covers more. Feelings are shown only, so a missed or wrong cue never changes an analysis.
 - **AI help has not been run live** (no key on this machine yet); its acceptance rules are tested with a stand-in.
-- **Google sign-in is unfinished end to end.** The backend flow works (four account cases, tested with mocks), but after Google confirms the user the callback sets the session and returns a JSON page rather than redirecting back into the app, and it has not been tried live. It needs the callback registered in Google Cloud and a redirect to the frontend.
+- **Google sign-in works only at the registered address.** `http://localhost:3000/v1/auth/google/callback` is registered, and Google accepts the request; a deployment needs its own address added to the OAuth client. Every path is tested with a stand-in for Google. Changing the email of an account made with Google still needs a password first.
 - **No HTTPS or email service locally**; both come with deployment.
 
 ---
@@ -533,8 +551,10 @@ This file replaces the earlier specification, architecture, plan, blueprint and 
 |---|---|
 | `SETUP.md` | First-time setup on a Windows laptop with native PostgreSQL and Memurai |
 | `DEMO.md` | Starting the app, demo accounts, a walkthrough, what to say about known behaviour |
+| `INTERVIEW_GUIDE.md` | How to present the project: pitches, the build story, how and why of each part, honest weaknesses, likely questions with answers, a number cheat sheet |
 | `data/v4/DATASET_CARD.md` | The training data in full detail |
 | `data/v4/v4.0/DATASET_CARD.md` | The previous dataset version (kept with its models for comparison) |
 | `results/reports/BIAS_MODEL_V4.md` | Bias model evaluation, comparison with v3, sense checks |
 | `results/reports/SIMULATOR_V2.md` | Simulation evaluation, realism check, sensitivity, per-stock figures |
+| `results/reports/PAPER_EVALUATION.md` | Numbers for the journal paper: classifier baselines with CIs, generator validation, Monte Carlo convergence, 1,000-investor population, sensitivity, walk-forward replay, Eq. (8) table, explanations on the current pipeline |
 | `results/reports/CAUSAL_V4.md` | Cause-and-effect results against the known truth |

@@ -1,0 +1,1299 @@
+{
+  "generated": "2026-10-27",
+  "quick": false,
+  "history": {
+    "months": 228,
+    "from": "2007-10-31",
+    "to": "2026-09-30"
+  },
+  "assumptions": {
+    "equity_growth": 0.11,
+    "gold_growth": 0.09,
+    "fd_rate": 0.0675,
+    "savings_rate": 0.03,
+    "dividend_yield": 0.0125,
+    "stock_specific_vol": 0.21,
+    "fund_tracking_vol": 0.03,
+    "sale_cost": 0.0015,
+    "block_months": 12
+  },
+  "base_case": {
+    "position_value": 100000.0,
+    "cost_basis": 120000.0,
+    "months_held": 18,
+    "asset_type": "equity",
+    "horizon_years": 20,
+    "annual_income": 1800000.0,
+    "other_equity": 350000.0,
+    "gold": 150000.0,
+    "fixed_deposits": 350000.0,
+    "savings": 150000.0,
+    "monthly_sip": 15000.0
+  },
+  "classifier": {
+    "split_seeds": [
+      7,
+      11,
+      23,
+      42,
+      101
+    ],
+    "test_rows": 4000,
+    "weights": "real regime frequency, 2008-2026",
+    "per_seed": {
+      "7": {
+        "always_rational": {
+          "accuracy": 0.5745,
+          "macro_f1": 0.1824,
+          "ece": 0.4255
+        },
+        "rules_only": {
+          "accuracy": 0.852,
+          "macro_f1": 0.8247,
+          "ece": 0.148
+        },
+        "logistic_regression": {
+          "accuracy": 0.8546,
+          "macro_f1": 0.8193,
+          "ece": 0.0157,
+          "log_loss": 0.2881
+        },
+        "random_forest": {
+          "accuracy": 0.8762,
+          "macro_f1": 0.8354,
+          "ece": 0.0139,
+          "log_loss": 0.2513
+        },
+        "xgboost": {
+          "accuracy": 0.8784,
+          "macro_f1": 0.8382,
+          "ece": 0.0146,
+          "log_loss": 0.2479
+        }
+      },
+      "11": {
+        "always_rational": {
+          "accuracy": 0.5745,
+          "macro_f1": 0.1824,
+          "ece": 0.4255
+        },
+        "rules_only": {
+          "accuracy": 0.8381,
+          "macro_f1": 0.8101,
+          "ece": 0.1619
+        },
+        "logistic_regression": {
+          "accuracy": 0.8461,
+          "macro_f1": 0.8121,
+          "ece": 0.02,
+          "log_loss": 0.3375
+        },
+        "random_forest": {
+          "accuracy": 0.8647,
+          "macro_f1": 0.8253,
+          "ece": 0.0107,
+          "log_loss": 0.2944
+        },
+        "xgboost": {
+          "accuracy": 0.8637,
+          "macro_f1": 0.8222,
+          "ece": 0.0192,
+          "log_loss": 0.2757
+        }
+      },
+      "23": {
+        "always_rational": {
+          "accuracy": 0.5745,
+          "macro_f1": 0.1824,
+          "ece": 0.4255
+        },
+        "rules_only": {
+          "accuracy": 0.8455,
+          "macro_f1": 0.8207,
+          "ece": 0.1545
+        },
+        "logistic_regression": {
+          "accuracy": 0.8511,
+          "macro_f1": 0.8185,
+          "ece": 0.0152,
+          "log_loss": 0.3104
+        },
+        "random_forest": {
+          "accuracy": 0.8732,
+          "macro_f1": 0.8375,
+          "ece": 0.0184,
+          "log_loss": 0.2693
+        },
+        "xgboost": {
+          "accuracy": 0.8771,
+          "macro_f1": 0.8403,
+          "ece": 0.0142,
+          "log_loss": 0.257
+        }
+      },
+      "42": {
+        "always_rational": {
+          "accuracy": 0.574,
+          "macro_f1": 0.1823,
+          "ece": 0.426
+        },
+        "rules_only": {
+          "accuracy": 0.8466,
+          "macro_f1": 0.8208,
+          "ece": 0.1534
+        },
+        "logistic_regression": {
+          "accuracy": 0.8503,
+          "macro_f1": 0.8156,
+          "ece": 0.0187,
+          "log_loss": 0.33
+        },
+        "random_forest": {
+          "accuracy": 0.8694,
+          "macro_f1": 0.8315,
+          "ece": 0.0131,
+          "log_loss": 0.2986
+        },
+        "xgboost": {
+          "accuracy": 0.8681,
+          "macro_f1": 0.8226,
+          "ece": 0.0086,
+          "log_loss": 0.2794
+        }
+      },
+      "101": {
+        "always_rational": {
+          "accuracy": 0.5745,
+          "macro_f1": 0.1824,
+          "ece": 0.4255
+        },
+        "rules_only": {
+          "accuracy": 0.8383,
+          "macro_f1": 0.8121,
+          "ece": 0.1617
+        },
+        "logistic_regression": {
+          "accuracy": 0.8439,
+          "macro_f1": 0.8131,
+          "ece": 0.0211,
+          "log_loss": 0.3396
+        },
+        "random_forest": {
+          "accuracy": 0.8667,
+          "macro_f1": 0.833,
+          "ece": 0.0161,
+          "log_loss": 0.2965
+        },
+        "xgboost": {
+          "accuracy": 0.8704,
+          "macro_f1": 0.8327,
+          "ece": 0.0162,
+          "log_loss": 0.2771
+        }
+      }
+    },
+    "mean_sd_over_seeds": {
+      "always_rational": {
+        "accuracy": {
+          "mean": 0.5744,
+          "sd": 0.0002
+        },
+        "macro_f1": {
+          "mean": 0.1824,
+          "sd": 0.0
+        },
+        "ece": {
+          "mean": 0.4256,
+          "sd": 0.0002
+        }
+      },
+      "rules_only": {
+        "accuracy": {
+          "mean": 0.8441,
+          "sd": 0.0059
+        },
+        "macro_f1": {
+          "mean": 0.8177,
+          "sd": 0.0063
+        },
+        "ece": {
+          "mean": 0.1559,
+          "sd": 0.0059
+        }
+      },
+      "logistic_regression": {
+        "accuracy": {
+          "mean": 0.8492,
+          "sd": 0.0042
+        },
+        "macro_f1": {
+          "mean": 0.8157,
+          "sd": 0.0032
+        },
+        "ece": {
+          "mean": 0.0181,
+          "sd": 0.0026
+        },
+        "log_loss": {
+          "mean": 0.3211,
+          "sd": 0.0218
+        }
+      },
+      "random_forest": {
+        "accuracy": {
+          "mean": 0.87,
+          "sd": 0.0047
+        },
+        "macro_f1": {
+          "mean": 0.8325,
+          "sd": 0.0047
+        },
+        "ece": {
+          "mean": 0.0144,
+          "sd": 0.0029
+        },
+        "log_loss": {
+          "mean": 0.282,
+          "sd": 0.0209
+        }
+      },
+      "xgboost": {
+        "accuracy": {
+          "mean": 0.8715,
+          "sd": 0.0062
+        },
+        "macro_f1": {
+          "mean": 0.8312,
+          "sd": 0.0085
+        },
+        "ece": {
+          "mean": 0.0146,
+          "sd": 0.0039
+        },
+        "log_loss": {
+          "mean": 0.2674,
+          "sd": 0.0141
+        }
+      }
+    },
+    "paper_split_bootstrap": {
+      "resamples": 2000,
+      "accuracy_ci": {
+        "always_rational": {
+          "accuracy": 0.5745,
+          "ci95": [
+            0.5569,
+            0.5914
+          ]
+        },
+        "rules_only": {
+          "accuracy": 0.852,
+          "ci95": [
+            0.8386,
+            0.864
+          ]
+        },
+        "logistic_regression": {
+          "accuracy": 0.8546,
+          "ci95": [
+            0.8417,
+            0.8664
+          ]
+        },
+        "random_forest": {
+          "accuracy": 0.8762,
+          "ci95": [
+            0.8645,
+            0.8874
+          ]
+        },
+        "xgboost": {
+          "accuracy": 0.8784,
+          "ci95": [
+            0.8669,
+            0.8901
+          ]
+        },
+        "xgboost_deployed": {
+          "accuracy": 0.8792,
+          "ci95": [
+            0.8679,
+            0.8907
+          ]
+        }
+      },
+      "paired_difference": {
+        "xgboost_minus_always_rational": {
+          "mean": 0.3038,
+          "ci95": [
+            0.2827,
+            0.3256
+          ]
+        },
+        "xgboost_minus_rules_only": {
+          "mean": 0.0266,
+          "ci95": [
+            0.0156,
+            0.038
+          ]
+        },
+        "xgboost_minus_logistic_regression": {
+          "mean": 0.0239,
+          "ci95": [
+            0.0143,
+            0.0341
+          ]
+        },
+        "xgboost_minus_random_forest": {
+          "mean": 0.0022,
+          "ci95": [
+            -0.004,
+            0.0085
+          ]
+        },
+        "xgboost_minus_xgboost_deployed": {
+          "mean": -0.0007,
+          "ci95": [
+            -0.0048,
+            0.0032
+          ]
+        }
+      }
+    },
+    "mcnemar_paper_split": {
+      "always_rational": {
+        "xgb_right_other_wrong": 1531,
+        "other_right_xgb_wrong": 321,
+        "chi2": 789.2446,
+        "p_value": 1.18e-173
+      },
+      "rules_only": {
+        "xgb_right_other_wrong": 238,
+        "other_right_xgb_wrong": 137,
+        "chi2": 26.6667,
+        "p_value": 2.42e-07
+      },
+      "logistic_regression": {
+        "xgb_right_other_wrong": 178,
+        "other_right_xgb_wrong": 103,
+        "chi2": 19.4875,
+        "p_value": 1.01e-05
+      },
+      "random_forest": {
+        "xgb_right_other_wrong": 75,
+        "other_right_xgb_wrong": 55,
+        "chi2": 2.7769,
+        "p_value": 0.0956
+      },
+      "xgboost_deployed": {
+        "xgb_right_other_wrong": 23,
+        "other_right_xgb_wrong": 24,
+        "chi2": 0.0,
+        "p_value": 1.0
+      }
+    },
+    "note": "All learners get the same 22 features and the same definitions guard; xgboost uses the deployed hyper-parameters without the calibration curve, xgboost_deployed is the shipped model with it."
+  },
+  "generator_validation": {
+    "real_nifty": {
+      "1y_p10": -0.0751,
+      "1y_median": 0.1132,
+      "1y_p90": 0.3332,
+      "1y_below_minus_20pct": 0.0461,
+      "10y_a_year_p10": 0.088,
+      "10y_a_year_median": 0.1276,
+      "10y_a_year_p90": 0.1481,
+      "max_drawdown_10y_median": -0.2909,
+      "max_drawdown_10y_p10": -0.3658,
+      "acf_returns_lag1": -0.0067,
+      "acf_squared_lag1": 0.1364,
+      "acf_squared_lag3": 0.0513,
+      "acf_squared_lag6": 0.0933,
+      "windows": {
+        "1y": 217,
+        "10y": 109,
+        "independent_10y": 1
+      },
+      "months": 228,
+      "from": "2007-10-31",
+      "to": "2026-09-30"
+    },
+    "paths_per_generator": 10000,
+    "note": "All generators use the historical mean monthly log return, so only the shape and the dependence differ. Real windows overlap, so KS distances are descriptive, not tests.",
+    "iid_bootstrap": {
+      "1y_p10": -0.1585,
+      "1y_median": 0.1064,
+      "1y_p90": 0.4118,
+      "1y_below_minus_20pct": 0.0674,
+      "10y_a_year_p10": 0.0082,
+      "10y_a_year_median": 0.098,
+      "10y_a_year_p90": 0.1933,
+      "max_drawdown_10y_median": -0.3542,
+      "max_drawdown_10y_p10": -0.5404,
+      "acf_returns_lag1": -0.0087,
+      "acf_squared_lag1": -0.0081,
+      "acf_squared_lag3": -0.0093,
+      "acf_squared_lag6": -0.0082,
+      "ks_distance_1y": 0.1077,
+      "ks_distance_10y": 0.3509
+    },
+    "block_bootstrap_3m": {
+      "1y_p10": -0.1428,
+      "1y_median": 0.1055,
+      "1y_p90": 0.3775,
+      "1y_below_minus_20pct": 0.063,
+      "10y_a_year_p10": 0.0098,
+      "10y_a_year_median": 0.0973,
+      "10y_a_year_p90": 0.1852,
+      "max_drawdown_10y_median": -0.3556,
+      "max_drawdown_10y_p10": -0.539,
+      "acf_returns_lag1": -0.0309,
+      "acf_squared_lag1": 0.0774,
+      "acf_squared_lag3": -0.0092,
+      "acf_squared_lag6": -0.0096,
+      "ks_distance_1y": 0.0825,
+      "ks_distance_10y": 0.356
+    },
+    "block_bootstrap_6m": {
+      "1y_p10": -0.1368,
+      "1y_median": 0.1053,
+      "1y_p90": 0.3594,
+      "1y_below_minus_20pct": 0.0628,
+      "10y_a_year_p10": 0.0069,
+      "10y_a_year_median": 0.0976,
+      "10y_a_year_p90": 0.1908,
+      "max_drawdown_10y_median": -0.3649,
+      "max_drawdown_10y_p10": -0.56,
+      "acf_returns_lag1": -0.0355,
+      "acf_squared_lag1": 0.0995,
+      "acf_squared_lag3": 0.0287,
+      "acf_squared_lag6": -0.0119,
+      "ks_distance_1y": 0.0716,
+      "ks_distance_10y": 0.3522
+    },
+    "block_bootstrap_12m": {
+      "1y_p10": -0.0807,
+      "1y_median": 0.103,
+      "1y_p90": 0.3305,
+      "1y_below_minus_20pct": 0.047,
+      "10y_a_year_p10": 0.0071,
+      "10y_a_year_median": 0.0986,
+      "10y_a_year_p90": 0.1866,
+      "max_drawdown_10y_median": -0.3549,
+      "max_drawdown_10y_p10": -0.5879,
+      "acf_returns_lag1": -0.0424,
+      "acf_squared_lag1": 0.1012,
+      "acf_squared_lag3": 0.0345,
+      "acf_squared_lag6": 0.0246,
+      "ks_distance_1y": 0.0273,
+      "ks_distance_10y": 0.3436
+    },
+    "block_bootstrap_24m": {
+      "1y_p10": -0.0807,
+      "1y_median": 0.103,
+      "1y_p90": 0.33,
+      "1y_below_minus_20pct": 0.0486,
+      "10y_a_year_p10": 0.02,
+      "10y_a_year_median": 0.0986,
+      "10y_a_year_p90": 0.1682,
+      "max_drawdown_10y_median": -0.3373,
+      "max_drawdown_10y_p10": -0.5667,
+      "acf_returns_lag1": -0.043,
+      "acf_squared_lag1": 0.1045,
+      "acf_squared_lag3": 0.0228,
+      "acf_squared_lag6": 0.0333,
+      "ks_distance_1y": 0.0295,
+      "ks_distance_10y": 0.3368
+    },
+    "gbm_lognormal": {
+      "1y_p10": -0.1622,
+      "1y_median": 0.0947,
+      "1y_p90": 0.4206,
+      "1y_below_minus_20pct": 0.0644,
+      "10y_a_year_p10": 0.007,
+      "10y_a_year_median": 0.0968,
+      "10y_a_year_p90": 0.192,
+      "max_drawdown_10y_median": -0.3521,
+      "max_drawdown_10y_p10": -0.5262,
+      "acf_returns_lag1": -0.0096,
+      "acf_squared_lag1": -0.0078,
+      "acf_squared_lag3": -0.0085,
+      "acf_squared_lag6": -0.0079,
+      "ks_distance_1y": 0.1322,
+      "ks_distance_10y": 0.3581
+    }
+  },
+  "convergence": {
+    "case": "base case (stock down 17%, 20 years)",
+    "rows": [
+      {
+        "n_paths": 250,
+        "repeats": 20,
+        "prob_hold_mean": 0.6366,
+        "prob_hold_sd": 0.0299,
+        "median_gap_mean": 160784,
+        "median_gap_sd": 36940,
+        "median_gap_cv": 0.2298
+      },
+      {
+        "n_paths": 500,
+        "repeats": 20,
+        "prob_hold_mean": 0.6344,
+        "prob_hold_sd": 0.0243,
+        "median_gap_mean": 170247,
+        "median_gap_sd": 32938,
+        "median_gap_cv": 0.1935
+      },
+      {
+        "n_paths": 1000,
+        "repeats": 20,
+        "prob_hold_mean": 0.6333,
+        "prob_hold_sd": 0.017,
+        "median_gap_mean": 168549,
+        "median_gap_sd": 24140,
+        "median_gap_cv": 0.1432
+      },
+      {
+        "n_paths": 2000,
+        "repeats": 20,
+        "prob_hold_mean": 0.6283,
+        "prob_hold_sd": 0.0103,
+        "median_gap_mean": 163326,
+        "median_gap_sd": 14347,
+        "median_gap_cv": 0.0878
+      },
+      {
+        "n_paths": 5000,
+        "repeats": 20,
+        "prob_hold_mean": 0.6317,
+        "prob_hold_sd": 0.008,
+        "median_gap_mean": 167786,
+        "median_gap_sd": 11317,
+        "median_gap_cv": 0.0674
+      },
+      {
+        "n_paths": 10000,
+        "repeats": 20,
+        "prob_hold_mean": 0.6317,
+        "prob_hold_sd": 0.0057,
+        "median_gap_mean": 167712,
+        "median_gap_sd": 7700,
+        "median_gap_cv": 0.0459
+      }
+    ],
+    "binomial_se_at_1000": 0.0152
+  },
+  "population": {
+    "cases": 1000,
+    "futures_per_case": 1000,
+    "inputs": {
+      "horizon_median": 23,
+      "fund_share": 0.404,
+      "gain_share": 0.543,
+      "short_term_share": 0.455,
+      "position_median_inr": 100858
+    },
+    "long_run_assumptions": {
+      "prob_hold_mean": 0.6346,
+      "prob_hold_median": 0.628,
+      "prob_hold_p10": 0.4809,
+      "prob_hold_p90": 0.801,
+      "median_gap_pct_of_position_median": 173.8609,
+      "median_gap_pct_p10": -19.9844,
+      "median_gap_pct_p90": 1019.4601,
+      "share_hold": 0.581,
+      "share_toss_up": 0.408,
+      "share_sell": 0.011
+    },
+    "history_replayed": {
+      "prob_hold_mean": 0.38,
+      "prob_hold_median": 0.3715,
+      "prob_hold_p10": 0.2129,
+      "prob_hold_p90": 0.5572,
+      "median_gap_pct_of_position_median": -233.5791,
+      "median_gap_pct_p10": -1572.771,
+      "median_gap_pct_p90": 46.2734,
+      "share_hold": 0.056,
+      "share_toss_up": 0.378,
+      "share_sell": 0.566
+    },
+    "flip": {
+      "verdict_changes": 0.86,
+      "hold_to_sell_or_toss_up": 0.525,
+      "sign_of_gap_changes": 0.668,
+      "prob_hold_shift_mean": -0.2547
+    },
+    "by_horizon": {
+      "1-3y": {
+        "n": 52,
+        "prob_hold_mean": 0.5711,
+        "prob_hold_median": 0.561,
+        "prob_hold_p10": 0.5301,
+        "prob_hold_p90": 0.625,
+        "median_gap_pct_of_position_median": 5.0693,
+        "median_gap_pct_p10": 1.834,
+        "median_gap_pct_p90": 11.5208,
+        "share_hold": 0.2885,
+        "share_toss_up": 0.7115,
+        "share_sell": 0.0
+      },
+      "11-20y": {
+        "n": 275,
+        "prob_hold_mean": 0.6244,
+        "prob_hold_median": 0.624,
+        "prob_hold_p10": 0.461,
+        "prob_hold_p90": 0.787,
+        "median_gap_pct_of_position_median": 117.6538,
+        "median_gap_pct_p10": -28.1936,
+        "median_gap_pct_p90": 314.3839,
+        "share_hold": 0.5673,
+        "share_toss_up": 0.4109,
+        "share_sell": 0.0218
+      },
+      "21-30y": {
+        "n": 573,
+        "prob_hold_mean": 0.6518,
+        "prob_hold_median": 0.655,
+        "prob_hold_p10": 0.4822,
+        "prob_hold_p90": 0.816,
+        "median_gap_pct_of_position_median": 465.2178,
+        "median_gap_pct_p10": -45.5927,
+        "median_gap_pct_p90": 1242.5482,
+        "share_hold": 0.6405,
+        "share_toss_up": 0.3508,
+        "share_sell": 0.0087
+      },
+      "4-10y": {
+        "n": 100,
+        "prob_hold_mean": 0.5975,
+        "prob_hold_median": 0.584,
+        "prob_hold_p10": 0.4886,
+        "prob_hold_p90": 0.7206,
+        "median_gap_pct_of_position_median": 25.8424,
+        "median_gap_pct_p10": -3.4266,
+        "median_gap_pct_p90": 68.7676,
+        "share_hold": 0.43,
+        "share_toss_up": 0.57,
+        "share_sell": 0.0
+      }
+    },
+    "by_asset": {
+      "equity": {
+        "n": 596,
+        "prob_hold_mean": 0.5618,
+        "prob_hold_median": 0.558,
+        "prob_hold_p10": 0.445,
+        "prob_hold_p90": 0.674,
+        "median_gap_pct_of_position_median": 55.6009,
+        "median_gap_pct_p10": -58.7086,
+        "median_gap_pct_p90": 554.8553,
+        "share_hold": 0.307,
+        "share_toss_up": 0.6745,
+        "share_sell": 0.0185
+      },
+      "mf": {
+        "n": 404,
+        "prob_hold_mean": 0.742,
+        "prob_hold_median": 0.7495,
+        "prob_hold_p10": 0.6423,
+        "prob_hold_p90": 0.8377,
+        "median_gap_pct_of_position_median": 494.0275,
+        "median_gap_pct_p10": 64.0454,
+        "median_gap_pct_p90": 1327.1177,
+        "share_hold": 0.9851,
+        "share_toss_up": 0.0149,
+        "share_sell": 0.0
+      }
+    },
+    "by_gain_or_loss": {
+      "gain": {
+        "n": 543,
+        "prob_hold_mean": 0.6347,
+        "prob_hold_median": 0.627,
+        "prob_hold_p10": 0.4914,
+        "prob_hold_p90": 0.7958,
+        "median_gap_pct_of_position_median": 178.4759,
+        "median_gap_pct_p10": -10.0541,
+        "median_gap_pct_p90": 1027.8721,
+        "share_hold": 0.5893,
+        "share_toss_up": 0.3996,
+        "share_sell": 0.011
+      },
+      "loss": {
+        "n": 457,
+        "prob_hold_mean": 0.6345,
+        "prob_hold_median": 0.63,
+        "prob_hold_p10": 0.4758,
+        "prob_hold_p90": 0.8052,
+        "median_gap_pct_of_position_median": 164.3488,
+        "median_gap_pct_p10": -33.7755,
+        "median_gap_pct_p90": 1013.1541,
+        "share_hold": 0.5711,
+        "share_toss_up": 0.4179,
+        "share_sell": 0.0109
+      }
+    },
+    "by_tax_term": {
+      "long_term": {
+        "n": 545,
+        "prob_hold_mean": 0.6326,
+        "prob_hold_median": 0.626,
+        "prob_hold_p10": 0.477,
+        "prob_hold_p90": 0.8016,
+        "median_gap_pct_of_position_median": 168.1033,
+        "median_gap_pct_p10": -29.3084,
+        "median_gap_pct_p90": 941.555,
+        "share_hold": 0.5743,
+        "share_toss_up": 0.411,
+        "share_sell": 0.0147
+      },
+      "short_term": {
+        "n": 455,
+        "prob_hold_mean": 0.6371,
+        "prob_hold_median": 0.63,
+        "prob_hold_p10": 0.488,
+        "prob_hold_p90": 0.801,
+        "median_gap_pct_of_position_median": 178.4759,
+        "median_gap_pct_p10": -15.7924,
+        "median_gap_pct_p90": 1073.853,
+        "share_hold": 0.589,
+        "share_toss_up": 0.4044,
+        "share_sell": 0.0066
+      }
+    }
+  },
+  "sensitivity": {
+    "base_case": {
+      "base": {
+        "prob_hold": 0.642,
+        "median_gap_inr": 188632,
+        "verdict": "hold"
+      },
+      "equity_growth_9pct": {
+        "prob_hold": 0.536,
+        "median_gap_inr": 42336,
+        "verdict": "toss_up"
+      },
+      "equity_growth_13pct": {
+        "prob_hold": 0.74,
+        "median_gap_inr": 413079,
+        "verdict": "hold"
+      },
+      "gold_growth_6pct": {
+        "prob_hold": 0.698,
+        "median_gap_inr": 263194,
+        "verdict": "hold"
+      },
+      "fd_rate_5_5pct": {
+        "prob_hold": 0.664,
+        "median_gap_inr": 214851,
+        "verdict": "hold"
+      },
+      "fd_rate_8pct": {
+        "prob_hold": 0.62,
+        "median_gap_inr": 157287,
+        "verdict": "hold"
+      },
+      "stock_risk_15pct": {
+        "prob_hold": 0.722,
+        "median_gap_inr": 301085,
+        "verdict": "hold"
+      },
+      "stock_risk_35pct": {
+        "prob_hold": 0.438,
+        "median_gap_inr": -70082,
+        "verdict": "toss_up"
+      },
+      "sale_cost_0_5pct": {
+        "prob_hold": 0.642,
+        "median_gap_inr": 187781,
+        "verdict": "hold"
+      },
+      "sale_cost_1pct": {
+        "prob_hold": 0.642,
+        "median_gap_inr": 186566,
+        "verdict": "hold"
+      },
+      "block_1m_iid": {
+        "prob_hold": 0.636,
+        "median_gap_inr": 160619,
+        "verdict": "hold"
+      },
+      "block_6m": {
+        "prob_hold": 0.626,
+        "median_gap_inr": 162702,
+        "verdict": "hold"
+      },
+      "block_24m": {
+        "prob_hold": 0.648,
+        "median_gap_inr": 197782,
+        "verdict": "hold"
+      },
+      "history_replayed": {
+        "prob_hold": 0.43,
+        "median_gap_inr": -132747,
+        "verdict": "toss_up"
+      },
+      "tax_rules_before_july_2024": {
+        "prob_hold": 0.644,
+        "median_gap_inr": 203626,
+        "verdict": "hold"
+      },
+      "starts_in_a_bad_year": {
+        "prob_hold": 0.518,
+        "median_gap_inr": 9626,
+        "verdict": "toss_up"
+      },
+      "starts_in_a_good_year": {
+        "prob_hold": 0.756,
+        "median_gap_inr": 466968,
+        "verdict": "hold"
+      }
+    },
+    "sub_population": {
+      "cases": 300,
+      "rows": {
+        "base": {
+          "prob_hold_mean": 0.6393,
+          "prob_hold_median": 0.641,
+          "prob_hold_p10": 0.478,
+          "prob_hold_p90": 0.8042,
+          "median_gap_pct_of_position_median": 198.4531,
+          "median_gap_pct_p10": -18.8955,
+          "median_gap_pct_p90": 948.0767,
+          "share_hold": 0.6033,
+          "share_toss_up": 0.3933,
+          "share_sell": 0.0033,
+          "verdict_changes_vs_base": 0.0
+        },
+        "equity_growth_9pct": {
+          "prob_hold_mean": 0.5434,
+          "prob_hold_median": 0.538,
+          "prob_hold_p10": 0.394,
+          "prob_hold_p90": 0.6902,
+          "median_gap_pct_of_position_median": 25.6414,
+          "median_gap_pct_p10": -114.2046,
+          "median_gap_pct_p90": 352.838,
+          "share_hold": 0.2867,
+          "share_toss_up": 0.61,
+          "share_sell": 0.1033,
+          "verdict_changes_vs_base": 0.4167
+        },
+        "equity_growth_13pct": {
+          "prob_hold_mean": 0.7201,
+          "prob_hold_median": 0.73,
+          "prob_hold_p10": 0.544,
+          "prob_hold_p90": 0.88,
+          "median_gap_pct_of_position_median": 440.3794,
+          "median_gap_pct_p10": 10.4216,
+          "median_gap_pct_p90": 2096.2786,
+          "share_hold": 0.7967,
+          "share_toss_up": 0.2033,
+          "share_sell": 0.0,
+          "verdict_changes_vs_base": 0.1967
+        },
+        "gold_growth_6pct": {
+          "prob_hold_mean": 0.7184,
+          "prob_hold_median": 0.721,
+          "prob_hold_p10": 0.5698,
+          "prob_hold_p90": 0.8622,
+          "median_gap_pct_of_position_median": 300.0461,
+          "median_gap_pct_p10": 21.1148,
+          "median_gap_pct_p90": 1242.7052,
+          "share_hold": 0.82,
+          "share_toss_up": 0.18,
+          "share_sell": 0.0,
+          "verdict_changes_vs_base": 0.2167
+        },
+        "fd_rate_5_5pct": {
+          "prob_hold_mean": 0.6507,
+          "prob_hold_median": 0.652,
+          "prob_hold_p10": 0.4758,
+          "prob_hold_p90": 0.82,
+          "median_gap_pct_of_position_median": 224.5692,
+          "median_gap_pct_p10": -23.7325,
+          "median_gap_pct_p90": 988.4504,
+          "share_hold": 0.6633,
+          "share_toss_up": 0.32,
+          "share_sell": 0.0167,
+          "verdict_changes_vs_base": 0.0733
+        },
+        "fd_rate_8pct": {
+          "prob_hold_mean": 0.6246,
+          "prob_hold_median": 0.623,
+          "prob_hold_p10": 0.48,
+          "prob_hold_p90": 0.7764,
+          "median_gap_pct_of_position_median": 168.9658,
+          "median_gap_pct_p10": -27.0943,
+          "median_gap_pct_p90": 878.0269,
+          "share_hold": 0.5667,
+          "share_toss_up": 0.4267,
+          "share_sell": 0.0067,
+          "verdict_changes_vs_base": 0.0533
+        },
+        "stock_risk_15pct": {
+          "prob_hold_mean": 0.6801,
+          "prob_hold_median": 0.68,
+          "prob_hold_p10": 0.5558,
+          "prob_hold_p90": 0.806,
+          "median_gap_pct_of_position_median": 277.2923,
+          "median_gap_pct_p10": 14.4384,
+          "median_gap_pct_p90": 1056.9739,
+          "share_hold": 0.7933,
+          "share_toss_up": 0.2067,
+          "share_sell": 0.0,
+          "verdict_changes_vs_base": 0.1933
+        },
+        "stock_risk_35pct": {
+          "prob_hold_mean": 0.5445,
+          "prob_hold_median": 0.492,
+          "prob_hold_p10": 0.3238,
+          "prob_hold_p90": 0.804,
+          "median_gap_pct_of_position_median": -2.0925,
+          "median_gap_pct_p10": -295.2157,
+          "median_gap_pct_p90": 914.0728,
+          "share_hold": 0.44,
+          "share_toss_up": 0.26,
+          "share_sell": 0.3,
+          "verdict_changes_vs_base": 0.41
+        },
+        "sale_cost_0_5pct": {
+          "prob_hold_mean": 0.6392,
+          "prob_hold_median": 0.641,
+          "prob_hold_p10": 0.478,
+          "prob_hold_p90": 0.8042,
+          "median_gap_pct_of_position_median": 197.5706,
+          "median_gap_pct_p10": -18.8168,
+          "median_gap_pct_p90": 943.8271,
+          "share_hold": 0.6033,
+          "share_toss_up": 0.3933,
+          "share_sell": 0.0033,
+          "verdict_changes_vs_base": 0.0
+        },
+        "sale_cost_1pct": {
+          "prob_hold_mean": 0.6392,
+          "prob_hold_median": 0.641,
+          "prob_hold_p10": 0.478,
+          "prob_hold_p90": 0.8042,
+          "median_gap_pct_of_position_median": 196.3232,
+          "median_gap_pct_p10": -18.7043,
+          "median_gap_pct_p90": 937.7563,
+          "share_hold": 0.6033,
+          "share_toss_up": 0.3933,
+          "share_sell": 0.0033,
+          "verdict_changes_vs_base": 0.0
+        },
+        "block_1m_iid": {
+          "prob_hold_mean": 0.6348,
+          "prob_hold_median": 0.63,
+          "prob_hold_p10": 0.4678,
+          "prob_hold_p90": 0.8062,
+          "median_gap_pct_of_position_median": 167.1004,
+          "median_gap_pct_p10": -29.6646,
+          "median_gap_pct_p90": 844.6187,
+          "share_hold": 0.59,
+          "share_toss_up": 0.3967,
+          "share_sell": 0.0133,
+          "verdict_changes_vs_base": 0.1033
+        },
+        "block_6m": {
+          "prob_hold_mean": 0.6365,
+          "prob_hold_median": 0.632,
+          "prob_hold_p10": 0.478,
+          "prob_hold_p90": 0.794,
+          "median_gap_pct_of_position_median": 179.0363,
+          "median_gap_pct_p10": -19.5891,
+          "median_gap_pct_p90": 855.0792,
+          "share_hold": 0.6167,
+          "share_toss_up": 0.3733,
+          "share_sell": 0.01,
+          "verdict_changes_vs_base": 0.0667
+        },
+        "block_24m": {
+          "prob_hold_mean": 0.6432,
+          "prob_hold_median": 0.64,
+          "prob_hold_p10": 0.47,
+          "prob_hold_p90": 0.8182,
+          "median_gap_pct_of_position_median": 181.9613,
+          "median_gap_pct_p10": -28.3181,
+          "median_gap_pct_p90": 945.9675,
+          "share_hold": 0.6233,
+          "share_toss_up": 0.3633,
+          "share_sell": 0.0133,
+          "verdict_changes_vs_base": 0.07
+        },
+        "history_replayed": {
+          "prob_hold_mean": 0.3811,
+          "prob_hold_median": 0.366,
+          "prob_hold_p10": 0.2158,
+          "prob_hold_p90": 0.558,
+          "median_gap_pct_of_position_median": -243.625,
+          "median_gap_pct_p10": -1673.8844,
+          "median_gap_pct_p90": 39.2128,
+          "share_hold": 0.05,
+          "share_toss_up": 0.3867,
+          "share_sell": 0.5633,
+          "verdict_changes_vs_base": 0.8633
+        },
+        "tax_rules_before_july_2024": {
+          "prob_hold_mean": 0.6405,
+          "prob_hold_median": 0.641,
+          "prob_hold_p10": 0.478,
+          "prob_hold_p90": 0.808,
+          "median_gap_pct_of_position_median": 201.5734,
+          "median_gap_pct_p10": -21.5991,
+          "median_gap_pct_p90": 970.9974,
+          "share_hold": 0.6067,
+          "share_toss_up": 0.39,
+          "share_sell": 0.0033,
+          "verdict_changes_vs_base": 0.01
+        },
+        "starts_in_a_bad_year": {
+          "prob_hold_mean": 0.481,
+          "prob_hold_median": 0.494,
+          "prob_hold_p10": 0.3134,
+          "prob_hold_p90": 0.68,
+          "median_gap_pct_of_position_median": -7.9356,
+          "median_gap_pct_p10": -152.529,
+          "median_gap_pct_p90": 371.7745,
+          "share_hold": 0.22,
+          "share_toss_up": 0.4933,
+          "share_sell": 0.2867,
+          "verdict_changes_vs_base": 0.62
+        },
+        "starts_in_a_good_year": {
+          "prob_hold_mean": 0.7572,
+          "prob_hold_median": 0.765,
+          "prob_hold_p10": 0.574,
+          "prob_hold_p90": 0.9002,
+          "median_gap_pct_of_position_median": 450.4802,
+          "median_gap_pct_p10": 52.8285,
+          "median_gap_pct_p90": 1654.8375,
+          "share_hold": 0.8667,
+          "share_toss_up": 0.1333,
+          "share_sell": 0.0,
+          "verdict_changes_vs_base": 0.2667
+        }
+      }
+    },
+    "pre_july_2024_rules": {
+      "equity_stcg": 0.15,
+      "equity_ltcg": 0.1,
+      "ltcg_exemption": 100000.0
+    }
+  },
+  "walk_forward": {
+    "5y": {
+      "real_windows": 169,
+      "independent_windows": 3,
+      "real_hold_wins": 0.8876,
+      "simulated_hold_wins": 0.61,
+      "real_median_gap": 56378,
+      "simulated_median_gap": 23133,
+      "real_inside_simulated_10_90": 0.9941,
+      "real_below_simulated_p10": 0.0,
+      "real_above_simulated_p90": 0.0059,
+      "pit_quartiles": [
+        0.515,
+        0.662,
+        0.729
+      ]
+    },
+    "10y": {
+      "real_windows": 109,
+      "independent_windows": 1,
+      "real_hold_wins": 1.0,
+      "simulated_hold_wins": 0.607,
+      "real_median_gap": 125114,
+      "simulated_median_gap": 44327,
+      "real_inside_simulated_10_90": 1.0,
+      "real_below_simulated_p10": 0.0,
+      "real_above_simulated_p90": 0.0,
+      "pit_quartiles": [
+        0.602,
+        0.674,
+        0.781
+      ]
+    },
+    "note": "Windows overlap (one per start month), so they hold only about len(history)/horizon independent observations; coverage near 80% means the simulated 10-90% band is about as wide as the real record."
+  },
+  "paired_table": {
+    "stock_down_17pct_14y": {
+      "inputs": {
+        "position_value": 100000.0,
+        "cost_basis": 120000.0,
+        "months_held": 18,
+        "asset_type": "equity",
+        "horizon_years": 14,
+        "annual_income": 1800000.0,
+        "other_equity": 350000.0,
+        "gold": 150000.0,
+        "fixed_deposits": 350000.0,
+        "savings": 150000.0,
+        "monthly_sip": 15000.0
+      },
+      "sale_today": {
+        "value": 100000.0,
+        "gain": -20000.0,
+        "tax_kind": "long_term",
+        "tax": 0.0,
+        "costs": 150.0,
+        "proceeds": 99850.0,
+        "destination": {
+          "gold": 0.2308,
+          "fixed_deposits": 0.5385,
+          "savings": 0.2308
+        }
+      },
+      "rows": [
+        {
+          "year": 0,
+          "hold": 100000,
+          "sell": 99850,
+          "difference_of_medians": 150,
+          "median_of_paired_gaps": 150
+        },
+        {
+          "year": 5,
+          "hold": 151619,
+          "sell": 129647,
+          "difference_of_medians": 21972,
+          "median_of_paired_gaps": 21787,
+          "paired_gap_p10": -75796,
+          "paired_gap_p90": 213706,
+          "hold_wins": 0.576
+        },
+        {
+          "year": 10,
+          "hold": 233490,
+          "sell": 169700,
+          "difference_of_medians": 63790,
+          "median_of_paired_gaps": 51717,
+          "paired_gap_p10": -119371,
+          "paired_gap_p90": 512349,
+          "hold_wins": 0.612
+        },
+        {
+          "year": 14,
+          "hold": 310324,
+          "sell": 216030,
+          "difference_of_medians": 94294,
+          "median_of_paired_gaps": 85272,
+          "paired_gap_p10": -165144,
+          "paired_gap_p90": 917770,
+          "hold_wins": 0.616
+        }
+      ]
+    },
+    "fund_up_30pct_14y": {
+      "inputs": {
+        "position_value": 100000.0,
+        "cost_basis": 76923.07692307692,
+        "months_held": 18,
+        "asset_type": "mf",
+        "horizon_years": 14,
+        "annual_income": 1800000.0,
+        "other_equity": 350000.0,
+        "gold": 150000.0,
+        "fixed_deposits": 350000.0,
+        "savings": 150000.0,
+        "monthly_sip": 15000.0
+      },
+      "sale_today": {
+        "value": 100000.0,
+        "gain": 23076.92,
+        "tax_kind": "long_term",
+        "tax": 0.0,
+        "costs": 150.0,
+        "proceeds": 99850.0,
+        "destination": {
+          "gold": 0.2308,
+          "fixed_deposits": 0.5385,
+          "savings": 0.2308
+        }
+      },
+      "rows": [
+        {
+          "year": 0,
+          "hold": 100000,
+          "sell": 99850,
+          "difference_of_medians": 150,
+          "median_of_paired_gaps": 150
+        },
+        {
+          "year": 5,
+          "hold": 171639,
+          "sell": 129647,
+          "difference_of_medians": 41992,
+          "median_of_paired_gaps": 41253,
+          "paired_gap_p10": -46522,
+          "paired_gap_p90": 166486,
+          "hold_wins": 0.677
+        },
+        {
+          "year": 10,
+          "hold": 278091,
+          "sell": 169700,
+          "difference_of_medians": 108392,
+          "median_of_paired_gaps": 105471,
+          "paired_gap_p10": -69364,
+          "paired_gap_p90": 416558,
+          "hold_wins": 0.763
+        },
+        {
+          "year": 14,
+          "hold": 411636,
+          "sell": 216030,
+          "difference_of_medians": 195606,
+          "median_of_paired_gaps": 182568,
+          "paired_gap_p10": -97397,
+          "paired_gap_p90": 738846,
+          "hold_wins": 0.762
+        }
+      ]
+    }
+  },
+  "explanations": {
+    "cases": 166,
+    "explanations": 332,
+    "pipeline": "bias model v4 + simulator v2 + template explainer, no LLM",
+    "patterns": {
+      "rational": 78,
+      "disposition": 38,
+      "herd": 27,
+      "loss_aversion": 23
+    },
+    "by_language": {
+      "en": {
+        "n_explanations": 166,
+        "completeness_pct": 100.0,
+        "readability_pass_pct": 100.0,
+        "actionability_pct": 100.0,
+        "personalisation_pct": 100.0,
+        "jargon_leaks": 0,
+        "mean_words_per_sentence": 11.3,
+        "mean_word_count": 939.1,
+        "mean_flesch": 76.4,
+        "min_flesch": 73.5,
+        "flesch_target": 60.0,
+        "all_targets_met": true
+      },
+      "hi": {
+        "n_explanations": 166,
+        "completeness_pct": 100.0,
+        "readability_pass_pct": 100.0,
+        "actionability_pct": 100.0,
+        "personalisation_pct": 100.0,
+        "jargon_leaks": 0,
+        "mean_words_per_sentence": 12.8,
+        "mean_word_count": 1057.6,
+        "mean_flesch": null,
+        "words_per_sentence_target": 20.0,
+        "all_targets_met": true
+      }
+    },
+    "failures": 0,
+    "failure_examples": []
+  },
+  "runtime_seconds": 224.9
+}
