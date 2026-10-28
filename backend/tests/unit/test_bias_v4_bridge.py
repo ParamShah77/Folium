@@ -119,6 +119,15 @@ def test_every_v4_driver_has_plain_words():
         assert label and "_" not in label, driver
 
 
+@pytest.mark.parametrize("action, label", [
+    ("sell", "Your choice to sell"), ("hold", "Your choice to hold"), ("buy_more", "Your choice to buy more"),
+])
+def test_action_driver_reads_as_a_sentence(action, label):
+    # Regression: a second ``_ACTION_WORDS`` (gerunds, for the causal text)
+    # once overrode this, giving "Your choice to holding on".
+    assert driver_label("action", {}, action) == label
+
+
 @pytest.mark.parametrize("bias, action", [
     ("loss_aversion", "sell"), ("loss_aversion", "hold"), ("herd_behavior", "sell"),
     ("herd_behavior", "buy_more"), ("disposition_effect", "sell"), ("disposition_effect", "hold"),

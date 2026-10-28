@@ -66,10 +66,19 @@ export function PasswordMeter({ password }: { password: string }) {
   );
 }
 
-export function GoogleButton() {
+/** Where Google sign-in starts. Google sends the browser back to /auth/google. */
+export function googleLoginHref({ remember = false, next }: { remember?: boolean; next?: string } = {}) {
+  const q = new URLSearchParams();
+  if (remember) q.set("remember", "true");
+  if (next && next !== "/app") q.set("next", next);
+  const qs = q.toString();
+  return `/v1/auth/google/login${qs ? `?${qs}` : ""}`;
+}
+
+export function GoogleButton(props: { remember?: boolean; next?: string }) {
   return (
     <a
-      href="/v1/auth/google/login"
+      href={googleLoginHref(props)}
       className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-border-strong bg-surface text-sm font-medium transition-colors hover:bg-surface-2"
     >
       <svg viewBox="0 0 24 24" className="size-[18px]" aria-hidden>

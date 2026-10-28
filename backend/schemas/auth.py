@@ -95,6 +95,18 @@ class MeResponse(BaseModel):
     email: EmailStr
     role: str
     mfa_enabled: bool
+    # A Google-only account has no password until the investor sets one.
+    has_password: bool = True
+    # Tier 1 (age, income, risk, horizon) is still missing: a Google sign-up
+    # skips the sign-up form, so the app asks for it before anything else.
+    needs_profile: bool = False
+
+
+class GoogleKeepAccountRequest(BaseModel):
+    """Phase C1: keep an account in its grace period after a Google sign-in."""
+
+    token: str = Field(..., min_length=16, max_length=128)
+    remember_me: bool = False
 
 
 class CancelDeletionRequest(BaseModel):

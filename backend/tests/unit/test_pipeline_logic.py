@@ -45,6 +45,15 @@ def test_reasons_quote_the_number_they_used():
     assert any("87%" in r for r in reasons)
 
 
+@pytest.mark.parametrize("conf, words", [(0.97, "high"), (0.75, "medium"), (0.4, "low")])
+def test_confidence_is_shown_in_words_never_as_a_percentage(conf, words):
+    """Product rule: confidence reads High / Medium / Low, as in the app."""
+    _, reasons = decide("buy_more", "herd_behavior", conf, 0.874)
+    bias_reason = next(r for r in reasons if "herd behaviour" in r)
+    assert f"({words} confidence)" in bias_reason
+    assert "%" not in bias_reason
+
+
 # --------------------------------------------------------------------------- #
 # Explanation helpers
 # --------------------------------------------------------------------------- #

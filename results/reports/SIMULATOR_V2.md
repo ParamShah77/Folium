@@ -10,7 +10,7 @@ Phase A3, 2026-10-07. Engine: `src/simulator_v2.py`. Evaluation: `scripts/evalua
 | Market futures | 10,000 synthetic paths, wilder than the real NIFTY | **Real NIFTY and gold-in-rupee history** (Oct 2007–Sep 2026), resampled in 12-month blocks |
 | The holding | Blended into a share/bond mix | **The holding itself**: its own measured beta and company-specific swings for a stock; the market for a fund |
 | Selling | 5% cost, then "30% of the old share allocation" | **0.15% charges plus real capital-gains tax**; the money goes into the investor's own FDs, savings and gold in their current split |
-| Tax | None | **FY 2025-26, new regime**: equity 20% short-term / 12.5% long-term above ₹1.25 lakh; FD and savings interest at the slab rate every year; gold 12.5% after 24 months; 4% cess |
+| Tax | None | **FY 2025-26, new regime**: equity 20% if held 12 months or less / 12.5% above ₹1.25 lakh after that; FD and savings interest at the slab rate every year, from income before tax (the app's take-home figure is grossed up first); gold 12.5% after 24 months; 4% cess |
 | What is compared | Pre-tax wealth, average gap | **What you'd have in hand after tax**; the gap is the typical (median) difference, future by future |
 | Hold vs sell | Different random markets for each | **The same markets** for both, so the comparison measures the decision, not noise |
 | Monthly investing | None | **SIP, plus education fees once they end**, in both futures, to size the whole portfolio |

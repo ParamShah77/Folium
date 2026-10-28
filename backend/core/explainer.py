@@ -299,7 +299,10 @@ def _pct(x: float, signed: bool = True) -> str:
     return f"{x * 100:+.0f}%" if signed else f"{x * 100:.0f}%"
 
 
-_ACTION_WORDS = {"sell": "sell", "hold": "hold", "buy_more": "buy more"}
+#: Verbs for a driver label ("Your choice to hold"). Not ``_ACTION_WORDS``,
+#: the gerunds below for the causal text: one name for both made the later
+#: dict win, and the label read "Your choice to holding on".
+_ACTION_VERBS = {"sell": "sell", "hold": "hold", "buy_more": "buy more"}
 
 
 def driver_label(driver: str, f: dict[str, Any], action: str | None) -> str:
@@ -310,7 +313,7 @@ def driver_label(driver: str, f: dict[str, Any], action: str | None) -> str:
     """
     on = lambda key: bool(f.get(key))  # noqa: E731
     if driver == "action":
-        return f"Your choice to {_ACTION_WORDS.get(action or '', 'act')}"
+        return f"Your choice to {_ACTION_VERBS.get(action or '', 'act')}"
     if driver == "fits_disposition":
         if not on("allows_disposition"):
             return "Doesn't fit the disposition effect"
@@ -406,14 +409,14 @@ def _render_gap3(bias_result: dict, sim_result: dict, user_input: dict) -> dict[
     return out
 
 
-def _fallback_story(meaning: str, hold_med, sell_med, p_hold) -> list[dict[str, str]]:
+def _fallback_story(meaning: str, hold_med, sell_med, p_hold, years: int = 20) -> list[dict[str, str]]:
     story = [{"title": "What we found", "body": meaning}]
     if hold_med is not None and sell_med is not None:
-        body = (f"Over 20 years, holding is projected to reach about {inr(hold_med)} "
+        body = (f"Over {years} years, holding is projected to reach about {inr(hold_med)} "
                 f"against {inr(sell_med)} if you sell now.")
         if p_hold is not None:
             body += f" Holding came out ahead in {p_hold * 100:.0f}% of simulated futures."
-        story.append({"title": "What it means in 20 years", "body": body})
+        story.append({"title": f"What it means in {years} years", "body": body})
     return story
 
 
@@ -563,7 +566,9 @@ async def explain(ctx: PipelineContext) -> StepResult:
         "own_words": compare_with_reading(d.get("comment_facts"), bias),
         "headline": headline,
         "explanation": explanation,
-        "story": None if explanation else _fallback_story(meaning, hold_med, sell_med, p_hold),
+        "story": None if explanation else _fallback_story(
+            meaning, hold_med, sell_med, p_hold, int(curves.get("horizon_years") or 20)
+        ),
         "factors": factors,
         "causal": {
             "primary": primary,

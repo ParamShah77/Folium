@@ -11,7 +11,8 @@ Redis keys (§2B):
     mfa_temp:{token}       TTL 300   (login -> TOTP step)
     mfa_setup:{user_id}    TTL 600   (setup -> verify-setup)
     mfa_recovery:{email}   TTL 86400 (1-per-24h recovery cooldown)
-    oauth_state:{state}    TTL 600   (OAuth CSRF state, single-use)
+    oauth_state:{state}    TTL 600   (OAuth CSRF state + sign-in choices, single-use)
+    oauth_keep:{token}     TTL 600   (Google sign-in -> "Keep my account", single-use)
 Blacklisting (Amendment 10): logout and refresh rotation blacklist BOTH the
 refresh jti and the current access jti.
 
@@ -20,10 +21,13 @@ With PEP 563 string annotations, FastAPI cannot resolve the body-parameter type
 through slowapi's ``@limiter.limit`` wrapper and misclassifies the Pydantic body
 as a query parameter. Keeping real (evaluated) annotations avoids that.
 """
+import json
 import secrets
+from typing import Optional
+from urllib.parse import urlencode
 
 import structlog
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from ..config import get_settings
@@ -40,6 +44,7 @@ from ..schemas.auth import (
     CancelDeletionRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    GoogleKeepAccountRequest,
     LoginRequest,
     MeResponse,
     MfaDisableRequest,
@@ -695,81 +700,130 @@ async def mfa_recovery_request(
 
 
 # --------------------------------------------------------------------------- #
-# Google OAuth (§1F)
+# Google OAuth (§1F, finished in Phase C1)
+#
+# The browser arrives at the callback by a top-level navigation from Google,
+# so every outcome is a redirect back into the web app (FRONTEND_URL), never a
+# JSON page. The outcome travels in the URL *fragment* (after "#"): browsers
+# never send a fragment to a server, so the single-use tokens below stay out
+# of access logs and Referer headers.
+#
+# The callback address defaults to FRONTEND_URL + /v1/auth/google/callback
+# (through the app's /v1 proxy), so the address to register with Google is
+# fixed however the request reaches the API, and the session cookies land on
+# the app's own host.
 # --------------------------------------------------------------------------- #
-def _oauth_redirect_uri(request: Request) -> str:
+_OAUTH_RETURN_PATH = "/auth/google"
+_OAUTH_KEEP_TTL = 600  # 10m to press "Keep my account" after a Google sign-in
+
+
+def _oauth_redirect_uri() -> str:
     settings = get_settings()
     if settings.GOOGLE_OAUTH_REDIRECT_URI:
         return settings.GOOGLE_OAUTH_REDIRECT_URI
-    return str(request.base_url).rstrip("/") + "/v1/auth/google/callback"
+    return settings.FRONTEND_URL.rstrip("/") + "/v1/auth/google/callback"
 
 
-def _require_oauth_configured() -> None:
-    if not oauth_handler.is_configured():
-        raise AppError(
-            status_code=503,
-            error="OAUTH_NOT_CONFIGURED",
-            message="Google login not configured",
-        )
+def _safe_next(value: Optional[str]) -> str:
+    """Only an in-app path may be a destination (no open redirect)."""
+    if value and value.startswith("/") and not value.startswith("//") and "\\" not in value:
+        return value
+    return "/app"
+
+
+def _to_app(**params: object) -> RedirectResponse:
+    fragment = urlencode({k: v for k, v in params.items() if v not in (None, "")})
+    app_url = get_settings().FRONTEND_URL.rstrip("/")
+    return RedirectResponse(f"{app_url}{_OAUTH_RETURN_PATH}#{fragment}", status_code=302)
+
+
+def _oauth_failure(code: str) -> RedirectResponse:
+    logger.info("oauth_failed", error=code)
+    return _to_app(result="error", code=code)
 
 
 @router.get("/google/login")
 async def google_login(
     request: Request,
+    remember: bool = False,
+    next_path: Optional[str] = Query(None, alias="next"),
     redis: RedisService = Depends(get_redis_service),
 ):
-    _require_oauth_configured()
+    if not oauth_handler.is_configured():
+        return _oauth_failure("OAUTH_NOT_CONFIGURED")
 
     state = oauth_handler.generate_state()
-    await redis.set_with_ttl(f"oauth_state:{state}", "1", oauth_handler.OAUTH_STATE_TTL)
-    url = oauth_handler.build_authorize_url(state, _oauth_redirect_uri(request))
+    # The state carries the sign-in choices across the trip to Google.
+    await redis.set_with_ttl(
+        f"oauth_state:{state}",
+        json.dumps({"remember": remember, "next": _safe_next(next_path)}),
+        oauth_handler.OAUTH_STATE_TTL,
+    )
+    url = oauth_handler.build_authorize_url(state, _oauth_redirect_uri())
     return RedirectResponse(url, status_code=302)
 
 
 @router.get("/google/callback")
 async def google_callback(
     request: Request,
-    response: Response,
-    code: str,
-    state: str,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
     db: Database = Depends(get_db),
     redis: RedisService = Depends(get_redis_service),
 ):
-    _require_oauth_configured()
+    if not oauth_handler.is_configured():
+        return _oauth_failure("OAUTH_NOT_CONFIGURED")
 
     # State CSRF check — must exist in Redis and is single-use (§1F/§1H).
-    state_key = f"oauth_state:{state}"
-    if not await redis.get(state_key):
-        raise AppError(
-            status_code=403,
-            error="OAUTH_STATE_INVALID",
-            message="OAuth state validation failed. Start the login again.",
-        )
-    await redis.delete(state_key)
+    stored = await redis.get(f"oauth_state:{state}") if state else None
+    if not stored:
+        return _oauth_failure("OAUTH_STATE_INVALID")
+    await redis.delete(f"oauth_state:{state}")
+    try:
+        choices = json.loads(stored)
+    except ValueError:
+        choices = {}
+    remember = bool(choices.get("remember", False))
+    next_path = _safe_next(choices.get("next"))
+
+    # Google sends ?error=access_denied when the person backs out.
+    if error or not code:
+        return _oauth_failure("OAUTH_CANCELLED")
 
     # Exchange the code for the Google profile. Module attribute access so
     # tests can monkeypatch backend.auth.oauth_handler.exchange_code.
     try:
-        profile = await oauth_handler.exchange_code(code, _oauth_redirect_uri(request))
-    except oauth_handler.OAuthExchangeError as exc:
-        raise AppError(
-            status_code=502,
-            error="OAUTH_EXCHANGE_FAILED",
-            message="Google login failed. Please try again.",
-        ) from exc
+        profile = await oauth_handler.exchange_code(code, _oauth_redirect_uri())
+    except oauth_handler.OAuthExchangeError:
+        return _oauth_failure("OAUTH_EXCHANGE_FAILED")
+
+    # An address Google hasn't verified proves nothing about who owns it, so
+    # it can neither open an account nor be linked to an existing one.
+    if not profile.email_verified:
+        return _oauth_failure("OAUTH_EMAIL_UNVERIFIED")
 
     record = await db.fetchrow("SELECT * FROM users WHERE email = $1", profile.email)
 
-    # CASE D — soft-deleted account (checked before anything else).
+    # CASE D — scheduled for deletion. Google has just proved who this is, so
+    # the person may keep the account without a password (Google-only
+    # accounts have none): a single-use token lets the app ask first.
     if record is not None and record["deleted_at"] is not None:
-        raise AppError(
-            status_code=403,
-            error="ACCOUNT_DELETED",
-            message="This account has been scheduled for deletion.",
-            extra={"recovery_link": "/auth/cancel-deletion"},
+        keep_token = secrets.token_urlsafe(32)
+        await redis.set_with_ttl(
+            f"oauth_keep:{keep_token}", str(record["user_id"]), _OAUTH_KEEP_TTL
+        )
+        purge_after = record.get("purge_after")
+        return _to_app(
+            result="deleted",
+            token=keep_token,
+            purge=purge_after.isoformat() if purge_after else None,
+            remember=int(remember),
+            next=next_path,
         )
 
-    if record is None:
+    is_new = record is None
+    if is_new:
         # CASE A — new user: auto-register. Google has verified the email.
         user_id = await db.fetchval(
             """
@@ -788,8 +842,9 @@ async def google_callback(
         logger.info("oauth_registered", user_id=str(user_id))
     elif record["oauth_id"] is None:
         # CASE B — existing email/password user, first Google login: link
-        # silently (same email = same person, §1F). Google also proves email
-        # ownership, so an unverified local account becomes verified.
+        # silently (same verified email = same person, §1F). Google also
+        # proves email ownership, so an unverified local account becomes
+        # verified.
         await db.execute(
             """
             UPDATE users SET oauth_id = $1, oauth_provider = 'google',
@@ -808,17 +863,28 @@ async def google_callback(
         logger.info("oauth_linked", user_id=str(record["user_id"]))
     elif record["oauth_id"] != profile.sub:
         # Defensive: same email but a different Google account id.
-        raise AppError(
-            status_code=409,
-            error="OAUTH_ACCOUNT_MISMATCH",
-            message="This email is linked to a different Google account.",
-        )
+        return _oauth_failure("OAUTH_ACCOUNT_MISMATCH")
     # else: CASE C — returning OAuth user; fall through to login.
 
     await db.execute(
         "UPDATE users SET last_login_at = NOW() WHERE user_id = $1", record["user_id"]
     )
+    return await _finish_oauth_login(
+        request, db, redis, record, remember=remember, next_path=next_path, is_new=is_new
+    )
 
+
+async def _finish_oauth_login(
+    request: Request,
+    db: Database,
+    redis: RedisService,
+    record,
+    *,
+    remember: bool,
+    next_path: str,
+    is_new: bool = False,
+) -> RedirectResponse:
+    """Hand over to the two-step check, or sign in and return to the app."""
     # §1F: MFA enabled = TOTP required regardless of login method.
     if record["mfa_enabled"]:
         temp_token = secrets.token_hex(16)
@@ -826,11 +892,59 @@ async def google_callback(
             f"mfa_temp:{temp_token}", str(record["user_id"]), _MFA_TEMP_TTL
         )
         logger.info("oauth_login_mfa_required", user_id=str(record["user_id"]))
+        return _to_app(result="mfa", token=temp_token, remember=int(remember), next=next_path)
+
+    redirect = _to_app(result="ok", new=int(is_new) or None, next=next_path)
+    await _issue_session(
+        redirect, db, redis, str(record["user_id"]), record["role"], request,
+        remember=remember,
+    )
+    logger.info("oauth_login", user_id=str(record["user_id"]))
+    return redirect
+
+
+@router.post("/google/keep-account")
+@limiter.limit(LOGIN_LIMIT)
+async def google_keep_account(
+    request: Request,
+    response: Response,  # REQUIRED by @limiter.limit — see the note on the limiter
+    payload: GoogleKeepAccountRequest,
+    db: Database = Depends(get_db),
+    redis: RedisService = Depends(get_redis_service),
+):
+    """Keep an account during its grace period, after signing in with Google.
+
+    The token comes from the callback's "deleted" outcome, so Google has
+    already confirmed who this is. Two-step verification still applies.
+    """
+    from ..services import account_deletion
+
+    key = f"oauth_keep:{payload.token}"
+    user_id = await redis.get(key)
+    if not user_id:
+        raise AppError(
+            status_code=403,
+            error="OAUTH_STATE_INVALID",
+            message="This link has expired. Sign in with Google again.",
+        )
+    await redis.delete(key)
+
+    if not await account_deletion.cancel_deletion(db, user_id):
+        raise AppError(status_code=410, error="DELETION_FINAL",
+                       message="The grace period has ended and this account has been deleted.")
+
+    record = await db.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
+    await db.execute("UPDATE users SET last_login_at = NOW() WHERE user_id = $1", user_id)
+    if record["mfa_enabled"]:
+        temp_token = secrets.token_hex(16)
+        await redis.set_with_ttl(f"mfa_temp:{temp_token}", user_id, _MFA_TEMP_TTL)
         return {"mfa_required": True, "temp_token": temp_token}
 
-    await _issue_session(response, db, redis, str(record["user_id"]), record["role"], request)
+    await _issue_session(
+        response, db, redis, user_id, record["role"], request, remember=payload.remember_me
+    )
     user = User.from_record(record)
-    logger.info("oauth_login", user_id=str(user.user_id))
+    logger.info("oauth_account_kept", user_id=user_id)
     return {"user": user.public_dict()}
 
 

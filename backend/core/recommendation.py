@@ -30,6 +30,16 @@ from .steps import PipelineContext, StepResult, register_step
 _STRONG, _WEAK = 0.60, 0.40
 _BIAS_CONFIDENT = 0.60
 
+
+def confidence_band(confidence: float) -> str:
+    """The words the app shows for a confidence (never a percentage):
+    High at 0.85 or more, Medium at 0.65 or more, otherwise Low."""
+    if confidence >= 0.85:
+        return "high"
+    if confidence >= 0.65:
+        return "medium"
+    return "low"
+
 _BIAS_NAMES = {
     "loss_aversion": "loss aversion",
     "herd_behavior": "herd behaviour",
@@ -61,8 +71,8 @@ def decide(intent: str, bias: str, confidence: float, p_hold: float | None,
         if biased:
             reasons.append(f"With {bias_name} detected, the cautious choice is to wait.")
             return "HOLD", reasons
-        # Nothing reads the user's free-text reason (``user_reasoning``), so
-        # the wording must not suggest it was judged.
+        # The verdict never reads the investor's own words (Phase B3 quotes
+        # them separately), so this wording must not suggest they were judged.
         reasons.append("No bias pattern showed up behind the sale, so your call stands.")
         return "SELL", reasons
 
@@ -82,7 +92,7 @@ def decide(intent: str, bias: str, confidence: float, p_hold: float | None,
     # buy_more
     if bias == "herd_behavior" or (biased and confidence >= _BIAS_CONFIDENT):
         reasons.append(f"Adding now shows signs of {bias_name} "
-                       f"({confidence * 100:.0f}% confidence).")
+                       f"({confidence_band(confidence)} confidence).")
         reasons.append("Hold your current position and revisit when the signal fades.")
         return "HOLD", reasons
     if p >= 0.5:

@@ -18,7 +18,7 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
-function MfaStep({ tempToken, remember, onDone, onBack }: { tempToken: string; remember: boolean; onDone: () => void; onBack: () => void }) {
+export function MfaStep({ tempToken, remember, onDone, onBack }: { tempToken: string; remember: boolean; onDone: () => void; onBack: () => void }) {
   const { loginMfa } = useAuth();
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState<string>();
@@ -147,7 +147,7 @@ export default function Login() {
 
       {config?.google_oauth && (
         <>
-          <GoogleButton />
+          <GoogleButton remember={remember} next={from} />
           <OrDivider />
         </>
       )}

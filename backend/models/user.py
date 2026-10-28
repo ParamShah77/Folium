@@ -11,6 +11,10 @@ from datetime import datetime
 from typing import Any, Mapping, Optional
 from uuid import UUID
 
+#: Tier 1 fields the sign-up form requires (FOLIUM_MASTER.md §4).
+#: ``has_emergency_fund`` is absent because the column defaults to FALSE.
+TIER1_REQUIRED = ("age", "monthly_income", "risk_tolerance", "investment_horizon")
+
 
 @dataclass
 class User:
@@ -50,4 +54,6 @@ class User:
             "email": self.email,
             "role": self.role,
             "mfa_enabled": self.mfa_enabled,
+            "has_password": bool(self.raw.get("password_hash")),
+            "needs_profile": any(self.raw.get(f) is None for f in TIER1_REQUIRED),
         }
