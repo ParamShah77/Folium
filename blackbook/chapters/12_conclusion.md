@@ -6,7 +6,7 @@ Retail investors often decide to sell, hold or buy more under the pull of recent
 
 ## 12.2 Summary of the Implemented Solution
 
-We built Folium, a full-stack web application with a React front end, a FastAPI back end, PostgreSQL with row-level security and Redis. For each decision, a five-step background pipeline reads the investor's comment, classifies the behavioural pattern with a calibrated, guarded XGBoost model explained by exact TreeSHAP, projects HOLD and SELL on the same block-bootstrapped market paths after Indian tax, attaches causal estimates validated against a known generator, renders a six-part explanation in English and Hindi, derives a verdict from explicit evidence rules, and seals the analysis into a per-investor hash chain. Accounts are protected with two-step verification, CSRF protection and rate limits, and investors can export or delete their data.
+We built Folium, a full-stack web application with a React front end, a FastAPI back end, PostgreSQL with row-level security and Redis. For each decision, a five-step background pipeline reads the investor's comment, classifies the behavioural pattern with a calibrated, guarded XGBoost model explained by exact TreeSHAP, projects HOLD and SELL on the same block-bootstrapped market paths after Indian tax, attaches causal estimates validated against a known generator, renders a six-part explanation in English and Hindi, derives a verdict from explicit evidence rules, and seals the analysis into a per-investor hash chain. Investors sign in by e-mail or with Google; accounts are protected with two-step verification, CSRF protection and rate limits, and investors can export or delete their data.
 
 ## 12.3 Key Outcomes and Verified Findings
 
@@ -14,30 +14,40 @@ All figures below are taken from the evaluation files committed in the repositor
 
 | Objective | Outcome | Achieved? |
 |---|---|---|
-| O1 Behavioural reading | 87.9% accuracy, macro-F1 0.840, ECE 0.014; High band right 98.7%; 21/21 sense checks; out-of-time 86.5% | Achieved on synthetic labels; real-world validity not established |
-| O2 Consequence projection | One-year quantiles within 1.4 points of the real NIFTY; horizon-specific, after-tax, paired | Achieved |
+| O1 Behavioural reading | 87.9% accuracy, macro-F1 0.840, ECE 0.014; High band right 98.7%; 21/21 sense checks; out-of-time 86.5%; significantly above rules and logistic regression, tied with random forest | Achieved on synthetic labels; real-world validity is the next research step |
+| O2 Consequence projection | One-year quantiles within 1.4 points of the real NIFTY; best of six generators (KS 0.027); stable to ±1.7 points at 1,000 paths; horizon-specific, after-tax, paired | Achieved |
 | O3 Cause and effect | 45 effects, mean absolute error 0.48 points, 97% correct sign; 12/13 refutations | Achieved on a known generator |
-| O4 Explanation | 100% completeness, 0 jargon leaks, Flesch 78.3 (EN), 12.2 words/sentence (HI) | Achieved; evaluation should be re-run on final models |
+| O4 Explanation | 332 explanations on the current models: 100% completeness, 0 jargon leaks, Flesch 76.4 (EN), 12.8 words/sentence (HI) | Achieved |
 | O5 Recommendation | Pure rule function with stored reasons and inputs; never an LLM | Achieved |
-| O6 Trust and security | RLS, hash chain with verification, MFA, CSRF, rate limits, export and deletion | Achieved locally; Google sign-in and deployment pending |
+| O6 Trust and security | RLS, hash chain with verification, MFA, CSRF, rate limits, Google sign-in (OpenID Connect), export and deletion | Achieved; public deployment with HTTPS is the next milestone |
 
 Table: Table 12.1: Achievement of objectives
 
-## 12.4 Current Limitations
+## 12.4 Boundaries of the Present Work
 
-The central limitation is that the behavioural labels are synthetic: the system has not been evaluated with real investors, and no claim is made that it improves investment outcomes. The simulator's conclusions depend on stated growth assumptions; projections are nominal; tax handling is simplified; and each analysis concerns one position. On the engineering side, Google sign-in is incomplete in the web app, the admin panel is minimal, the AI features have not been run live, and the system is not deployed.
+Two boundaries define what the results can claim. The first is scientific: the behavioural labels are synthetic by design, because no public dataset links Indian investors' decisions to their finances and true motives. The readings are therefore validated against a known generator, not against real people, and no claim is made that the system improves investment outcomes. The second is about modelling: the simulator's verdicts depend on stated long-run growth rates (Table 9.6), projections are in nominal rupees, tax handling is simplified, and each analysis concerns one position. Both boundaries are stated to the investor on every result page, and both are addressed directly in the roadmap below.
 
-## 12.5 Future Enhancements
+## 12.5 Roadmap and Future Scope
 
-1. **Real, consented decision data.** Collect anonymised decisions with investors' consent and their own later reflection, and learn the motive weights instead of setting them. Run a prospective user study to measure whether the tool changes decisions.
-2. **Stronger evaluation.** Compare XGBoost with logistic regression and random forests on the same stratified and out-of-time splits; report results across several seeds with confidence intervals; ablate calibration and paired versus independent paths; compare guarded template explanations with unconstrained ones.
-3. **Number guard in both directions.** Extend `guard_ok` so that every number in the original must also appear in the rewording (defect D-5).
-4. **Finish the product.** Complete Google sign-in with a redirect to the front end, build the admin panel (usage statistics from `admin_stats_view`, user management, MFA-recovery queue), and deploy with HTTPS, continuous integration and a production e-mail service.
-5. **Richer simulation.** Inflation-adjusted outputs, debt and hybrid funds, loss set-off and tax-harvesting, alternative destinations for sale proceeds (another stock), and regime-aware resampling as a sensitivity check.
-6. **Whole-portfolio analysis.** Rebalancing decisions across several holdings.
-7. **Wider language understanding.** Learn comment patterns from real (consented) comments and support more Indian languages.
-8. **Operational scale.** Move background analyses to a job queue with dedicated workers and add load testing.
-9. **Outcome tracking.** The `decisions` table already has `outcome_tracked`, `actual_outcome_pct` and `recommendation_followed` columns; using them would allow the system to learn from what actually happened.
+The project already follows a milestone plan (`FOLIUM_MASTER.md` §14). Phase C, the productisation phase, began with Google sign-in (C1), which is complete. The remaining work is organised in three phases, each building on foundations that already exist in the repository.
+
+| Phase | Milestone | What it delivers | Foundation already in place |
+|---|---|---|---|
+| **C — Productisation** | C2 Administrator console | Usage statistics, user management, MFA-recovery queue | `admin_stats_view` (aggregates, no personal data); audited MFA-status and MFA-reset endpoints; `role` column and admin guard |
+| | C3 Continuous integration | Every push runs the back-end, model and front-end suites and the production build | 635 tests runnable with one command each; pinned dependencies; `verify_ml_env.py` |
+| | C4 Public deployment | HTTPS, production e-mail, registered Google callback | `Dockerfile.backend`, `docker-compose.yml`; `Secure` cookies and CORS switch on outside development; Resend e-mail integration |
+| | Live AI assistance | Gemini comment reading and wording for consenting users | Implementation, consent switch, verbatim-quote and number guards, circuit breaker—all tested with a stand-in |
+| **D — Validation with real users** | Consented decision data | Anonymised real decisions and investors' own later reflections, so motive weights can be learned rather than set | Data export, consent model and audit chain; `outcome_tracked`, `actual_outcome_pct` and `recommendation_followed` columns already in `decisions` |
+| | Prospective user study | Whether investors who use Folium decide differently | Explanation engine with measured readability; seeded demo flow |
+| | Two-way number guard | AI wording must keep every original number, not only avoid new ones (D-5) | `guard_ok` and its test suite |
+| **E — Richer analysis** | Simulation extensions | Inflation-adjusted outputs, debt and hybrid funds, loss set-off and tax-harvesting, other destinations for sale proceeds, regime-aware scenarios | Evaluation hooks `paths=` and `return_gaps=`; sensitivity framework |
+| | Whole-portfolio decisions | Rebalancing across several holdings | Portfolio snapshot and asset-mix computation |
+| | Wider language support | Learned comment patterns and more Indian languages | Bilingual template banks with structural-parity tests |
+| | Scale | Background analyses on a job queue with dedicated workers; load testing | Stateless API; Redis already holds shared state |
+
+Table: Table 12.2: Roadmap by phase
+
+Phase C turns a complete local product into a publicly available service, Phase D turns development-stage evidence into evidence about people, and Phase E widens what the system can analyse. Longer-term ideas from the original plan—broker integration, WhatsApp alerts and monthly retraining from tracked outcomes—follow naturally once Phase D produces real outcome data.
 
 ## 12.6 Potential for Further Research and Deployment
 

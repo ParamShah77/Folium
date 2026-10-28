@@ -289,7 +289,7 @@ def equity_gains_tax(gain, months_held, exemption: float | None = None):
 
 The helpers work on whole arrays, so tax is computed for all 1,000 paths and every month in one call. Losses pay nothing; set-off against other gains is not modelled (a stated limitation).
 
-**The bridge** (`backend/core/simulator.py::build_sim_inputs`) builds `SimInputs` from the decision, the profile and the portfolio snapshot. It uses the beta and own volatility measured at submission by `backend/services/prices.py::stock_risk` (from 10 years of monthly prices), falling back to the median NIFTY 50 stock (beta 1.0, own volatility 21%) and recording that in `fixed_inputs`. It also writes legacy columns (`hold_median_20y` and similar) that keep their historical names even though the horizon is now the investor's own; this naming inconsistency is cosmetic and noted in Section 10.8.
+**The bridge** (`backend/core/simulator.py::build_sim_inputs`) builds `SimInputs` from the decision, the profile and the portfolio snapshot. It uses the beta and own volatility measured at submission by `backend/services/prices.py::stock_risk` (from 10 years of monthly prices), falling back to the median NIFTY 50 stock (beta 1.0, own volatility 21%) and recording that in `fixed_inputs`. Because the profile records take-home pay, the bridge first converts it to gross income before the slab rate is looked up: `annual_income = gross_from_take_home(12 × monthly income) + 12 × 0.7 × rent received`, where rent counts at 70% because of the 30% standard deduction on house property (Section 7.8). It also writes legacy columns (`hold_median_20y` and similar) that keep their historical names even though the horizon is now the investor's own; this naming inconsistency is cosmetic and noted in Section 10.8.
 
 ## 6.6 Cause-and-Effect Module (`src/causal_v4.py`)
 
@@ -357,7 +357,7 @@ def decide(intent, bias, confidence, p_hold, horizon_years=20):
         return "SELL", reasons
 ```
 
-`decide` is a pure function: it takes values, returns a verdict and a list of reasons, and touches neither the database nor the network, which makes it directly unit-testable. If no simulation result is available, the odds are treated as even and that fact is stated. The step wrapper `recommend` stores a `debate_transcript` with `engine = "evidence_rules_v1"`, the reasons, the exact inputs used and the "both sides" cases built afterwards by `backend/core/debate.py`. The cases are never read by the verdict.
+`decide` is a pure function: it takes values, returns a verdict and a list of reasons, and touches neither the database nor the network, which makes it directly unit-testable. If no simulation result is available, the odds are treated as even and that fact is stated. When a reason mentions the confidence of a bias reading, `confidence_band` writes it in words (high ≥ 0.85, medium ≥ 0.65, otherwise low), never as a percentage, matching the product rule that no raw probability is shown to the investor. The step wrapper `recommend` stores a `debate_transcript` with `engine = "evidence_rules_v1"`, the reasons, the exact inputs used and the "both sides" cases built afterwards by `backend/core/debate.py`. The cases are never read by the verdict.
 
 ## 6.8 Pipeline Orchestrator (`backend/core/pipeline.py`)
 
@@ -500,9 +500,18 @@ The payload contains two fingerprints: `inputs_hash` over 21 input fields (holdi
 | Two-step | pyotp TOTP with `valid_window=1`; secret encrypted with Fernet; 8 bcrypt-hashed backup codes; recovery requests limited to one per e-mail per 24 hours (`auth/mfa_handler.py`) |
 | Rate limits | slowapi with a Redis store: login 5/min, register 3/h, forgot-password 3/h, analyze 10/min, admin 20/min (`middleware/rate_limiter.py`) |
 | Headers | Security headers on every response; CORS restricted to the configured origin |
+| Google sign-in | OpenID Connect via Authlib; single-use `state` in Redis (10 minutes); only Google-verified addresses accepted; outcome returned in the URL fragment (Section 6.12.1) |
 | Errors | One shape for all errors: `{"error", "message", "request_id"}` (`backend/errors.py`) |
 
 Table: Table 6.2: Authentication and session-security controls
+
+### 6.12.1 Google sign-in (`backend/auth/routes.py`, `frontend/src/pages/auth/GoogleReturn.tsx`, `Welcome.tsx`)
+
+Google sign-in uses OpenID Connect through Authlib. `GET /v1/auth/google/login?remember=&next=` creates a random, single-use `state` value, stores it in Redis for ten minutes together with the "keep me signed in" choice and the in-app page to return to (only in-app paths are accepted, so the parameter cannot be abused as an open redirect), and redirects the browser to Google. When Google sends the browser back to `GET /v1/auth/google/callback`, the server consumes the state, exchanges the code for the user's profile and accepts it only if Google reports the e-mail address as verified. Without that check, someone could link an unverified address to another person's account. A verified address either opens a new account or links to the existing account with the same e-mail.
+
+The callback always answers with a redirect to `/auth/google#…` in the web app, with the outcome in the URL *fragment*. Browsers never send a fragment to any server, so the single-use tokens it may carry stay out of server logs and `Referer` headers, and `GoogleReturn.tsx` removes the fragment from the address bar as soon as it has read it. The page then completes one of several outcomes: a normal sign-in; a two-step code prompt when the account has TOTP enabled; "Keep my account" for an account in its deletion grace period (`POST /v1/auth/google/keep-account`, protected by a single-use token instead of a session, and therefore exempt from CSRF like the other pre-session endpoints); or a plain explanation when the user cancelled, the request expired or Google refused.
+
+A new account created through Google has no financial profile yet. The user object therefore carries `needs_profile` (true while any required Tier-1 field—age, income, risk tolerance, horizon—is empty) and `has_password`. The front end's route guard sends such a user to `/app/welcome` until the profile is complete. Because sensitive changes, turning off two-step verification and deleting an account all require the password, a Google-only account is offered "Set a password" in Settings, which uses the existing reset-link e-mail. The locally registered callback address is `http://localhost:3000/v1/auth/google/callback`, reached through the Vite proxy; a deployment must add its own address to the OAuth client.
 
 ## 6.13 Portfolio, Prices and Market Context (`backend/services/`)
 
@@ -526,7 +535,7 @@ Deleting an account requires the password (and a TOTP code if two-step is on) an
 
 ## 6.15 Front End (`frontend/src/`)
 
-The front end is a React 19 single-page application written in TypeScript and built with Vite. `lib/api.ts` configures an axios client that echoes the `csrf_token` cookie in the `X-CSRF-Token` header on mutating requests and, on an expired session, calls `/v1/auth/refresh` once (shared by concurrent requests) and retries. `lib/queries.ts` defines TanStack Query hooks for every resource. Forms use React Hook Form with Zod schemas. `pages/app/DecisionPage.tsx` (865 lines, the largest page) uses a stream hook from `components/decision.tsx` that opens an `EventSource` on the stream endpoint; the page renders the five steps as they progress, falls back to polling if the stream fails, and then lays out the result sections listed in Section 5.9. Charts use Recharts. `lib/domain.ts` holds shared constants such as the confidence bands (High ≥ 0.85, Medium ≥ 0.65), which the training script mirrors. Route guards send signed-out visitors to the login page while remembering where they were going.
+The front end is a React 19 single-page application written in TypeScript and built with Vite. `lib/api.ts` configures an axios client that echoes the `csrf_token` cookie in the `X-CSRF-Token` header on mutating requests and, on an expired session, calls `/v1/auth/refresh` once (shared by concurrent requests) and retries. `lib/queries.ts` defines TanStack Query hooks for every resource. Forms use React Hook Form with Zod schemas. `pages/app/DecisionPage.tsx` (865 lines, the largest page) uses a stream hook from `components/decision.tsx` that opens an `EventSource` on the stream endpoint; the page renders the five steps as they progress, falls back to polling if the stream fails, and then lays out the result sections listed in Section 5.9. Charts use Recharts. `lib/domain.ts` holds shared constants such as the confidence bands (High ≥ 0.85, Medium ≥ 0.65), which the training script mirrors. Route guards send signed-out visitors to the login page while remembering where they were going, and send a signed-in user whose profile is incomplete to the Welcome page. The front end has 25 Vitest tests, including a dedicated suite for the Google return page.
 
 ## 6.16 Error Handling and Edge Cases
 
@@ -543,6 +552,10 @@ The front end is a React 19 single-page application written in TypeScript and bu
 | Reload during analysis | Event backlog replayed; polling fallback |
 | Two analyses finishing together | Per-investor advisory lock keeps the audit chain linear |
 | Unverified account registers again | Unverified record replaced; verified e-mail returns "already registered" |
+| First sign-in with Google | Account created; Tier-1 profile requested on the Welcome page before any other page (Settings stays reachable) |
+| Google sign-in cancelled, expired or refused | The app explains what happened and offers to try again; an address Google has not verified cannot sign in or be linked |
+| Account made with Google has no password | "Set a password" offered, since sensitive changes, disabling two-step and deletion need one |
+| Account in its deletion grace period signs in with Google | Google's confirmation stands in for the password; "Keep my account" offered |
 | AI help fails or misquotes | Rule-based reading / template text used |
 | Hindi PDF requested | Refused with explanation; HTML offered |
 

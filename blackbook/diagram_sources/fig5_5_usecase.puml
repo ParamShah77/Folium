@@ -5,7 +5,7 @@ actor Investor
 actor Administrator
 actor "Market data service" as MDS
 rectangle Folium {
-  usecase "Register / verify e-mail / log in" as U1
+  usecase "Register / log in (e-mail or Google)" as U1
   usecase "Set up two-step verification" as U2
   usecase "Maintain financial profile" as U3
   usecase "Manage portfolio holdings" as U4

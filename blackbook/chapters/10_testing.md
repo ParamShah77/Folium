@@ -8,14 +8,14 @@ Testing in Folium has four goals: (1) to show that each model and engine behaves
 
 | Suite | Location | Tests (documented) | Needs | Framework |
 |---|---|---|---|---|
-| Models and engines | `tests/` (11 files) | 334 collected; 329 run, 5 skipped without an AI key | Python venv | pytest |
-| Back end, unit (no database) | `backend/tests/unit/` (6 files) | 162 (subset of the 255 below) | Python venv | pytest |
-| Back end, full | `backend/tests/` (17 files + unit) | 255 | PostgreSQL + Redis | pytest, httpx, pytest-asyncio |
-| Front end | `frontend/src/test/` | 17 | Node | Vitest, Testing Library |
+| Models and engines | `tests/` (11 files) | 343 collected; 338 run, 5 skipped without an AI key | Python venv | pytest |
+| Back end, unit (no database) | `backend/tests/unit/` (6 files) | 149 (subset of the 267 below) | Python venv | pytest |
+| Back end, full | `backend/tests/` (17 files + unit) | 267 | PostgreSQL + Redis | pytest, httpx, pytest-asyncio |
+| Front end | `frontend/src/test/` (4 files) | 25 | Node | Vitest, Testing Library |
 
 Table: Table 10.1: Test suites in the repository
 
-The counts in Table 10.1 are those recorded in `FOLIUM_MASTER.md` (dated 2026-10-08), which states that the suites passed at that time. Counting `def test_` functions in the source gives 275 in `tests/` and 195 in `backend/tests/`; the higher collected counts come from parametrised tests, where one function runs over many cases. **The suites were not re-executed while preparing this report**, so the pass status is as documented by the team, not independently verified here. Appendix D gives the commands to re-run them; the run log should be attached to the final report.
+In total the project has **635 automated tests**. The counts in Table 10.1 are those recorded in `FOLIUM_MASTER.md` (updated 2026-10-27), which states that the suites passed at that time. Counting `def test_` functions in the source gives 281 in `tests/` and 203 in `backend/tests/`; the higher collected counts come from parametrised tests, where one function runs over many cases. **The suites were not re-executed while preparing this report**, so the pass status is as documented by the team, not independently verified here. Appendix D gives the commands to re-run them; the run log should be attached to the final report.
 
 ## 10.3 Unit Testing
 
@@ -67,7 +67,8 @@ Integration tests in `backend/tests/` run the FastAPI app against real PostgreSQ
 | IT-9 | `test_audit_chain_db.py` | Two analyses; tamper with a row; verify | Chain linear; tampering detected and named |
 | IT-10 | `test_comment_reading_db.py` | Analysis with "college fees are due" in the reason | `comment_facts.cash_need = true`; sale can read rational |
 | IT-11 | `test_account_deletion.py` | Delete, log in during grace, purge after grace | "Keep my account" offered; data anonymised; audit kept |
-| IT-12 | `test_oauth.py` | Google sign-in for four account cases (mocked provider) | Accounts created or linked correctly |
+| IT-12 | `test_oauth.py` | Google sign-in end to end with a stand-in for Google: new and existing accounts, unverified e-mail, two-step, "keep me signed in", grace-period account, cancelled or expired state | Redirect to `/auth/google#…` with the right outcome; unverified addresses refused; state single-use |
+| IT-13 | `frontend/src/test/google-return.test.tsx` (8 tests) | Google return page for each outcome in the URL fragment | Signs in, asks for the code, offers "Keep my account" or explains the failure; fragment wiped from the address bar |
 
 Table: Table 10.3: Integration test scenarios
 
@@ -87,6 +88,8 @@ Functional behaviour of the product as a whole was exercised through the demonst
 | ST-8 | Tampered record | Edit the stored recommendation in the database, verify again | "Changed"; names the analysis part | [to be filled] |
 | ST-9 | Market data off | Set `MARKET_DATA_ENABLED=false`, run analysis | Calm market assumed and disclosed | [to be filled] |
 | ST-10 | Data export | Settings → Download my data | JSON without password hash, TOTP secret or tokens | [to be filled] |
+| ST-11 | First Google sign-in | "Continue with Google" with a new Google account | Returns to the app; Welcome page asks for the profile; other pages redirect there until it is filled | [to be filled] |
+| ST-12 | Google account sets a password | Settings → Security → "Set a password" | Reset-link e-mail sent; afterwards e-mail login works | [to be filled] |
 
 Table: Table 10.4: System test cases (expected results from the specification; observed results to be recorded)
 
@@ -96,7 +99,7 @@ Input validation is enforced at three layers. Pydantic schemas in `backend/schem
 
 ## 10.7 Performance Testing
 
-No load or stress test has been performed. Two timing measurements are recorded in the evaluation files: one simulation of 1,000 paths over 30 years takes 103.4 ms, and each bias prediction reports its own inference time in milliseconds. Because analyses run in the background and the analyze endpoint is rate-limited to 10 per minute per client, request latency is dominated by the initial context capture (market data and stock risk, bounded by a timeout). A proper load test (for example with Locust against a deployed instance) is listed as future work.
+No load or stress test has been performed. Two timing measurements are recorded in the evaluation files: one simulation of 1,000 paths over 30 years takes 103.4 ms, and each bias prediction reports its own inference time in milliseconds. Because analyses run in the background and the analyze endpoint is rate-limited to 10 per minute per client, request latency is dominated by the initial context capture (market data and stock risk, bounded by a timeout). A proper load test (for example with Locust against a deployed instance) is part of the scaling milestone in the roadmap (Table 12.2). Numerical stability, which matters more for the correctness of a verdict, was measured instead: at 1,000 paths the probability that holding wins varies by only ±1.7 points between runs (Section 9.3).
 
 ## 10.8 Defects, Inconsistencies and Open Issues
 
@@ -106,10 +109,13 @@ The following issues were found while auditing the repository for this report or
 |---|---|---|---|
 | D-1 | Superuser connection bypassed RLS | Commit `fix(M1): enforce RLS by connecting the app as non-superuser app_user` | Fixed |
 | D-2 | v3 explanations described a different class than shown (98.6% of cases) | `bias_v4_evaluation.json` | Fixed in v4 by explaining only the chosen class |
-| D-3 | Google sign-in callback returns JSON instead of redirecting into the app | `FOLIUM_MASTER.md` §15 | Open |
-| D-4 | Stale docstring: `recommendation.py` says nothing reads the user's free-text reason, but the comment reader (Phase B3) now does | `backend/core/recommendation.py` | Open (comment only; behaviour correct) |
+| D-3 | Google sign-in callback returned JSON instead of redirecting into the app | Commit `feat(auth): Google sign-in return flow, welcome page and demo updates` | Fixed: callback redirects to `/auth/google#…`; Welcome page added |
+| D-4 | Stale comment in `recommendation.py` said nothing reads the investor's free-text reason | `backend/core/recommendation.py` | Fixed: comment now explains that the verdict never reads the investor's words, which are quoted separately |
 | D-5 | `guard_ok` rejects added numbers but not removed ones; removal is only bounded by the 0.6× length limit, while the master document says a number may not be removed | `src/llm_polish.py` | Open; add a check that every number in the original appears in the rewording |
-| D-6 | Explanation-quality evaluation (2026-08-22) predates bias model v4.1 and simulator v2 | `explanation_quality.json` | Re-run `scripts/evaluate_explanations.py` |
+| D-6 | Explanation-quality evaluation (2026-08-22) predated bias model v4.1 and simulator v2 | `explanation_quality.json` | Fixed: re-measured on the current pipeline (166 cases, 332 explanations) in `paper_evaluation.json` |
+| D-10 | Driver label read "Your choice to holding on" because two dictionaries shared one name | `backend/core/explainer.py` | Fixed: separate `_ACTION_VERBS` mapping |
+| D-11 | Fallback story always said "Over 20 years" regardless of the investor's horizon | `backend/core/explainer.py::_fallback_story` | Fixed: uses the simulated horizon |
+| D-12 | Slab rate on interest was computed from take-home pay, understating it for higher earners | `backend/core/simulator.py` | Fixed: income grossed up with `gross_from_take_home` |
 | D-7 | Column names such as `hold_median_20y` remain although the horizon is now variable | migration 0003, `backend/core/simulator.py` | Cosmetic; rename in a future migration |
 | D-8 | Root `requirements.txt` lists older ranges (and `causalnex`) unlike the pinned `backend/requirements-ml.txt` | both files | Use the pinned file; tidy the root file |
 | D-9 | Figures in `results/figures/` and `results/simulations/` are from v1–v3 | file names and dates | Not used in this report; archive them |

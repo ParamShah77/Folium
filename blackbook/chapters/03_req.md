@@ -13,7 +13,8 @@ The requirements below were reconstructed from the implemented code, the API rou
 | FR-3 | Reset a forgotten password by e-mailed link | Built |
 | FR-4 | Enable two-step verification with an authenticator app (TOTP), with 8 single-use backup codes | Built |
 | FR-5 | Request two-step recovery; an administrator who proves their own TOTP may reset it | Built (endpoint only, no admin UI) |
-| FR-6 | Sign in with Google | Partial: back-end flow tested with mocks; the callback returns JSON instead of redirecting into the web app |
+| FR-6 | Sign in with Google end to end: return to the app, two-step verification, "keep me signed in", keep an account in its grace period | Built (Google replaced by a stand-in in automated tests; the local callback address is registered with Google) |
+| FR-6a | After a first Google sign-in, collect the Tier-1 profile before any other page; let a Google-only account set a password | Built (`/app/welcome`, "Set a password" in Settings) |
 | FR-7 | Re-verify (password, and TOTP if enabled) before changing sensitive profile fields; log every change | Built |
 
 Table: Table 3.1: Functional requirements — accounts and security
@@ -54,7 +55,7 @@ Table: Table 3.3: Functional requirements — analysis
 | FR-23 | Download all personal data as JSON | Built |
 | FR-24 | Delete the account with a 30-day grace period, after which personal data is anonymised | Built |
 | FR-25 | Opt in or out of optional AI help (Gemini) for comment reading and wording | Built (live API not exercised) |
-| FR-26 | Administrative dashboard with usage statistics and user management | Pending (only the aggregate view and MFA-reset endpoints exist) |
+| FR-26 | Administrative console with usage statistics, user management and an MFA-recovery queue | Planned for the next release (milestone C2); the aggregate statistics view and audited MFA-reset endpoints are in place |
 
 Table: Table 3.4: Functional requirements — data rights and administration
 
@@ -144,6 +145,8 @@ The principal use case, "Request decision analysis", proceeds as follows. *Pre-c
 ## 3.8 Assumptions and Constraints
 
 **Confirmed constraints (from the code).** One position per analysis; horizons capped at 30 years with a default of 20 when none is given; tax rules fixed to FY 2025-26 (new regime); mutual funds treated as equity funds; gold valued at the international price before Indian duty and GST; nominal (not inflation-adjusted) rupees; Hindi PDF reports refused because ReportLab cannot shape Devanagari (HTML offered instead).
+
+**Income is collected after tax.** The profile asks for monthly take-home pay because that is the figure people know. Where the simulator needs income before tax (for the slab rate on interest), it inverts the income-tax formula (Section 7.8).
 
 **Assumptions made by the models (stated in the app).** Long-run growth rates of 11% for shares, 9% for gold, 6.75% for FDs and 3% for savings; sale charges of 0.15%; a habit modelled as halving the tendency it acts on; the ₹1.25 lakh long-term gains exemption available for the sale.
 

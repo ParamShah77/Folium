@@ -32,7 +32,9 @@ def load(path):
 BIAS = load("results/reports/bias_v4_evaluation.json")
 SIM = load("results/reports/simulator_v2_evaluation.json")
 CAUSAL = load("results/causal_v4.json")
-EXPL = load("results/reports/explanation_quality.json")
+PAPER = load("results/reports/paper_evaluation.json")
+# Explanation quality on the current pipeline (replaces explanation_quality.json, which ran v1/v3).
+EXPL = PAPER["explanations"]
 
 
 def save(fig, name):
@@ -183,7 +185,7 @@ def fig_usecase():
     fig, ax = canvas(7.5, 6.0, 10, 10)
     ax.add_patch(FancyBboxPatch((2.2, 0.3), 5.6, 9.4, boxstyle="round,pad=0.02", fc="#fbfdfc", ec=GREY))
     ax.text(5, 9.45, "Folium system boundary", ha="center", fontsize=8.5, style="italic")
-    cases = ["Register / verify e-mail / log in", "Set up two-step verification", "Maintain financial profile",
+    cases = ["Register / log in (e-mail or Google)", "Set up two-step verification", "Maintain financial profile",
              "Manage portfolio holdings", "Request decision analysis", "Watch live progress",
              "Read explanation (EN / HI)", "Download report (HTML / PDF)", "Verify audit record",
              "Export data / delete account", "Reset a user's two-step (admin)"]
@@ -445,7 +447,7 @@ def fig_horizon():
     a2.set_ylabel("Typical gap, hold − sell (₹ lakh)")
     a1.set_title("(a) Probability holding wins", fontsize=9)
     a2.set_title("(b) Median paired gap", fontsize=9)
-    save(fig, "fig9_2_horizon.png")
+    save(fig, "fig9_3_horizon.png")
 
 
 def fig_sensitivity():
@@ -477,7 +479,7 @@ def fig_stocks():
     fig.colorbar(sc, label="Measured beta")
     ax.set_xlabel("Company-specific yearly swings (%)")
     ax.set_ylabel("Holding wins over 20 years (%)")
-    save(fig, "fig9_4_stocks.png")
+    save(fig, "fig9_7_stocks.png")
 
 
 def fig_causal():
@@ -494,7 +496,7 @@ def fig_causal():
     ax.axvline(0, color=DARK, lw=0.6)
     ax.set_xlabel("Change in chance of selling (percentage points)")
     ax.legend(fontsize=7.5, frameon=False, loc="lower right")
-    save(fig, "fig9_5_causal.png")
+    save(fig, "fig9_8_causal.png")
     return rows
 
 
@@ -508,16 +510,130 @@ def fig_explanations():
                label="English" if lang == "en" else "Hindi", color=c)
     ax.set_xticks(range(4), labs, fontsize=8)
     ax.set_ylim(0, 110)
-    ax.set_ylabel("% of 32 explanations")
+    ax.set_ylabel(f"% of {e['en']['n_explanations']} explanations")
     ax.legend(fontsize=7.5, frameon=False, ncol=2)
-    save(fig, "fig9_6_explanations.png")
+    save(fig, "fig9_9_explanations.png")
+
+
+def fig_baselines_ci():
+    b = PAPER["classifier"]["paper_split_bootstrap"]["accuracy_ci"]
+    ms = PAPER["classifier"]["mean_sd_over_seeds"]
+    keys = [("always_rational", "Always\n\"rational\""), ("rules_only", "Rules\nonly"),
+            ("logistic_regression", "Logistic\nregression"), ("random_forest", "Random\nforest"),
+            ("xgboost", "XGBoost")]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(8.2, 3.1))
+    for i, (k, lab) in enumerate(keys):
+        acc, (lo, hi) = b[k]["accuracy"] * 100, (v * 100 for v in b[k]["ci95"])
+        a1.errorbar(i, acc, yerr=[[acc - lo], [hi - acc]], fmt="o", color=TEAL if k == "xgboost" else DARK, capsize=4)
+        a1.text(i + 0.12, acc, f"{acc:.1f}", fontsize=7.5, va="center")
+    a1.set_xticks(range(len(keys)), [l for _, l in keys], fontsize=7.5)
+    a1.set_ylim(55, 92)
+    a1.set_ylabel("Accuracy, seed-7 test set (%)")
+    a1.set_title("(a) Accuracy with 95% bootstrap CI", fontsize=9)
+    for i, (k, lab) in enumerate(keys[1:]):
+        m, sd = ms[k]["accuracy"]["mean"] * 100, ms[k]["accuracy"]["sd"] * 100
+        a2.bar(i, m, yerr=sd, capsize=4, color=TEAL if k == "xgboost" else GREY)
+        a2.text(i, m + sd + 0.3, f"{m:.1f}±{sd:.1f}", ha="center", fontsize=7.5)
+    a2.set_xticks(range(len(keys) - 1), [l for _, l in keys[1:]], fontsize=7.5)
+    a2.set_ylim(80, 90)
+    a2.set_ylabel("Accuracy (%), mean ± SD")
+    a2.set_title("(b) Five split seeds", fontsize=9)
+    save(fig, "fig8_5_baselines_ci.png")
+
+
+def fig_generators():
+    g = PAPER["generator_validation"]
+    keys = [("gbm_lognormal", "GBM"), ("iid_bootstrap", "Indep.\nmonths"), ("block_bootstrap_3m", "Block\n3 m"),
+            ("block_bootstrap_6m", "Block\n6 m"), ("block_bootstrap_12m", "Block\n12 m\n(used)"), ("block_bootstrap_24m", "Block\n24 m")]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(8.2, 3.1))
+    a1.bar(range(len(keys)), [g[k]["ks_distance_1y"] for k, _ in keys],
+           color=[TEAL if "12m" in k else GREY for k, _ in keys])
+    for i, (k, _) in enumerate(keys):
+        a1.text(i, g[k]["ks_distance_1y"] + 0.003, f"{g[k]['ks_distance_1y']:.3f}", ha="center", fontsize=7)
+    a1.set_xticks(range(len(keys)), [l for _, l in keys], fontsize=7)
+    a1.set_ylabel("KS distance to real 1-year returns")
+    a1.set_title("(a) Shape of one-year returns (lower is closer)", fontsize=9)
+    lags = (1, 3, 6)
+    a2.plot(lags, [g["real_nifty"][f"acf_squared_lag{l}"] for l in lags], "o-", color=DARK, label="Real NIFTY")
+    for k, lab, c in (("block_bootstrap_12m", "Block 12 m", TEAL), ("iid_bootstrap", "Independent months", BLUSH),
+                      ("gbm_lognormal", "GBM", GREY)):
+        a2.plot(lags, [g[k][f"acf_squared_lag{l}"] for l in lags], "o--", color=c, label=lab)
+    a2.axhline(0, color=DARK, lw=0.5)
+    a2.set_xticks(lags)
+    a2.set_xlabel("Lag (months)")
+    a2.set_ylabel("Autocorrelation of squared returns")
+    a2.set_title("(b) Volatility clustering", fontsize=9)
+    a2.legend(fontsize=7, frameon=False)
+    save(fig, "fig9_2_generators.png")
+
+
+def fig_convergence():
+    rows = PAPER["convergence"]["rows"]
+    n = [r["n_paths"] for r in rows]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(8.0, 2.9))
+    a1.errorbar(n, [r["prob_hold_mean"] * 100 for r in rows], yerr=[r["prob_hold_sd"] * 100 for r in rows],
+                fmt="o-", color=TEAL, capsize=3)
+    a1.set_xscale("log")
+    a1.set_xlabel("Simulated futures per analysis")
+    a1.set_ylabel("P(hold wins) (%), mean ± SD")
+    a1.axvline(1000, color=GREY, ls="--", lw=0.8)
+    a1.set_title("(a) Probability holding wins", fontsize=9)
+    a2.plot(n, [r["median_gap_cv"] * 100 for r in rows], "o-", color=BLUSH)
+    a2.set_xscale("log")
+    a2.axvline(1000, color=GREY, ls="--", lw=0.8)
+    a2.set_xlabel("Simulated futures per analysis")
+    a2.set_ylabel("Run-to-run variation of median gap (%)")
+    a2.set_title("(b) Typical rupee gap", fontsize=9)
+    save(fig, "fig9_4_convergence.png")
+
+
+def fig_population():
+    pop = PAPER["population"]
+    groups = [("All", pop["long_run_assumptions"])] + \
+             [(f"{k}", pop["by_horizon"][k]) for k in ("1-3y", "4-10y", "11-20y", "21-30y")] + \
+             [("Stock", pop["by_asset"]["equity"]), ("Fund", pop["by_asset"]["mf"]),
+              ("History\nreplayed", pop["history_replayed"])]
+    fig, ax = plt.subplots(figsize=(7.6, 3.0))
+    x = range(len(groups))
+    h = [g["share_hold"] * 100 for _, g in groups]
+    t = [g["share_toss_up"] * 100 for _, g in groups]
+    s = [g["share_sell"] * 100 for _, g in groups]
+    ax.bar(x, h, color=TEAL, label="HOLD (p > 0.60)")
+    ax.bar(x, t, bottom=h, color=GREY, label="Toss-up (0.40–0.60)")
+    ax.bar(x, s, bottom=[a + b for a, b in zip(h, t)], color=BLUSH, label="SELL (p < 0.40)")
+    ax.set_xticks(list(x), [n.replace("-", "–").replace("y", " yrs") if n[0].isdigit() else n for n, _ in groups], fontsize=7.5)
+    ax.set_ylabel("Share of investors (%)")
+    ax.legend(fontsize=7, frameon=False, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.15))
+    save(fig, "fig9_5_population.png")
+
+
+def fig_sensitivity_verdicts():
+    sub = PAPER["sensitivity"]["sub_population"]["rows"]
+    names = {"equity_growth_9pct": "Shares grow 9% (not 11%)", "equity_growth_13pct": "Shares grow 13%",
+             "gold_growth_6pct": "Gold grows 6% (not 9%)", "fd_rate_5_5pct": "FD rate 5.5%", "fd_rate_8pct": "FD rate 8%",
+             "stock_risk_15pct": "Stock's own swings 15%", "stock_risk_35pct": "Stock's own swings 35%",
+             "sale_cost_1pct": "Sale costs 1%", "block_1m_iid": "Independent months", "block_6m": "Block 6 months",
+             "block_24m": "Block 24 months", "tax_rules_before_july_2024": "Tax rules before July 2024",
+             "starts_in_a_bad_year": "Future starts in a bad year", "starts_in_a_good_year": "Future starts in a good year",
+             "history_replayed": "History replayed exactly"}
+    items = [(names[k], sub[k]["verdict_changes_vs_base"] * 100) for k in names if k in sub and "verdict_changes_vs_base" in sub[k]]
+    items.sort(key=lambda t: t[1])
+    fig, ax = plt.subplots(figsize=(6.6, 4.0))
+    ax.barh([n for n, _ in items], [v for _, v in items],
+            color=[BLUSH if v >= 40 else (TEAL if v >= 15 else GREY) for _, v in items])
+    for i, (_, v) in enumerate(items):
+        ax.text(v + 0.8, i, f"{v:.1f}%", va="center", fontsize=7)
+    ax.set_xlabel("Verdicts that change across 300 investors (%)")
+    ax.tick_params(axis="y", labelsize=7.5)
+    save(fig, "fig9_6_sensitivity.png")
 
 
 if __name__ == "__main__":
     for fn in (fig_architecture, fig_components, fig_dfd0, fig_dfd1, fig_usecase, fig_activity, fig_sequence,
                fig_er, fig_deployment, fig_dataset_pipeline, fig_labels, fig_confusion, fig_perclass,
-               fig_reliability, fig_baselines, fig_realism, fig_horizon, fig_sensitivity, fig_stocks,
-               fig_causal, fig_explanations):
+               fig_reliability, fig_baselines, fig_realism, fig_horizon, fig_stocks,
+               fig_causal, fig_explanations, fig_baselines_ci, fig_generators, fig_convergence,
+               fig_population, fig_sensitivity_verdicts):
         out = fn()
         if out is not None:
             print(fn.__name__, out)

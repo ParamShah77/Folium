@@ -9,7 +9,7 @@ Every number in this chapter and the next is taken from an evaluation file commi
 | `results/reports/bias_v4_evaluation.json` | `scripts/train_bias_v4.py` | 2026-10-08 | 81.4 s |
 | `results/reports/simulator_v2_evaluation.json` | `scripts/evaluate_simulator_v2.py` | 2026-10-07 | 12.2 s |
 | `results/causal_v4.json` | `python -m src.causal_v4` | 2026-10-08 | 54.2 s |
-| `results/reports/explanation_quality.json` | `scripts/evaluate_explanations.py` | 2026-08-22 | — |
+| `results/reports/paper_evaluation.json` | `scripts/evaluate_for_paper.py` | 2026-10-27 | 224.9 s |
 
 Table: Table 8.1: Evaluation artefacts used in this report
 
@@ -146,6 +146,34 @@ Table: Table 8.8: Baselines, ablation and ceiling (real-frequency test set)
 
 Table 8.8 is the most important table for interpreting the model honestly. Because labels are generated from written definitions, a rules-only baseline already reaches 85.2%. The model's gain over that baseline is 2.7 percentage points of accuracy. Its value lies in two places: it disagrees with the rules in 9.6% of cases and, when it does, it is right 64% of the time against 36% for the rules—it recognises rebalancing, a near goal, cutting a loss and a stated cash need; and it provides calibrated confidence, which the rules cannot. Removing the `allows_*` inputs costs only 0.3 points but introduces rule violations (0.08% of cases), which the guard would then have to correct. The ceiling of 90.0% shows that about one case in ten cannot be resolved from what the app observes, because it depends on hidden tendencies. Where two biases could both apply (5.3% of cases), neither the model (58.2%) nor the rules (56.8%) do much better than chance.
 
+### 8.6.1 Comparison with other learners
+
+To test whether XGBoost is the right learner, `scripts/evaluate_for_paper.py` trains logistic regression and a 500-tree random forest on the same 22 features, with the same definitional guard and real-frequency weighting, over five different split seeds (7, 11, 23, 42 and 101). On the original split (seed 7), it adds 2,000 bootstrap resamples of the test set for confidence intervals and McNemar's test for paired differences in correctness.
+
+| Model | Accuracy | Macro-F1 | ECE | Log-loss |
+|---|---|---|---|---|
+| Always "rational" | 57.4% ± 0.0 | 0.182 | 0.426 | — |
+| Rules only (label definitions) | 84.4% ± 0.6 | 0.818 ± 0.006 | 0.156 | — |
+| Logistic regression | 84.9% ± 0.4 | 0.816 ± 0.003 | 0.018 ± 0.003 | 0.321 ± 0.022 |
+| Random forest (500 trees) | 87.0% ± 0.5 | **0.833** ± 0.005 | **0.014** ± 0.003 | 0.282 ± 0.021 |
+| XGBoost (deployed settings) | **87.2%** ± 0.6 | 0.831 ± 0.009 | 0.015 ± 0.004 | **0.267** ± 0.014 |
+
+Table: Table 8.9: Learners compared over five split seeds, mean ± standard deviation (`paper_evaluation.json`)
+
+| Model | Accuracy [95% CI] | XGBoost minus model [95% CI] | McNemar *p* |
+|---|---|---|---|
+| Rules only | 85.2% [83.9, 86.4] | +2.7 pp [+1.6, +3.8] | $2.4 \times 10^{-7}$ |
+| Logistic regression | 85.5% [84.2, 86.6] | +2.4 pp [+1.4, +3.4] | $1.0 \times 10^{-5}$ |
+| Random forest | 87.6% [86.5, 88.7] | +0.2 pp [−0.4, +0.9] | 0.096 |
+| XGBoost | 87.8% [86.7, 89.0] | — | — |
+| XGBoost as shipped (with calibration curve) | 87.9% [86.8, 89.1] | −0.1 pp [−0.5, +0.3] | 1.0 |
+
+Table: Table 8.10: Seed-7 test set with bootstrap confidence intervals and McNemar tests
+
+![Figure 8.5: (a) Accuracy with 95% bootstrap confidence intervals on the seed-7 test set; (b) mean ± SD over five split seeds (plotted from `paper_evaluation.json`)](figures/fig8_5_baselines_ci.png){width=100%}
+
+Figure 8.5 and Tables 8.9–8.10 lead to three conclusions. First, XGBoost's advantage over the label definitions (+2.7 points) and over logistic regression (+2.4 points) is statistically significant; the non-linear interactions in the data matter. Second, XGBoost is **statistically tied with a random forest** (difference +0.2 points, confidence interval spanning zero, $p = 0.096$). We therefore do not claim that XGBoost is the better learner. It was kept because it has the lowest log-loss, exact and fast TreeSHAP explanations, and a portable native JSON model format. Third, the calibration curve does not change accuracy, and on this split it moved ECE only from 0.012 to 0.014, so its measurable benefit here is in keeping the displayed bands honest (Table 8.5) rather than in any headline metric.
+
 ## 8.7 Forced Sales
 
 Of the test cases, 167 are sales forced by money (an uncovered shock, or payments above income with no emergency fund).
@@ -157,7 +185,7 @@ Of the test cases, 167 are sales forced by money (an uncovered shock, or payment
 | v4.1, all forced sales | 71.9% |
 | v4.0 (trained without money pressure) | 37.7% |
 
-Table: Table 8.9: Forced sales read as rational
+Table: Table 8.11: Forced sales read as rational
 
 The gap between stated and unstated needs is exactly what the comment reader is designed to close: when the investor writes "fees are due in March", the `cash_need_stated` input is set and the sale is read as the forced sale it is.
 
@@ -184,7 +212,7 @@ The training script also runs 13 scenarios and 8 relational checks against a typ
 | C6 | Gold share alone (5% vs 35%) barely moves the reading | small change | largest change 0.05 |
 | C7 | Fearful market, selling at a 15% loss: stated cash need raises "rational" | higher | 0.09 → 0.49 |
 
-Table: Table 8.10: Selected sense checks (full list in `results/reports/BIAS_MODEL_V4.md`)
+Table: Table 8.12: Selected sense checks (full list in `results/reports/BIAS_MODEL_V4.md`)
 
 C6 doubles as a sanity check on spurious features: gold share has no role in the label definitions, and the model correctly gives it almost no influence.
 
@@ -197,7 +225,14 @@ The simulator was evaluated on four questions using `scripts/evaluate_simulator_
 3. **Sensitivity.** How do the results change with each assumption?
 4. **Stock-specific risk.** For 24 NIFTY 50 stocks, measured beta and own volatility from 10 years of monthly prices, how often does holding win over 20 years?
 
-All runs use 1,000 paths and seed 2026. Results are presented in Chapter 9.
+`scripts/evaluate_for_paper.py` extends this with five further experiments, using the deployed simulator through two evaluation-only hooks (`paths=` to supply given market paths and `return_gaps=` to return every paired gap) that the app never uses:
+
+5. **Generator comparison.** 10,000 ten-year paths from each of six generators—a lognormal (GBM) model, independent months, and 3-, 6-, 12- and 24-month blocks, all with the same historical mean—compared with the real index on one-year quantiles, the Kolmogorov–Smirnov (KS) distance and the autocorrelation of squared returns.
+6. **Monte Carlo convergence.** The base case repeated 20 times at 250 to 10,000 paths.
+7. **Population study.** 1,000 investors and positions drawn from dataset v4.1, each with their own horizon (median 23 years), asset type (40% funds) and the measured risk of one of the 24 stocks, with 1,000 paths each, under both the long-run assumptions and history replayed exactly.
+8. **Walk-forward replay.** A fund up 30% run through every real 5-year and 10-year window of history with the same tax and cost accounting, and each real outcome placed in the simulated distribution for the same case.
+
+Except where stated, runs use 1,000 paths. Results are presented in Chapter 9.
 
 ## 8.11 Causal Evaluation Protocol
 
@@ -205,7 +240,7 @@ Dataset v4.1 is used with `src/causal_v4.py`. The mechanism check confirms that 
 
 ## 8.12 Explanation Evaluation Protocol
 
-`scripts/evaluate_explanations.py` generated explanations for 28 synthetic users plus 4 template-coverage cases, in both languages (64 explanations), using 300 simulation paths and seed 42, with AI wording switched off. The evaluation file is dated 2026-08-22, before bias model v4.1 and simulator v2 were finalised; the measured properties are those of the template engine, which did not change in structure, but the figures should be regenerated with the current models before final submission (Section 10.8).
+Explanation quality is measured by `scripts/evaluate_for_paper.py` on the current pipeline—bias model v4.1, simulator v2 and the template explainer, with AI wording switched off—for 166 sell and hold decisions drawn from the population study (78 rational, 38 disposition, 27 herd and 23 loss aversion). Each case is explained in English and in Hindi, giving 332 explanations. This replaces the project's earlier explanation check, which had been run on the previous model generation.
 
 ## 8.13 Reproducibility Considerations
 
@@ -213,4 +248,5 @@ Dataset v4.1 is used with `src/causal_v4.py`. The mechanism check confirms that 
 - Cached market data (`data/v4/market_history.csv`, `data/sim_v2/monthly_history.csv`) makes the dataset and simulations reproducible offline.
 - Pinned library versions and a verification script guard against silent changes in numerical libraries.
 - Every analysis stores its market and portfolio snapshot and the stock's measured risk, so a re-run of a stored decision reproduces its inputs.
+- The journal-paper evaluations regenerate in about four minutes with `python scripts/evaluate_for_paper.py`; learner comparisons use five fixed split seeds.
 - The bias model is stored as native XGBoost JSON with a metadata file, avoiding pickle compatibility issues between library versions.
