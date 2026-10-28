@@ -37,6 +37,26 @@ def test_marginal_slab_rate(income, rate):
     assert S.marginal_slab_rate(income) == pytest.approx(rate)
 
 
+@pytest.mark.parametrize("gross, tax", [
+    (1_275_000, 0.0),        # taxable 12 L: the 87A rebate covers it all
+    (1_285_000, 10_400.0),   # taxable 12.1 L: slab tax 61,500, marginal relief caps it at 10,000
+    (1_500_000, 97_500.0),   # 20,000 + 40,000 + 33,750 = 93,750, plus cess
+    (3_000_000, 475_800.0),  # 20k + 40k + 60k + 80k + 1 L + 1,57,500 = 4,57,500, plus cess
+])
+def test_income_tax_by_hand(gross, tax):
+    assert S.income_tax(gross) == pytest.approx(tax)
+
+
+@pytest.mark.parametrize("gross", [1_500_000, 1_690_000, 2_400_000, 4_000_000])
+def test_gross_from_take_home_inverts_income_tax(gross):
+    take_home = gross - S.income_tax(gross)
+    assert S.gross_from_take_home(take_home) == pytest.approx(gross, abs=1.0)
+
+
+def test_no_tax_below_the_rebate_so_take_home_is_gross():
+    assert S.gross_from_take_home(1_080_000) == 1_080_000
+
+
 def test_short_term_equity_gain_pays_20_percent_plus_cess():
     assert float(S.equity_gains_tax(23_076.92, 8)) == pytest.approx(23_076.92 * 0.20 * 1.04)
 
@@ -170,6 +190,37 @@ def test_lower_specific_risk_narrows_the_outcomes_and_raises_the_typical_one():
     calm, jumpy = sim(specific_vol=0.12), sim(specific_vol=0.30)
     assert calm["hold"]["p90"] - calm["hold"]["p10"] < jumpy["hold"]["p90"] - jumpy["hold"]["p10"]
     assert calm["hold"]["p50"] > jumpy["hold"]["p50"]
+
+
+@needs_history
+def test_given_paths_replace_the_resampled_markets():
+    hist = S.load_history()
+    m = BASE["horizon_years"] * 12
+    paths = S._bootstrap(np.random.default_rng(3), 50, m, len(hist))
+    a = S.simulate(S.SimInputs(**{**BASE, "seed": 1}), hist, paths=paths)
+    b = S.simulate(S.SimInputs(**{**BASE, "seed": 1, "asset_type": "mf", "specific_vol": 0.0}), hist, paths=paths)
+    assert a["assumptions"]["n_paths"] == 50
+    # The sale side depends only on the markets, so it matches across holdings.
+    assert a["sell"]["p50"] == pytest.approx(b["sell"]["p50"])
+    with pytest.raises(ValueError):
+        S.simulate(S.SimInputs(**BASE), hist, paths=paths[:, :-1])
+
+
+@needs_history
+def test_paired_gaps_match_the_headline_comparison():
+    r = S.simulate(S.SimInputs(**BASE), return_gaps=True)
+    gaps = r["paired_gaps"]
+    assert gaps.shape == (BASE["n_paths"], BASE["horizon_years"])
+    assert np.median(gaps[:, -1]) == pytest.approx(r["comparison"]["opportunity_cost_inr"])
+    assert (gaps[:, -1] > 0).mean() == pytest.approx(r["comparison"]["prob_hold_better"])
+    assert "paired_gaps" not in S.simulate(S.SimInputs(**BASE))
+
+
+def test_block_length_is_respected():
+    idx = S._bootstrap(np.random.default_rng(0), 20, 36, 228, block_months=6)
+    steps = np.diff(idx, axis=1) % 228
+    within = [i for i in range(35) if (i + 1) % 6]
+    assert (steps[:, within] == 1).all()
 
 
 @needs_history

@@ -25,6 +25,48 @@ import { useAuth } from "@/providers/auth";
 import { useTheme } from "@/providers/theme";
 
 /* ------------------------------------------------------------------ */
+/* Accounts made with Google (no password until one is set)           */
+/* ------------------------------------------------------------------ */
+
+/** False only for an account made with Google that has no password yet. */
+function useHasPassword() {
+  return useAuth().user?.has_password !== false;
+}
+
+/** Sends the usual reset link, which sets a first password just the same. */
+function useSendPasswordLink() {
+  const { user } = useAuth();
+  const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
+  async function send() {
+    if (!user) return;
+    setBusy(true);
+    try {
+      await api.post("/auth/forgot-password", { email: user.email });
+      setSent(true);
+      toast.success(`We've emailed a link to ${user.email}. It works for 15 minutes.`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { send, busy, sent };
+}
+
+function NeedsPasswordNote({ action }: { action: string }) {
+  const { send, busy, sent } = useSendPasswordLink();
+  return (
+    <Alert tone="info" icon={<KeyRound />}>
+      You sign in with Google, so there's no password on this account yet. To {action}, set one first.
+      <Button type="button" size="sm" variant="outline" className="mt-3" loading={busy} disabled={sent} onClick={send}>
+        {sent ? "Link sent" : "Email me a link to set a password"}
+      </Button>
+    </Alert>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Profile                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -50,6 +92,7 @@ const onlyNumber = (s: string) => s.replace(/[^\d.]/g, "");
 
 function SecureFinancesDialog({ profile, open, onOpenChange }: { profile: Profile; open: boolean; onOpenChange: (o: boolean) => void }) {
   const qc = useQueryClient();
+  const hasPassword = useHasPassword();
   const s = (v: number | null) => (v === null || v === undefined ? "" : String(v));
   const [income, setIncome] = React.useState(s(profile.monthly_income));
   const [emi, setEmi] = React.useState(s(profile.monthly_emi));
@@ -94,6 +137,9 @@ function SecureFinancesDialog({ profile, open, onOpenChange }: { profile: Profil
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Update income and payments" description="These shape every analysis, so changing them needs your password.">
+        {!hasPassword ? (
+          <NeedsPasswordNote action="change these" />
+        ) : (
         <form onSubmit={save} className="space-y-4" noValidate>
           {error && <Alert tone="danger">{error}</Alert>}
           <div className="grid grid-cols-2 gap-4">
@@ -126,6 +172,7 @@ function SecureFinancesDialog({ profile, open, onOpenChange }: { profile: Profil
             Save securely
           </Button>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -252,6 +299,29 @@ function useSignOutAfter() {
     await logout();
     navigate("/login", { replace: true });
   };
+}
+
+function SetPasswordCard() {
+  const { send, busy, sent } = useSendPasswordLink();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" /> Password
+        </CardTitle>
+        <CardDescription>You sign in with Google. A password is optional.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+        <p>
+          Setting one lets you log in with your email too, and confirm sensitive changes such as your income, turning
+          off two-step verification or deleting your account. We'll email you a link to choose it.
+        </p>
+        <Button variant="outline" loading={busy} disabled={sent} onClick={send}>
+          {sent ? "Link sent" : "Set a password"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ChangePasswordCard({ mfa }: { mfa: boolean }) {
@@ -561,6 +631,7 @@ function AiHelpCard({ consent }: { consent: boolean }) {
 
 function DeleteAccountCard({ mfa }: { mfa: boolean }) {
   const { logout } = useAuth();
+  const hasPassword = useHasPassword();
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
   const [password, setPassword] = React.useState("");
@@ -607,9 +678,13 @@ function DeleteAccountCard({ mfa }: { mfa: boolean }) {
           and analysis details are erased for good. The secure record of past analyses stays, so it can't be altered,
           but it can no longer be linked to you.
         </p>
-        <Button variant="danger" onClick={() => setOpen(true)}>
-          Delete my account
-        </Button>
+        {hasPassword ? (
+          <Button variant="danger" onClick={() => setOpen(true)}>
+            Delete my account
+          </Button>
+        ) : (
+          <NeedsPasswordNote action="delete your account" />
+        )}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent title="Delete your account?" description="Confirm with your password. You'll be signed out straight away.">
             <form onSubmit={remove} className="space-y-4" noValidate>
@@ -686,6 +761,7 @@ export default function SettingsPage() {
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") ?? "profile";
   const { data: profile, isPending } = useProfile();
+  const hasPassword = useHasPassword();
 
   return (
     <>
@@ -715,7 +791,7 @@ export default function SettingsPage() {
             </TabsContent>
             <TabsContent value="security" className="grid gap-6 lg:grid-cols-2">
               <MfaCard enabled={profile.mfa_enabled} />
-              <ChangePasswordCard mfa={profile.mfa_enabled} />
+              {hasPassword ? <ChangePasswordCard mfa={profile.mfa_enabled} /> : <SetPasswordCard />}
             </TabsContent>
             <TabsContent value="data" className="grid gap-6 lg:grid-cols-2">
               <ExportCard />

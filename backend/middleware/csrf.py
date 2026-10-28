@@ -30,6 +30,7 @@ _EXEMPT_SUFFIXES = (
     "/auth/refresh",
     "/auth/mfa-recovery-request",  # §1E — user is locked out, no session exists
     "/auth/cancel-deletion",       # B2 — account locked for deletion, no session exists
+    "/auth/google/keep-account",   # C1 — same, after a Google sign-in (single-use token)
 )
 
 

@@ -53,7 +53,9 @@ def test_full_inputs_need_no_standard_values():
 
 def test_slab_income_counts_70_percent_of_rent():
     inputs, _, _ = build(decision())
-    assert inputs["annual_income"] == pytest.approx(12 * (90_000 + 0.7 * 10_000))
+    # Take-home ₹90,000 a month is grossed up (₹10.8 L take-home is under the
+    # 87A limit, so no tax: gross = take-home); rent counts at 70%.
+    assert inputs["annual_income"] == pytest.approx(12 * 90_000 + 12 * 0.7 * 10_000)
 
 
 def test_missing_horizon_uses_20_years_and_says_so():
@@ -126,3 +128,19 @@ def test_a_toss_up_hold_is_not_described_as_holding_winning():
     verdict, reasons = decide("hold", "rational", 0.9, 0.44, horizon_years=22)
     assert verdict == "HOLD"
     assert "close to even" in reasons[0] and "beat" not in reasons[0]
+
+
+def test_slab_rate_uses_income_before_tax():
+    """Tier 1 income is take-home pay; the slab rate needs gross income.
+
+    ₹1.3 lakh a month take-home is about ₹16.9 lakh gross, in the 16-20 L
+    slab (20.8%), not the 12-16 L slab (15.6%) the take-home figure alone
+    would put it in.
+    """
+    from src.simulator_v2 import marginal_slab_rate
+
+    ctx = {**CONTEXT, "monthly_income": 130_000, "rent_received": 0}
+    inputs, _, _ = build(decision(portfolio_context=ctx))
+    assert inputs["annual_income"] > 12 * 130_000
+    assert marginal_slab_rate(inputs["annual_income"]) == pytest.approx(0.20 * 1.04)
+    assert marginal_slab_rate(12 * 130_000) == pytest.approx(0.15 * 1.04)

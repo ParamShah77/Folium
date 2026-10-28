@@ -18,7 +18,9 @@ one's data, which demonstrates the per-account isolation.
 
 Idempotent: an account that already exists is left untouched. Accounts can't
 be deleted and re-created, because ``audit_logs`` is append-only (migration
-0004). ``--refresh`` re-runs the pipeline over existing demo decisions instead.
+0004). ``--refresh`` re-runs the pipeline over existing demo decisions instead,
+after reconciling each portfolio snapshot (see :func:`_reconcile`); every
+re-run adds a new entry to the audit chain.
 
 Credentials are documented in DEMO.md; they are demo values only.
 
@@ -191,6 +193,41 @@ async def _seed_decision(db: Database, redis: RedisService, user_id: str, market
     return decision_id
 
 
+def _reconcile(context: dict, portfolio: dict) -> dict:
+    """Make a snapshot's derived figures add up, all from one moment.
+
+    Refreshes used to add only *missing* keys, so a snapshot could mix an old
+    ``liquid`` with an allocation (and gold share) priced on a later day. The
+    asset mix is rebuilt from today's portfolio with this holding at the
+    analysis's own price; every share, liquid and net worth follow from it.
+    """
+    summary = portfolio["summary"]
+    alloc = {k: v["value"] for k, v in summary["allocation"].items()}
+    position_value = float(context["position_value"])
+    holding = next(
+        (h for h in portfolio["holdings"] if str(h["holding_id"]) == str(context.get("holding_id"))), None
+    )
+    if holding is not None:
+        bucket = "mutual_funds" if context.get("asset_type") == "mf" else "stocks"
+        alloc[bucket] = round(alloc[bucket] - holding["value"] + position_value, 2)
+    liquid = round(sum(alloc.values()), 2)
+
+    def share(x: float) -> float:
+        return round(x / liquid, 4) if liquid > 0 else 0.0
+
+    return {
+        **context,
+        "allocation": alloc,
+        "liquid": liquid,
+        "position_share": share(position_value),
+        "equity_share": share(alloc["stocks"] + alloc["mutual_funds"]),
+        "gold_share": share(alloc["gold"]),
+        "real_estate": summary["real_estate"],
+        "liabilities": summary["liabilities"],
+        "net_worth": round(liquid + summary["real_estate"] - summary["liabilities"], 2),
+    }
+
+
 async def _refresh(db: Database, redis: RedisService) -> None:
     for account in ACCOUNTS:
         user_id = await db.fetchval("SELECT user_id FROM users WHERE email = $1", account["email"])
@@ -212,8 +249,8 @@ async def _refresh(db: Database, redis: RedisService) -> None:
             portfolio = await load_portfolio(conn, user_id)
         print(f"~ {account['email']}: re-running {len(rows)} analyses")
         # Snapshots taken before bias model v4 / simulation v2 lack their
-        # inputs. Add only the missing keys from today's portfolio; the rest of
-        # each snapshot (position share, cash flow) stays as it was captured.
+        # inputs: missing keys come from today's portfolio, and the asset mix
+        # is then reconciled so every figure in a snapshot is from one moment.
         summary = portfolio["summary"]
         backfill = {
             "gold_share": summary["allocation"]["gold"]["share"],
@@ -234,11 +271,12 @@ async def _refresh(db: Database, redis: RedisService) -> None:
                 risk = await stock_risk(row["symbol"], row["exchange"] or "NSE")
                 if risk:
                     missing["stock_risk"] = risk
-            if missing:
+            if context is not None:
+                context = _reconcile({**context, **missing}, portfolio)
                 async with db.rls_transaction(user_id) as conn:
                     await conn.execute(
-                        "UPDATE decisions SET portfolio_context = portfolio_context || $2::jsonb WHERE decision_id = $1",
-                        decision_id, json.dumps(missing),
+                        "UPDATE decisions SET portfolio_context = $2::jsonb WHERE decision_id = $1",
+                        decision_id, json.dumps(context),
                     )
             await run_analysis_pipeline(decision_id, user_id, db=db, redis=redis)
             async with db.rls_transaction(user_id) as conn:

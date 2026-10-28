@@ -51,7 +51,7 @@ accounts have a complete portfolio priced live at seed time.
 
 | Account | Email | Password | Portfolio |
 |---|---|---|---|
-| Ananya (34, salaried) | `ananya.iyer@example.com` | `Folium-Demo-Walkthrough-2026` | 5 stocks, 1 mutual fund, gold, FDs, savings, a car loan, ₹25,000 monthly SIP · 6 seeded analyses |
+| Ananya (34, salaried) | `ananya.iyer@example.com` | `Folium-Demo-Walkthrough-2026` | 5 stocks, 1 mutual fund, gold, FDs, savings, a car loan, ₹25,000 monthly SIP · 12 analyses (6 seeded, 6 from live runs) |
 | Rohan (52, near retirement) | `rohan.mehta@example.com` | `Folium-Demo-Walkthrough-2026` | 2 stocks, gold, FDs, a flat with a home loan, rent received, ₹40,000 monthly SIP, education fees ending 2029, 10-year horizon · 2 analyses |
 
 Logging in as Rohan shows none of Ananya's data, and the reverse is also true.
@@ -76,6 +76,13 @@ D:\FolioEnv\venv313\Scripts\python.exe scripts\with_env.py scripts\seed_demo.py 
 
 ## Signing up live during the demo
 
+**With Google:** "Continue with Google" on the log-in and sign-up pages works
+when the app runs on port 3000 (the address registered with Google is
+`http://localhost:3000/v1/auth/google/callback`; see SETUP.md). A new Google
+account is asked for its investor profile before anything else, and can set a
+password later in Settings, Security.
+
+**With email:**
 No email service is configured, so sign-up emails go to a **development inbox**
 instead of a real mailbox. After registering, the "Check your email" page has
 an **Open development inbox** button with the verification link. It exists only
@@ -148,7 +155,9 @@ npm --prefix frontend test
   typical growth is set to stated long-run rates (shares 11%, gold 9%, FDs
   6.75%). Everything is shown **after tax**: selling pays real capital-gains
   tax and charges, and the money goes into the investor's own FDs, savings and
-  gold. Full evaluation: `results/reports/SIMULATOR_V2.md`.
+  gold. Interest on FDs and savings is taxed at the investor's own slab,
+  worked out from income before tax (the app asks for take-home pay and
+  converts it). Full evaluation: `results/reports/SIMULATOR_V2.md`.
 - **Each stock is measured.** At submission the app measures how much the
   stock moves with NIFTY and how jumpy it is on its own over 10 years, so HDFC
   Bank (steady) and Wipro (jumpy, low market link) get different answers. A

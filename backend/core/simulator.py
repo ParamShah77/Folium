@@ -276,8 +276,12 @@ def build_sim_inputs(
         "beta": float(risk.get("beta", 1.0)),
         "specific_vol": float(risk["specific_vol"]) if risk.get("specific_vol") is not None else None,
         "horizon_years": horizon,
-        # Slab rate on interest: salary plus 70% of rent (30% standard deduction).
-        "annual_income": round(12 * (income + 0.7 * rent_received), 2),
+        # Slab rate on interest needs income before tax. Tier 1 income is
+        # take-home pay, so it is grossed up; rent counts at 70% (30% standard
+        # deduction on house property).
+        "annual_income": round(
+            _sim_module().gross_from_take_home(12 * income) + 12 * 0.7 * rent_received, 2
+        ),
         "other_equity": round(other_equity, 2),
         "gold": round(gold, 2),
         "fixed_deposits": round(fds, 2),
@@ -289,8 +293,8 @@ def build_sim_inputs(
     return inputs, fixed, source
 
 
-def _simulate_v2(inputs: dict[str, Any], n_paths: int) -> dict[str, Any]:
-    """Synchronous and CPU-bound — call through ``run_blocking`` only."""
+def _sim_module():
+    """``src.simulator_v2``, imported on first use (the ML extras are optional)."""
     ensure_src_importable()
     try:
         from src import simulator_v2
@@ -299,6 +303,12 @@ def _simulate_v2(inputs: dict[str, Any], n_paths: int) -> dict[str, Any]:
             "simulation needs the Phase 5 ML extras: "
             "pip install -r backend/requirements-ml.txt"
         ) from exc
+    return simulator_v2
+
+
+def _simulate_v2(inputs: dict[str, Any], n_paths: int) -> dict[str, Any]:
+    """Synchronous and CPU-bound — call through ``run_blocking`` only."""
+    simulator_v2 = _sim_module()
     try:
         return simulator_v2.simulate(simulator_v2.SimInputs(**inputs, n_paths=n_paths))
     except FileNotFoundError as exc:

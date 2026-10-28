@@ -125,12 +125,14 @@ Off by default (`EXPLAINER_LLM=off`); the explanations are complete without it. 
 
 ### Google sign-in
 
-The backend part is built, but **it isn't finished end to end**: after Google confirms the user, the callback sets the session and returns a JSON page rather than sending the browser back into the web app. To try the backend flow:
+Works end to end in the web app: "Continue with Google" on the log-in and sign-up pages, then back into the app. A new account is asked for its investor profile first.
 
 1. In https://console.cloud.google.com create a project, then **APIs & Services → OAuth consent screen**: External, add yourself under **Test users**, default scopes (`openid`, `email`, `profile`).
-2. **Credentials → Create credentials → OAuth client ID → Web application**, with the authorised redirect URI exactly `http://localhost:8000/v1/auth/google/callback`.
-3. Put the client id and secret in `.env` as `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`. Leave `GOOGLE_OAUTH_REDIRECT_URI` empty locally.
-4. The "Continue with Google" button then appears on the sign-in pages. While the credentials are empty the button is hidden and the endpoint answers 503 by design.
+2. **Credentials → Create credentials → OAuth client ID → Web application**, with the authorised redirect URI exactly `http://localhost:3000/v1/auth/google/callback`. This is the web app's address: the request goes through its `/v1` proxy to the backend. An existing client set up with `http://localhost:8000/...` needs this address added.
+3. Put the client id and secret in `.env` as `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`. Leave `GOOGLE_OAUTH_REDIRECT_URI` empty locally: it defaults to `{FRONTEND_URL}/v1/auth/google/callback`.
+4. The "Continue with Google" button then appears on the sign-in pages. While the credentials are empty the button is hidden.
+
+If the web app runs on another port (because 3000 is taken), Google sign-in only works once `FRONTEND_URL` and the registered redirect URI use that port too. Google's "Error 400: redirect_uri_mismatch" means the address in step 2 doesn't match.
 
 ## Troubleshooting
 

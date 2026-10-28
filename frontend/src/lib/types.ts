@@ -10,6 +10,10 @@ export interface User {
   email: string;
   role: string;
   mfa_enabled: boolean;
+  /** False for an account made with Google until a password is set. */
+  has_password?: boolean;
+  /** Tier 1 (age, income, risk, horizon) still to fill in. */
+  needs_profile?: boolean;
 }
 
 export interface Profile {

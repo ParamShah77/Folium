@@ -38,6 +38,8 @@ Public API
     SimInputs                    -> dataclass of everything a simulation needs
     simulate(inputs)             -> dict (curves, sale breakdown, comparison)
     equity_gains_tax / gold_gains_tax / marginal_slab_rate — tax helpers
+    income_tax / gross_from_take_home — the app asks for take-home pay;
+                                 the slab rate needs income before tax
 """
 from __future__ import annotations
 
@@ -103,6 +105,46 @@ def marginal_slab_rate(annual_income: float) -> float:
         if taxable <= upper:
             return rate * (1 + TAX["cess"])
     return TAX["slabs"][-1][1] * (1 + TAX["cess"])
+
+
+def income_tax(gross_annual: float) -> float:
+    """Income tax on a year's gross income, new regime, cess included.
+
+    Standard deduction, the slabs, and the Section 87A rebate up to ₹12 lakh
+    taxable with its marginal relief (just above ₹12 lakh, tax is capped at
+    the income over ₹12 lakh, so nobody takes home less for earning more).
+    """
+    taxable = max(0.0, float(gross_annual) - TAX["standard_deduction"])
+    if taxable <= TAX["rebate_up_to"]:
+        return 0.0
+    tax, lower = 0.0, 0.0
+    for upper, rate in TAX["slabs"]:
+        if taxable > lower:
+            tax += (min(taxable, upper) - lower) * rate
+        lower = upper
+    tax = min(tax, taxable - TAX["rebate_up_to"])  # 87A marginal relief
+    return tax * (1 + TAX["cess"])
+
+
+def gross_from_take_home(take_home_annual: float) -> float:
+    """The gross yearly income that leaves this much after income tax.
+
+    The app collects income after tax (Tier 1); the slab rate depends on
+    income before it. Take-home rises with gross everywhere except a short
+    stretch of the marginal-relief band, which sits below ₹12.75 lakh
+    take-home, so above that the answer is unique and found by bisection.
+    """
+    take_home = max(0.0, float(take_home_annual))
+    if take_home - income_tax(take_home) >= take_home:  # no tax at this level
+        return take_home
+    lo, hi = take_home, take_home * 2.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if mid - income_tax(mid) < take_home:
+            lo = mid
+        else:
+            hi = mid
+    return hi
 
 
 def equity_gains_tax(gain, months_held, exemption: float | None = None):
@@ -175,15 +217,16 @@ def _log_returns(history: pd.DataFrame, historical_growth: bool,
     return eq, gd
 
 
-def _bootstrap(rng: np.random.Generator, n_paths: int, months: int, n_hist: int) -> np.ndarray:
+def _bootstrap(rng: np.random.Generator, n_paths: int, months: int, n_hist: int,
+               block_months: int | None = None) -> np.ndarray:
     """(n_paths, months) indices into history: 12-month blocks, joined end to end.
 
     Circular (Politis & Romano): a block may wrap from the last month to the
     first, so every month is equally likely. Without it the first and last
     months of history are under-sampled — and October 2007 starts with the
-    2008 crash.
+    2008 crash. ``block_months=1`` is the plain (independent-months) bootstrap.
     """
-    b = int(ASSUMPTIONS["block_months"])
+    b = int(ASSUMPTIONS["block_months"] if block_months is None else block_months)
     n_blocks = -(-months // b)
     starts = rng.integers(0, n_hist, size=(n_paths, n_blocks))
     return ((starts[:, :, None] + np.arange(b)) % n_hist).reshape(n_paths, -1)[:, :months]
@@ -202,7 +245,7 @@ class SimInputs:
     months_held: int                      # decides short- vs long-term tax
     asset_type: str = "equity"            # "equity" (a stock) | "mf" (an equity fund)
     horizon_years: int = DEFAULT_HORIZON
-    annual_income: float = 900_000.0      # for the slab rate on interest
+    annual_income: float = 900_000.0      # gross (before tax), for the slab rate on interest
     # the rest of the liquid portfolio, today
     other_equity: float = 0.0             # other shares and funds
     gold: float = 0.0
@@ -267,19 +310,33 @@ def destination(inp: SimInputs) -> dict[str, float]:
     return {k: round(v / total, 4) for k, v in safe.items()}
 
 
-def simulate(inp: SimInputs, history: pd.DataFrame | None = None) -> dict[str, Any]:
-    """Hold vs sell for one position, over the investor's horizon."""
+def simulate(inp: SimInputs, history: pd.DataFrame | None = None,
+             paths: np.ndarray | None = None, return_gaps: bool = False) -> dict[str, Any]:
+    """Hold vs sell for one position, over the investor's horizon.
+
+    Evaluation-only options (the app passes neither): ``paths`` replaces the
+    resampled markets with given ones, an (n_paths, horizon months) array of
+    indices into history, to replay real windows or start every future in a
+    chosen kind of year; ``return_gaps`` adds ``paired_gaps``, the
+    (n_paths, years) hold-minus-sell after tax, future by future.
+    """
     a = inp.assumptions
     hist = load_history() if history is None else history
     H = inp.horizon_years
     m = H * 12
-    n = inp.n_paths
     rng = np.random.default_rng(inp.seed)
     slab = marginal_slab_rate(inp.annual_income)
 
     # ── Shared markets ───────────────────────────────────────────────────
     eq_log, gd_log = _log_returns(hist, inp.historical_growth, a)
-    idx = _bootstrap(rng, n, m, len(hist))
+    if paths is None:
+        n = inp.n_paths
+        idx = _bootstrap(rng, n, m, len(hist), int(a.get("block_months", ASSUMPTIONS["block_months"])))
+    else:
+        idx = np.asarray(paths, dtype=int)
+        if idx.ndim != 2 or idx.shape[1] != m:
+            raise ValueError(f"paths must be (n_paths, {m}), got {idx.shape}")
+        n = idx.shape[0]
     eq_cum = np.exp(np.cumsum(eq_log[idx], axis=1))             # (n, m) index growth
     gd_cum = np.exp(np.cumsum(gd_log[idx], axis=1))
     # This holding: the market's ups and downs scaled by its beta, its own
@@ -344,7 +401,9 @@ def simulate(inp: SimInputs, history: pd.DataFrame | None = None) -> dict[str, A
     diff = hold_end - sell_end
     opp = float(np.median(diff))
     prob_hold = float((diff > 0).mean())
+    extra = {"paired_gaps": hold_y - sell_y} if return_gaps else {}
     return {
+        **extra,
         "engine": ENGINE,
         "horizon_years": H,
         "years": list(range(1, H + 1)),
@@ -394,4 +453,5 @@ def simulate(inp: SimInputs, history: pd.DataFrame | None = None) -> dict[str, A
 
 __all__ = ["ENGINE", "ASSUMPTIONS", "TAX", "DEFAULT_HORIZON", "MAX_HORIZON", "SimInputs",
            "load_history", "simulate", "sale_today", "destination", "marginal_slab_rate",
+           "income_tax", "gross_from_take_home",
            "equity_gains_tax", "gold_gains_tax"]
