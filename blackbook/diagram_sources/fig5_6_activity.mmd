@@ -1,0 +1,12 @@
+%% Figure 5.6 - Activity diagram of a decision analysis
+flowchart TB
+  S([start]) --> A1[Investor selects holding, action, months held, optional reason]
+  A1 --> A2[POST /v1/decisions/analyze: validate, capture market + portfolio + stock risk]
+  A2 --> A3[Insert decision status=pending, return 202 + id]
+  A3 --> B1[Step 1: read comment, run bias model v4.1]
+  B1 --> B2[Step 2: simulate hold vs sell]
+  B2 --> B3[Step 3: cause and effect + explanation EN/HI]
+  B3 --> B4[Step 4: evidence rules -> verdict; both sides]
+  B4 --> B5[Step 5: append hash-chained audit entry]
+  B5 --> C[Mark complete, publish final SSE event] --> E([end])
+  B1 & B2 & B3 & B4 & B5 -.->|exception| F[status=failed, publish failed event]

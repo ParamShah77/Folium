@@ -1,0 +1,7 @@
+%% Figure 5.3 - Context-level DFD
+flowchart LR
+  I[Investor] -->|profile, holdings, action, comment| F((0 Folium Decision-Support System))
+  F -->|verdict, projections, explanation, record| I
+  MD[Market data providers] -->|prices, NIFTY, VIX| F
+  F -.->|comment + numbers, with consent| G[Gemini API optional]
+  G -.->|checked wording| F
