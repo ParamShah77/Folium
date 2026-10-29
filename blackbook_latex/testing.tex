@@ -1,0 +1,168 @@
+\chapter{Testing}
+Testing in Folium had four goals: to show that each model and engine behaves as specified, including behavioral properties and not only code paths; to show that the security controls block what they are meant to block; to show that the pipeline, database and live stream work together; and to prevent regressions when models are retrained or replaced.
+
+\section{Test Suites}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{3.2cm}|P{3.9cm}|c|L|}
+\hline
+\textbf{Suite} & \textbf{Location} & \textbf{Tests} & \textbf{Needs} \\
+\hline
+Models and engines & \texttt{tests/} & 343 & Python environment (5 tests need an AI key) \\
+\hline
+Back end, full & \texttt{backend/tests/} & 267 & PostgreSQL and Redis (149 of these run without a database) \\
+\hline
+Front end & \texttt{frontend/src/test/} & 25 & Node.js (Vitest, Testing Library) \\
+\hline
+\end{tabularx}
+\caption{Automated test suites (635 tests in total)}
+\label{tab:suites}
+\end{table}
+
+The counts in Table \ref{tab:suites} are those recorded in the project's master reference after the latest changes, where all suites were reported as passing. Many tests are parameterized, so one test function runs over several cases.
+
+\section{Unit Testing}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|P{5.6cm}|L|}
+\hline
+\textbf{ID} & \textbf{Test} & \textbf{Property checked} \\
+\hline
+UT-1 & Training and live features agree & One row and a batch build identical features \\
+\hline
+UT-2 & Invalid input rejected & A missing input or unknown action raises an error \\
+\hline
+UT-3 & Label rules match the dataset & The true label is allowed for all 20,000 rows \\
+\hline
+UT-4 & Guard and calibration & Ruled-out classes are removed; calibration never changes the chosen class \\
+\hline
+UT-5 & SHAP drivers & Drivers sum to the chosen class's score \\
+\hline
+UT-6 & Action sensitivity & The same situation with a different action gives a different reading \\
+\hline
+UT-7 & Tax rules & 20\% short-term tax with cess; \rupee 1.25 lakh exemption; losses pay nothing \\
+\hline
+UT-8 & Simulator behavior & Horizon clamped to 1 to 30 years; same inputs give the same answer; SIP leaves the gap unchanged; simulated years resemble the real NIFTY \\
+\hline
+UT-9 & Recommendation rules & Every combination of intent, pattern and $p$; a missing simulation is disclosed \\
+\hline
+UT-10 & Audit chain & An edited, removed or forged entry and a fork are all caught; fingerprints survive database round trips \\
+\hline
+UT-11 & Comment reading & Rules in three languages; quotes are verbatim; both-sides cases never alter the verdict \\
+\hline
+UT-12 & Explanations & Six sections, English and Hindi structural parity, jargon blocklist, number check \\
+\hline
+\end{tabularx}
+\caption{Representative unit tests}
+\label{tab:unit}
+\end{table}
+
+\section{Integration Testing}
+Integration tests run the FastAPI application against real PostgreSQL and Redis instances through an HTTP client.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|P{5cm}|L|}
+\hline
+\textbf{ID} & \textbf{Scenario} & \textbf{Expected result} \\
+\hline
+IT-1 & Register, verify, log in, refresh, log out & Cookies set and rotated; old tokens blacklisted \\
+\hline
+IT-2 & Enable TOTP; log in with a code and a backup code & Second factor enforced; backup code single-use \\
+\hline
+IT-3 & Mutating request with missing, wrong and correct CSRF header & 403, 403, accepted; login exempt \\
+\hline
+IT-4 & User B queries user A's rows; query with no user set & No rows in either case \\
+\hline
+IT-5 & Repeated logins beyond the limit & HTTP 429 \\
+\hline
+IT-6 & Submit an analysis and run the pipeline & 202; status moves to processing and then complete \\
+\hline
+IT-7 & Open the stream during and after a run & Backlog replayed without duplicates; final event received \\
+\hline
+IT-8 & Two analyses, then tamper with a row and verify & Chain stays linear; the changed part is named \\
+\hline
+IT-9 & Reason says ``college fees are due'' & Cash need detected; sale can read as rational \\
+\hline
+IT-10 & Delete, log in during grace, purge after grace & ``Keep my account'' offered; data anonymized; audit kept \\
+\hline
+IT-11 & Google sign-in with a stand-in for Google & Correct redirect for each outcome; unverified addresses refused; state single-use \\
+\hline
+IT-12 & Google return page for each outcome (front end) & Signs in, asks for the code, offers to keep the account or explains the failure \\
+\hline
+\end{tabularx}
+\caption{Integration test scenarios}
+\label{tab:integration}
+\end{table}
+
+\section{System Testing}
+The behavior of the product as a whole is exercised through the demonstration walkthrough, which uses accounts and analyses created by the seeding script. Table \ref{tab:system} lists the system test cases with their expected results.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|P{5.4cm}|L|}
+\hline
+\textbf{ID} & \textbf{Test case} & \textbf{Expected result} \\
+\hline
+ST-1 & Sell a losing holding with the reason ``need money for college fees in March'' & Pattern reads rational and the quote is shown \\
+\hline
+ST-2 & Sell a holding up 30\% in a calm market & Disposition effect with High or Medium confidence \\
+\hline
+ST-3 & Buy more after a NIFTY rise of 5\% in a month & Herd reading and a HOLD verdict \\
+\hline
+ST-4 & Switch the explanation to Hindi & All six sections in Hindi with the same numbers \\
+\hline
+ST-5 & Request a Hindi PDF report & Refused with an explanation; HTML offered \\
+\hline
+ST-6 & Reload the page during step 2 & Earlier steps shown from the backlog; progress continues \\
+\hline
+ST-7 & Verify a record, then edit it in the database and verify again & ``Verified'', then ``Changed'' with the changed part named \\
+\hline
+ST-8 & Run an analysis with market data switched off & Calm market assumed and disclosed \\
+\hline
+ST-9 & First sign-in with a new Google account & Returns to the app; Welcome page asks for the profile \\
+\hline
+\end{tabularx}
+\caption{System test cases}
+\label{tab:system}
+\end{table}
+
+\section{Validation, Edge Cases and Performance}
+Input is validated at three layers. Pydantic schemas reject malformed requests with HTTP 422 before any logic runs. Database check constraints enforce domain rules whatever the code path, for example that age lies between 18 and 100, that the quantity is positive, that confidence lies between 0 and 1, and that a recommendation is one of HOLD, SELL or BUY MORE. The model and the simulator raise an error on missing or invalid inputs. The edge cases of Table \ref{tab:edge} are covered by tests such as horizon clamping, the missing-simulation rule and the price outage.
+
+No load test has been performed. One simulation of 1,000 paths over 30 years takes 103.4 ms, and each prediction records its own inference time in milliseconds. Numerical stability, which matters more for the correctness of a verdict, was measured instead: at 1,000 paths the probability that holding wins varies by only about $\pm$1.7 points between runs.
+
+\section{Defects Found and Resolved}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|L|P{4.4cm}|}
+\hline
+\textbf{\#} & \textbf{Issue} & \textbf{Status} \\
+\hline
+1 & The application connected as a superuser, which bypasses row-level security & Fixed: connects as \texttt{app\_user} \\
+\hline
+2 & v3's explanation described a different class from the one shown (98.6\% of cases) & Fixed in v4 \\
+\hline
+3 & The Google sign-in callback returned JSON instead of returning to the app & Fixed: redirect and Welcome page \\
+\hline
+4 & The slab rate on interest was computed from take-home pay & Fixed: income grossed up \\
+\hline
+5 & A driver label read ``Your choice to holding on'' & Fixed: separate verb mapping \\
+\hline
+6 & The fallback story always said ``over 20 years'' & Fixed: uses the actual horizon \\
+\hline
+7 & The explanation evaluation had been run on earlier models & Fixed: re-measured on 332 explanations \\
+\hline
+8 & The AI wording check rejects added numbers but not removed ones & Open \\
+\hline
+9 & Some column names still end in \texttt{\_20y} although the horizon is variable & Open (cosmetic) \\
+\hline
+\end{tabularx}
+\caption{Defects and their status}
+\label{tab:defects}
+\end{table}

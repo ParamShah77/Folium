@@ -1,0 +1,63 @@
+# Chapter 11: Applications, Advantages and Limitations
+
+## 11.1 Real-World Applications
+
+1. **A pause button for retail investors.** The most direct use is as a second opinion before acting on a sell, hold or buy decision, especially during sharp market moves when emotional decisions are most likely.
+2. **Investor education.** Brokerages, mutual-fund distributors and investor-awareness programmes could use the explanations—what pushes people towards this action and which habit helps—to teach behavioural concepts with the learner's own numbers rather than abstract examples.
+3. **Advisory support.** A registered adviser could use the paired after-tax projection and the "both sides" view as a structured starting point for a conversation with a client, while keeping the decision with the human.
+4. **Research platform.** The dataset generator, the known-truth causal check and the evaluation scripts form a reusable test bed for methods in behavioural finance and causal machine learning.
+
+## 11.2 Advantages
+
+- **Decision-centric.** It evaluates the action the investor is about to take, not just the asset.
+- **Context-aware.** Income, EMIs, education fees, emergency fund, the whole portfolio and the horizon all shape the reading and the projection, so a forced sale is not mislabelled as a bias.
+- **Honest confidence.** Calibrated High/Medium/Low bands that mean what they say (High is right 98.7% of the time on the test set).
+- **Paired, after-tax comparison.** HOLD and SELL are compared on identical market paths, in cash in hand after Indian tax and charges.
+- **Traceable explanations.** Every figure comes from computation; optional AI wording is guarded and off by default.
+- **Bilingual and offline.** English and Hindi templates work without any external service.
+- **Verifiable record.** A hash chain lets the investor confirm that an analysis has not been changed.
+- **Privacy by design.** Row-level isolation, consent-gated AI, data export and deletion.
+- **Maintainable.** One bridge between product and research code; versioned models with rollback switches.
+
+## 11.3 Limitations
+
+### 11.3.1 Data limitations
+
+- **Synthetic investors, real markets.** The behavioural labels follow written behavioural-finance definitions, not observed Indian investors. The motive weights are set, not learned. All accuracy figures therefore measure recovery of the generator's labels.
+- **Definitions do most of the work.** A rules-only baseline reaches 85.2%; the model's added value is in judgement on the remaining cases and in calibration.
+- **Hidden tendencies.** About one case in ten cannot be resolved from observable inputs (ceiling 90.0%), and loss aversion versus herd behaviour in a fearful sell-off is close to a coin toss (about 58%).
+- **Unstated needs are often missed.** Only 39% of forced sales read as rational when the investor does not mention the need.
+
+### 11.3.2 Technical limitations
+
+- Long-run growth rates are assumptions (shares 11%, gold 9%, FD 6.75%), and verdicts are sensitive to them: a 2-point change in share growth changes 42% of verdicts, and replaying 2007–2026 exactly changes 86% (Table 9.6).
+- Rupees are nominal; inflation is not removed.
+- Mutual funds are treated as equity funds; debt or hybrid funds would be projected as too risky.
+- Tax rules are fixed to FY 2025-26; loss set-off is not modelled.
+- Gold uses the international price before import duty and GST.
+- One position per analysis; whole-portfolio rebalancing is not analysed.
+- The comment reader uses phrase lists and misses paraphrase; feelings it misses or misreads never change the analysis, but a missed cash need does.
+
+### 11.3.3 Release scope
+
+The current release is a complete, locally hosted product. Three engineering items are deliberately outside it and are scheduled as the next milestones (Section 12.5): the administrator console, continuous integration, and public deployment with HTTPS and a production e-mail service. Optional Gemini assistance is implemented and guarded but has been verified only with a stand-in, pending a production API key. Google sign-in works at the registered local address; a deployment must register its own callback address with Google. The full back-end test suite needs PostgreSQL and Redis and takes about 15 minutes, and two runs cannot share the test database; this is a property of integration testing against a real database rather than a limitation of the product.
+
+## 11.4 Security and Privacy Considerations
+
+The system's security rests on standard, well-understood controls (Table 6.2): bcrypt-hashed passwords with a strength check, short-lived RS256 tokens in httpOnly cookies with rotation and blacklisting, double-submit CSRF protection, TOTP two-step verification with encrypted secrets, rate limiting, security headers and restricted CORS. Google sign-in accepts only addresses Google has verified, guards the round trip with a single-use state value, and returns its result in a URL fragment that never reaches a server. Data isolation does not rely on application code alone: PostgreSQL row-level security binds every query on user-owned tables to the transaction's user. Remaining risks are those of any unaudited system: no external penetration test has been done, HTTPS is not yet configured because the system is not deployed, and the development `app_user` password defaults to a known value that must be replaced in production. Secrets such as JWT keys and the Fernet key are generated by `scripts/generate_dev_keys.py` and loaded from `.env`, which is excluded from version control; only `.env.example` is committed.
+
+## 11.5 Scalability
+
+The API is asynchronous and stateless apart from cookies, so it can be scaled horizontally behind a load balancer; Redis already carries the shared state (blacklist, rate limits, events). The current design runs analyses as in-process background tasks, which ties an analysis to the worker that accepted it; under heavy load this should move to a job queue with separate workers. The ML libraries take about 400 MB per process, which limits how many workers fit on one machine. The database scales with standard PostgreSQL techniques; the audit chain is per investor, so verification cost grows with one person's history, not with the total user base.
+
+## 11.6 Maintenance Requirements
+
+- **Market data.** `market_history.csv` and `monthly_history.csv` should be refreshed periodically; after refreshing, the dataset, model and evaluations should be regenerated and compared with the previous version.
+- **Tax rules.** The `TAX` table must be updated when the Finance Act changes.
+- **Library versions.** ML libraries are pinned; any upgrade must be followed by `scripts/verify_ml_env.py` and a full re-evaluation.
+- **Causal results.** The back end caches `results/causal_v4.json`, so it must be restarted after regeneration.
+- **Comment rules.** Phrase lists should be widened as real comments (with consent) reveal common wording.
+
+## 11.7 Risks and Responsible Use
+
+The largest risk is over-trust: an investor might treat a calibrated, well-presented reading as a diagnosis or the simulated gap as a promise. Folium mitigates this by describing the pattern as "a tendency to watch for", showing confidence in words with both leading probabilities when they are close, stating every assumption, keeping the verdict in transparent rules, and labelling the whole product as information and education, not investment advice. A second risk is that synthetic labels encode the designers' assumptions; this can only be resolved with consented real data. Finally, any future use of the AI features must preserve the guard and consent rules, because the system's trustworthiness depends on the guarantee that wording can never change a number.

@@ -1,0 +1,45 @@
+\chapter{Introduction}
+Participation of individual investors in Indian equity markets has grown sharply over the last decade. Discount brokers, mobile trading applications and the systematic investment plan (SIP) route into mutual funds have made it possible for a salaried person to own shares with a few taps on a phone. Access, however, is not the same as judgement. A first-time investor who watches a holding fall by 15\% while friends discuss a market crash on a messaging group is facing a decision that is as much emotional as it is financial.
+
+Risk perception, reference dependence, social information and personal constraints all influence such decisions. Prospect theory shows that people judge outcomes relative to a reference point and react more strongly to losses than to gains of the same size \cite{b1}. Empirical studies of trading records find a systematic tendency to realize gains early and hold on to losses \cite{b2}, and investors are known to follow the crowd even when their own information points the other way \cite{b3}. These patterns are not rare quirks. They are systematic, and they cost money \cite{b14}.
+
+At the same time, the same action can be perfectly sensible for a different person. Selling a losing share is a mistake if it is driven by panic, but it is the right decision if the investor's college fees are due next month and there is no emergency fund. A tool that labels a decision as biased without looking at the investor's own finances will be wrong exactly when it matters most. This makes it necessary to assess the decision being made by the investor, rather than to make yet another prediction about the market.
+
+Folium was built to address this gap. For a single holding and an intended action, it looks at the investor profile, the position and the market conditions at that moment, and tries to answer four distinct questions. What behavior pattern is shown by the observed characteristics? Which inputs determined that reading? What effects can be measured with a causal model? And what distribution of outcomes follows from each alternative under a stated market generator? These questions are not substitutes for one another. A high classification probability is not a psychological assessment, and a simulated wealth advantage is not a guarantee of success.
+
+The project started as a research effort on behavioral bias detection with a Streamlit prototype and synthetic data. Over successive versions it grew into a complete web application with a FastAPI back end, a React front end, a PostgreSQL database with row-level security, a dataset built on real NIFTY 50 and India VIX history, a calibrated classifier, a tax-aware simulator, a causal analysis module, a bilingual explanation engine and a tamper-evident audit trail.
+
+\section{Problem Statement}
+To design and implement a secure and explainable decision support system that, for one intended action (sell, hold or buy more) on one holding of an Indian retail investor, identifies the behavioral pattern most likely behind the decision with a calibrated confidence, compares the after-tax outcome of holding and selling over the investor's own horizon under the same simulated market conditions, estimates which factors push investors towards that action, explains the result in plain English or Hindi without allowing the wording to change any number, issues a recommendation from transparent rules, and records each analysis in a form that the investor can later verify.
+
+\section{Motivation}
+The cost of a behavioral mistake is real but invisible at the moment of decision. An investor who panic-sells during a correction rarely sees what the money would have become had it stayed invested. Folium makes that counterfactual concrete by projecting both choices on identical market scenarios.
+
+Many financial assistants that use artificial intelligence produce fluent text whose numbers cannot be traced back to any calculation. For a decision about real money, a single invented figure is unacceptable, so we wanted a system in which every number on the screen comes from a deterministic computation and every assumption is disclosed. The Indian context also matters. Short and long-term capital gains tax, the importance of gold and fixed deposits in household portfolios, EMIs and education fees as fixed obligations, and the need for explanations in Hindi are rarely handled by tools designed elsewhere.
+
+\section{Objectives}
+Our key objectives for building this system are as follows:
+
+\begin{itemize}
+\item Design and implement a causal decision-time framework that detects behavioral biases and models cause-and-effect relationships beyond retrospective correlational analysis.
+\item Develop a personalized portfolio-level simulation engine to evaluate the long-term (10–30 years) impact of financial decisions under uncertainty and compounding effects.
+\item Generate decision-centric, counterfactual explanations that clearly show how financial decisions causally influence long-term outcomes beyond static post-hoc interpretations.
+\item Implement a tamper-proof audit mechanism that records AI recommendations, causal assumptions, and counterfactual analyses to ensure transparency, accountability, and verifiable decision trails.
+\end{itemize}
+
+\section{Scope}
+The subject of a decision is a listed Indian share (NSE or BSE) or an equity mutual fund. Gold, fixed deposits, savings, property, loans, rent received and SIPs are used as context. Three actions (sell, hold and buy more), four behavioral classes and horizons of 1 to 30 years are supported, and the output is available in English and Hindi through a web interface that also works on phones.
+
+Trade execution and broker integration, real-time trading signals, whole-portfolio optimization (each analysis concerns one position), derivatives, cryptocurrency and insurance, and inflation-adjusted projections are outside the scope. The application states clearly that its output is for information and education and is not investment advice. The intended users are retail investors who want a second opinion on a pending decision. An administrator role exists for resetting a user's two-step verification after a verified recovery request.
+
+\section{Layout of the Report}
+A brief overview of each chapter is provided here.\\
+Chapter 2: A literature survey of behavioral finance, machine learning, explainability, causal modeling and simulation is presented.\\
+Chapter 3: The functional and non-functional requirements and the feasibility of the system are described.\\
+Chapter 4: The design of the system is explained with architecture, data-flow, use case, activity, sequence, entity-relationship and deployment diagrams.\\
+Chapter 5: The methodology is explained, including the dataset and the mathematics of each model.\\
+Chapter 6: The implementation of each module is described with selected code.\\
+Chapter 7: The experimental evaluation and the results are presented and discussed.\\
+Chapter 8: The testing carried out on the system is described.\\
+Chapter 9: Conclusions and future scope.\\
+Chapter 10: Publications.

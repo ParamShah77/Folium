@@ -1,0 +1,86 @@
+%----------------------------------------------------------
+% Folium: B.Tech project report (blackbook)
+% Compile:  pdflatex report.tex  (run twice for contents and cross-references)
+%----------------------------------------------------------
+\documentclass[12pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{subcaption}
+\usepackage[a4paper,width=150mm,top=25mm,bottom=25mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{array,tabularx,multirow,makecell}
+\usepackage{float}
+\usepackage[table]{xcolor}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage[hidelinks,hypertexnames=false]{hyperref}
+\usepackage{url}
+
+\input{figures/tikz/styles.tex}
+
+%---------------- details to fill in before printing ----------------
+\newcommand{\rollJesil}{[UID No.]}
+\newcommand{\rollParam}{[UID No.]}
+\newcommand{\rollHet}{[UID No.]}
+\newcommand{\submissionmonth}{[Month Year]}
+%--------------------------------------------------------------------
+
+\newcommand{\projecttitle}{Folium: Behavioral Decision Intelligence Through Calibrated Bias Detection, Causal Analysis, and Paired Long-Horizon Portfolio Simulation}
+\newcommand{\rupee}{Rs.\,}
+
+\captionsetup{font=small, labelfont=bf}
+\captionsetup[lstlisting]{justification=raggedright, singlelinecheck=false}
+\setlist{itemsep=2pt, topsep=4pt}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\renewcommand{\arraystretch}{1.25}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codebg}{RGB}{246,247,247}
+\definecolor{codeframe}{RGB}{190,198,200}
+\definecolor{codekw}{RGB}{30,90,140}
+\definecolor{codestr}{RGB}{150,60,40}
+\definecolor{codecom}{RGB}{110,120,120}
+\lstset{
+  language=Python, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{codekw},
+  stringstyle=\color{codestr}, commentstyle=\color{codecom}\itshape, backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{codeframe}, breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, captionpos=t, aboveskip=8pt, belowskip=6pt, xleftmargin=2pt, xrightmargin=2pt,
+  literate={→}{{$\rightarrow$}}1 {—}{{--}}1 {₹}{{Rs.}}3
+}
+\renewcommand{\lstlistingname}{Listing}
+
+\begin{document}
+\input{be_title.tex}
+\input{be_certificate1.tex}
+\input{be_certificate2.tex}
+\input{students_statement.tex}
+\pagenumbering{roman}
+\setcounter{page}{1}
+\input{acknowledgments.tex}
+\input{abstract.tex}
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+\input{list_abbreviations.tex}
+\clearpage
+\pagenumbering{arabic}
+\input{introduction.tex}
+\input{literature_survey.tex}
+\input{requirements.tex}
+\input{design.tex}
+\input{methodology.tex}
+\input{implementation.tex}
+\input{results.tex}
+\input{testing.tex}
+\input{conclusion.tex}
+\input{bibliography.tex}
+\input{research_publication.tex}
+\end{document}

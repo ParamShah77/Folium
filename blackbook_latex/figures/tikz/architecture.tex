@@ -1,0 +1,44 @@
+\begin{tikzpicture}
+  % Presentation tier
+  \node[box, minimum width=146mm, text width=140mm] (spa) {\textbf{React 19 single-page application} (Vite, TypeScript, Tailwind)\\[1pt]
+    \footnotesize landing, sign-in, dashboard, portfolio, new analysis, result page, history, settings};
+
+  % Application tier
+  \node[box, below=14mm of spa.south west, anchor=north west, xshift=3mm, text width=30mm, minimum height=19mm] (api) {\textbf{api/v1}\\ \footnotesize auth, users, portfolio, decisions, market, admin};
+  \node[box, right=3mm of api, text width=30mm, minimum height=19mm] (mw) {\textbf{middleware}\\ \footnotesize CSRF, rate limits, headers, logging};
+  \node[box, right=3mm of mw, text width=30mm, minimum height=19mm] (auth) {\textbf{auth}\\ \footnotesize RS256 JWT, bcrypt, TOTP, Google OIDC};
+  \node[box, right=3mm of auth, text width=30mm, minimum height=19mm] (svc) {\textbf{services}\\ \footnotesize portfolio, prices, market, e-mail, deletion};
+  \node[box, below=3mm of api.south west, anchor=north west, text width=135mm] (pipe)
+    {\textbf{core/pipeline.py} (background task): bias $\rightarrow$ simulation $\rightarrow$ explanation $\rightarrow$ recommendation $\rightarrow$ audit};
+  \begin{scope}[on background layer]
+    \node[tier, fit=(api)(svc)(pipe), inner sep=3mm] (apptier) {};
+  \end{scope}
+  \node[tierlabel, anchor=south west] at (apptier.north west) {Application tier: FastAPI (backend/)};
+
+  % Analytics tier (left)
+  \node[mlbox, below=15mm of apptier.south west, anchor=north west, xshift=3mm, text width=74mm] (src)
+    {\textbf{Research modules (src/)}\\ \footnotesize dataset\_v4, bias\_model\_v4 (XGBoost, SHAP),\\ \footnotesize simulator\_v2, causal\_v4 (DoWhy),\\ \footnotesize explainer (English and Hindi)};
+  \node[store, below=4mm of src, text width=74mm] (art)
+    {\textbf{Model artefacts and result files}\\ \footnotesize trained model, causal results,\\ \footnotesize cached market history};
+  \draw[flow] (art) -- (src);
+  \begin{scope}[on background layer]
+    \node[tier, fit=(src)(art), inner sep=3mm] (mltier) {};
+  \end{scope}
+  \node[tierlabel, anchor=south west] at (mltier.north west) {Analytics tier, via core/ml\_bridge.py};
+
+  % Data tier (right)
+  \node[store, anchor=north east, text width=50mm] (pg) at ($(apptier.south east)+(-3mm,-15mm)$)
+    {\textbf{PostgreSQL 18}\\ \footnotesize row-level security};
+  \node[store, below=3mm of pg, text width=50mm] (redis)
+    {\textbf{Redis / Memurai}\\ \footnotesize sessions, rate limits, events};
+  \node[ext, below=3mm of redis, text width=50mm] (ext)
+    {\textbf{External services}\\ \footnotesize Yahoo Finance, MFAPI.in, Google;\\ \footnotesize Gemini and e-mail (optional)};
+  \begin{scope}[on background layer]
+    \node[tier, fit=(pg)(ext), inner sep=3mm] (datatier) {};
+  \end{scope}
+  \node[tierlabel, anchor=south west] at (datatier.north west) {Data and external services};
+
+  \draw[biflow] (spa.south) -- node[lbl, right=1mm] {HTTPS, JSON, httpOnly cookies (/v1/*)} (spa.south |- apptier.north);
+  \draw[biflow] ($(mltier.north east)+(-14mm,0)$) coordinate (m) -- node[lbl, left=1mm] {in-process calls} (m |- apptier.south);
+  \draw[biflow] ($(datatier.north east)+(-10mm,0)$) coordinate (d) -- (d |- apptier.south);
+\end{tikzpicture}

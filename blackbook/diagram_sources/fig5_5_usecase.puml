@@ -1,0 +1,33 @@
+' Figure 5.5 - Use-case diagram (PlantUML)
+@startuml
+left to right direction
+actor Investor
+actor Administrator
+actor "Market data service" as MDS
+rectangle Folium {
+  usecase "Register / log in (e-mail or Google)" as U1
+  usecase "Set up two-step verification" as U2
+  usecase "Maintain financial profile" as U3
+  usecase "Manage portfolio holdings" as U4
+  usecase "Request decision analysis" as U5
+  usecase "Watch live progress" as U6
+  usecase "Read explanation (EN / HI)" as U7
+  usecase "Download report (HTML / PDF)" as U8
+  usecase "Verify audit record" as U9
+  usecase "Export data / delete account" as U10
+  usecase "Reset a user's two-step" as U11
+}
+Investor --> U1
+Investor --> U2
+Investor --> U3
+Investor --> U4
+Investor --> U5
+Investor --> U6
+Investor --> U7
+Investor --> U8
+Investor --> U9
+Investor --> U10
+Administrator --> U11
+U4 --> MDS
+U5 --> MDS
+@enduml

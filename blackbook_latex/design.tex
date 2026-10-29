@@ -1,0 +1,102 @@
+\chapter{System Design}
+All diagrams in this chapter were drawn from the structure of the code in the repository.
+
+\section{Architecture}
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/tikz/architecture.tex}}
+\caption{System architecture of Folium}
+\label{fig:arch}
+\end{figure}
+
+Figure \ref{fig:arch} shows the overall architecture. The presentation tier is a React single-page application. During development the Vite server forwards every \texttt{/v1/*} request to the API, so the browser sees a single origin, which keeps the httpOnly session cookies and the CSRF check simple.
+
+{\raggedright The application tier is a FastAPI service. Its routes are in \texttt{backend/api/v1/}, its cross-cutting checks in \texttt{backend/middleware/}, its authentication code in \texttt{backend/auth/} and its domain services in \texttt{backend/services/}. The analysis itself runs as a background task under \texttt{backend/core/pipeline.py}.\par}
+
+The analytics tier is the research code in \texttt{src/}. An important design decision is that the back end never re-implements the models. The module \texttt{backend/core/ml\_bridge.py} is the only place where the back end reaches into \texttt{src/}. It imports the heavy ML libraries lazily (they take about two seconds and 400 MB to load), runs blocking work in a worker thread so that the server stays responsive, and maps the vocabulary between the two sides. Since the research modules produced the reported numbers, re-implementing them would risk silently changing those numbers.
+
+PostgreSQL stores users, portfolios, decisions and the audit chain under row-level security. A Redis-compatible store holds the token blacklist, the rate-limit counters and the event backlog for live progress. External services are called only for prices and market data, for Google sign-in, and optionally for e-mail and Gemini.
+
+\section{Analysis Pipeline Components}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/components.tex}}
+\caption{Components involved in one analysis}
+\label{fig:components}
+\end{figure}
+
+Figure \ref{fig:components} shows the components of one analysis. The analyze route (\texttt{POST} on \texttt{/v1/decisions/analyze}) schedules the pipeline as a background task and returns immediately. The orchestrator calls five steps in a fixed order: bias detection, simulation, explanation, recommendation and audit. Each step returns the columns it wants to update and the fields to attach to its progress event, while the orchestrator alone owns the status, the events and persistence. It refuses any step that tries to write the columns it reserves for itself. The first three steps call the research code through the bridge, and the audit step writes to the \texttt{audit\_logs} table.
+
+\section{Data-Flow Diagrams}
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{\input{figures/tikz/dfd0.tex}}
+\caption{Data-flow diagram, level 0}
+\label{fig:dfd0}
+\end{figure}
+
+At the context level (Figure \ref{fig:dfd0}) the system exchanges data with three external entities. The investor supplies a profile, holdings, the intended action and an optional comment, and receives a verdict, projections, an explanation and a verifiable record. Market data providers supply prices, the NIFTY index and the VIX. The Gemini API is optional: it receives a comment and the analysis numbers only when the investor has consented and the server has enabled it, and its output is accepted only after checks.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/dfd1.tex}}
+\caption{Data-flow diagram, level 1 (the analysis process)}
+\label{fig:dfd1}
+\end{figure}
+
+Figure \ref{fig:dfd1} breaks the analysis into six processes. Process 1.0 is the analyze endpoint, which captures the context, and processes 2.0 to 6.0 are the five pipeline steps. Each process writes its outputs into the decisions store, and the next process reads the refreshed row, which is why the orchestrator reloads the decision before every step. The simulation reads the profile for income, SIP and the destination of sale proceeds, and the last process appends an entry to the audit store.
+
+\section{Use Case Diagram}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/usecase.tex}}
+\caption{Use case diagram}
+\label{fig:usecase}
+\end{figure}
+
+Figure \ref{fig:usecase} shows the actors and their use cases. The investor can register or log in by e-mail or with Google and then uses every feature of the application. The administrator's implemented use case is resetting a user's two-step verification. The market data service takes part in portfolio management, through live prices, and in analysis requests, through the market context and the stock's measured risk.
+
+\section{Activity Diagram}
+\begin{figure}[H]
+\centering
+\resizebox{0.85\textwidth}{!}{\input{figures/tikz/activity.tex}}
+\caption{Activity diagram of a decision analysis}
+\label{fig:activity}
+\end{figure}
+
+Figure \ref{fig:activity} traces one analysis. The synchronous part ends with an HTTP 202 response, so the browser never waits for the models. The five shaded steps run in the background. If any step raises an exception, the decision is marked as failed, the error is stored and a failed event is published so that the browser stops waiting. Problems with wording never fail an analysis, because the explanation step falls back to the template text.
+
+\section{Sequence Diagram}
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/tikz/sequence.tex}}
+\caption{Sequence diagram of an analysis with live progress}
+\label{fig:sequence}
+\end{figure}
+
+Figure \ref{fig:sequence} shows the order of messages. One detail is the backlog replay. If the browser only subscribed to Redis publish and subscribe, any event published before the subscription would be lost, and reloading the page during an analysis would show an empty history. Every event is therefore also appended to a Redis list with an expiry time. The stream endpoint first replays this list and then follows live messages, removing duplicates by a sequence number. If the stream cannot be opened at all, the result page falls back to polling.
+
+\section{Entity-Relationship Diagram}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/er.tex}}
+\caption{Entity-relationship diagram of the main tables}
+\label{fig:er}
+\end{figure}
+
+Figure \ref{fig:er} shows the main entities, created by Alembic migrations 0001 to 0012. The \texttt{users} table holds the account, the basic financial profile, the deletion schedule and the AI consent flag. \texttt{financial\_profiles} has a one-to-one relationship with users and stores gold, deposits, savings, property, loans, rent received and the monthly SIP, while \texttt{portfolios} holds shares and mutual funds. Each analysis is one row of \texttt{decisions}, which stores both the inputs (including snapshots of the portfolio and the comment reading as JSONB) and every model output. \texttt{audit\_logs} holds the hash-chained entries, and its foreign keys use \texttt{ON DELETE SET NULL} so that the chain survives when an account is anonymized. Row-level security is enabled and forced on decisions, audit logs, portfolios, financial profiles and the profile change log.
+
+\section{Deployment Diagram}
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{\input{figures/tikz/deployment.tex}}
+\caption{Deployment diagram of the development set-up}
+\label{fig:deploy}
+\end{figure}
+
+Figure \ref{fig:deploy} shows the configuration used for development and demonstration, with all processes on one laptop. PostgreSQL has two roles: \texttt{finai}, the owner used for migrations, and \texttt{app\_user}, a non-superuser used by the application so that the row-level security policies apply. Container definitions are present in the repository for the planned public deployment.
+
+\section{User Interface Design}
+The public pages are the landing page, the privacy policy and the sign-in pages, together with \texttt{/auth/google}, where Google sign-in returns. A first Google sign-in lands on a Welcome page that asks for the basic profile; until it is filled, every other signed-in page except Settings sends the investor there. The application pages are an overview dashboard, the portfolio, a new-analysis form with a live market card, the result page, the history and the settings.
+
+The result page is the centre of the design. It shows the live five-step progress with plain titles such as ``Reading your decision'' and ``Projecting the future'', then the recommendation with its reasons, the position against the whole portfolio, a chart of both futures, the pattern found with probability bars, the six-part explanation with an English and Hindi switch, report downloads, the inputs that weighed most, cause and effect, both sides in numbers, the investor's own words, ``Verify this record'' and ``How this was worked out''. The interface never shows a model name or an accuracy figure, and confidence is shown in words.

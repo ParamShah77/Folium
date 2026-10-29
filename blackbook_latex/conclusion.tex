@@ -1,0 +1,66 @@
+\chapter{Conclusion and Future Scope}
+\section{Conclusion}
+Retail investors often decide to sell, hold or buy more under the pull of recent losses, market fear or the crowd, while the tools available to them describe the asset rather than the decision. In this project we built Folium, a full-stack web application that judges one intended decision against the investor's whole financial picture. For each decision, a five-step background pipeline reads the investor's comment, classifies the behavioral pattern with a calibrated and guarded XGBoost model explained by exact TreeSHAP, projects holding and selling on the same block-bootstrapped market paths after Indian tax, attaches causal estimates validated against a known generator, renders a six-part explanation in English and Hindi, derives a verdict from explicit evidence rules, and seals the analysis in a per-investor hash chain. Investors sign in by e-mail or with Google, accounts are protected with two-step verification, CSRF protection and rate limits, and investors can export or delete their data.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{3.8cm}|L|}
+\hline
+\textbf{Objective} & \textbf{Outcome} \\
+\hline
+Causal decision-time framework for detecting behavioral biases & 87.9\% accuracy, macro-F1 0.840 and ECE 0.014; High readings right 98.7\% of the time; 21 of 21 sense checks; 86.5\% on an unseen period; 45 causal effects recovered with 0.48 points mean error and the correct direction in 97\% of cases \\
+\hline
+Personalized portfolio-level long-horizon simulation & Horizon of 1 to 30 years, after tax, on paired paths; one-year returns within 1.4 points of the real NIFTY; best of six generators (KS 0.027); probability stable to $\pm$1.7 points at 1,000 paths \\
+\hline
+Decision-centric counterfactual explanations & Six-part explanations in English and Hindi with year-by-year projections of both choices; 332 explanations complete and jargon-free; English Flesch reading ease 76.4 \\
+\hline
+Tamper-proof audit mechanism & SHA-256 hash chain for every analysis with verification that detects altered, removed and forged entries and forks; append-only table; per-investor locking \\
+\hline
+\end{tabularx}
+\caption{Achievement of the objectives}
+\label{tab:achieved}
+\end{table}
+
+Table \ref{tab:achieved} summarizes how each objective was met. All figures are development-stage results on synthetic behavioral labels.
+
+\section{Limitations}
+\label{sec:boundaries}
+Two boundaries define what the results can claim. The first is scientific. The behavioral labels are synthetic by design, because no public dataset links Indian investors' decisions to their finances and true motives. The readings are therefore validated against a known generator and not against real people, and no claim is made that the system improves investment outcomes. The second concerns modeling. The simulator's verdicts depend on stated long-run growth rates, projections are in nominal rupees, tax handling is simplified (losses are not set off against other gains), mutual funds are treated as equity funds, and each analysis concerns one position. Both boundaries are stated to the investor on every result page.
+
+\section{Future Scope}
+The remaining work is organized in three phases, each building on foundations that already exist in the repository.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{2.9cm}|P{3.9cm}|L|}
+\hline
+\textbf{Phase} & \textbf{Milestone} & \textbf{Foundation already in place} \\
+\hline
+\multirow{4}{2.9cm}{Productization} & Administrator console (usage statistics, user management, recovery queue) & Aggregate statistics view without personal data; audited two-step reset endpoints; admin role \\
+\cline{2-3}
+ & Continuous integration & 635 tests that run with one command per suite; pinned dependencies \\
+\cline{2-3}
+ & Public deployment with HTTPS and production e-mail & Container definitions; secure cookies and CORS outside development; e-mail integration \\
+\cline{2-3}
+ & Live AI assistance & Consent switch, verbatim-quote and number checks, circuit breaker, all tested with a stand-in \\
+\hline
+\multirow{3}{2.9cm}{Validation with real users} & Consented real decisions, so that motive weights can be learned & Data export and consent model; outcome-tracking columns in the decisions table \\
+\cline{2-3}
+ & Prospective user study & Explanation engine with measured readability \\
+\cline{2-3}
+ & Two-way number check for AI wording & Existing check and its tests \\
+\hline
+\multirow{3}{2.9cm}{Richer analysis} & Inflation-adjusted output, debt and hybrid funds, loss set-off, other uses of sale proceeds & Evaluation hooks in the simulator; sensitivity framework \\
+\cline{2-3}
+ & Whole-portfolio decisions & Portfolio snapshot and asset-mix computation \\
+\cline{2-3}
+ & More Indian languages; background job queue and load testing & Bilingual template banks with parity tests; stateless API with shared state in Redis \\
+\hline
+\end{tabularx}
+\caption{Future scope by phase}
+\label{tab:roadmap}
+\end{table}
+
+The first phase turns a complete local product into a public service, the second turns development-stage evidence into evidence about people, and the third widens what the system can analyze. Longer-term ideas from the original plan, such as broker integration, alerts and periodic retraining from tracked outcomes, follow naturally once real outcome data is available. Until then, Folium should be presented exactly as it presents itself: as information and education, and not as investment advice.

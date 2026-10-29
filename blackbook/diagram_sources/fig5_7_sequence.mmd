@@ -1,0 +1,25 @@
+%% Figure 5.7 - Sequence diagram
+sequenceDiagram
+  participant B as Browser
+  participant API as FastAPI decisions.py
+  participant P as Pipeline (background)
+  participant R as Redis
+  participant DB as PostgreSQL
+  participant M as src/ models
+  B->>API: POST /analyze
+  API->>DB: INSERT decision
+  API-->>B: 202 {decision_id}
+  B->>API: GET /stream (SSE)
+  API->>R: replay backlog + subscribe
+  API->>P: BackgroundTask
+  loop five steps
+    P->>DB: SELECT decision (RLS)
+    P->>M: predict / simulate / explain
+    P->>DB: UPDATE step columns
+    P->>R: publish {step, done}
+    R-->>API: event
+    API-->>B: data: {step, status}
+  end
+  P->>DB: INSERT audit_logs
+  P->>R: publish complete
+  B->>API: GET /result
