@@ -382,6 +382,8 @@ for _ in range(2):
         idx.getByIndex(i).update()
     doc.refresh()
 print("indexes", doc.getDocumentIndexes().getCount())
+# Word-ready copy: contents and lists already filled in, so the file opens complete.
+doc.storeToURL(uno.systemPathToFileUrl(src + ".filled.docx"), (prop("FilterName", "MS Word 2007 XML"),))
 doc.storeToURL(uno.systemPathToFileUrl(pdf), (prop("FilterName", "writer_pdf_Export"),))
 doc.close(True)
 try:
@@ -398,6 +400,7 @@ def render_pdf():
         script = f.name
     subprocess.run(["/usr/bin/python3", script, OUT_DOCX, OUT_PDF], check=True)
     os.unlink(script)
+    os.replace(OUT_DOCX + ".filled.docx", OUT_DOCX)
 
 
 def main():
