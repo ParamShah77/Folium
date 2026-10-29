@@ -11,7 +11,7 @@ All diagrams in this chapter were drawn from the structure of the code in the re
 
 Figure \ref{fig:arch} shows the overall architecture. The presentation tier is a React single-page application. During development the Vite server forwards every \texttt{/v1/*} request to the API, so the browser sees a single origin, which keeps the httpOnly session cookies and the CSRF check simple.
 
-The application tier is a FastAPI service. Its routes are in \texttt{backend/api/v1/}, its cross-cutting checks in \texttt{backend/middleware/}, its authentication code in \texttt{backend/auth/} and its domain services in \texttt{backend/services/}. The analysis itself runs as a background task under \texttt{backend/core/pipeline.py}.
+{\raggedright The application tier is a FastAPI service. Its routes are in \texttt{backend/api/v1/}, its cross-cutting checks in \texttt{backend/middleware/}, its authentication code in \texttt{backend/auth/} and its domain services in \texttt{backend/services/}. The analysis itself runs as a background task under \texttt{backend/core/pipeline.py}.\par}
 
 The analytics tier is the research code in \texttt{src/}. An important design decision is that the back end never re-implements the models. The module \texttt{backend/core/ml\_bridge.py} is the only place where the back end reaches into \texttt{src/}. It imports the heavy ML libraries lazily (they take about two seconds and 400 MB to load), runs blocking work in a worker thread so that the server stays responsive, and maps the vocabulary between the two sides. Since the research modules produced the reported numbers, re-implementing them would risk silently changing those numbers.
 

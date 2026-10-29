@@ -1,6 +1,6 @@
 \begin{tikzpicture}
   \foreach \n/\t [count=\i] in {b/Browser, api/{FastAPI\\ decisions.py}, p/{Pipeline\\ (background)}, r/Redis, db/PostgreSQL, m/{src/ models}}
-    \node[box, text width=20mm, minimum height=11mm, font=\footnotesize] (\n) at (\i*2.5,0) {\t};
+    \node[box, text width=21mm, minimum height=11mm, font=\footnotesize] (\n) at (\i*2.5,0) {\t};
   \foreach \n in {b,api,p,r,db,m} \draw[greyline, dashed] (\n.south) -- ++(0,-12.4);
   \draw[flow, black] (b.south |- 0,-1.08) -- node[lbl, above, font=\scriptsize] {POST /analyze} (api.south |- 0,-1.08);
   \draw[flow, black] (api.south |- 0,-1.86) -- node[lbl, above, font=\scriptsize] {INSERT decision} (db.south |- 0,-1.86);

@@ -1,6 +1,6 @@
 \begin{tikzpicture}[
-  ent/.style={rectangle split, rectangle split parts=2, draw=black, line width=0.6pt, align=left,
-              rectangle split part fill={tealfill, white}, font=\footnotesize, inner sep=3pt, text width=41mm},
+  ent/.style={rectangle split, rectangle split parts=2, draw=black, line width=0.6pt, align=flush left,
+              rectangle split part fill={tealfill, white}, font=\footnotesize\raggedright, inner sep=3pt, text width=45mm},
   rel/.style={draw=greyline, line width=0.6pt}]
   \node[ent] (users) at (0,0) {\textbf{users}\nodepart{two}PK user\_id\\ email (unique)\\ password\_hash, mfa\_secret\_enc\\ age, income, EMIs, rent, fees\\ risk tolerance, horizon\\ ai\_consent, purge\_after\\ created\_at};
   \node[ent] (port) at (-6.3,2.0) {\textbf{portfolios}\nodepart{two}PK holding\_id\\ FK user\_id\\ symbol, exchange\\ quantity, avg\_buy\_price\\ asset\_type};

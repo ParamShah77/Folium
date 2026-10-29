@@ -17,7 +17,7 @@
 \usepackage{enumitem}
 \usepackage{parskip}
 \usepackage{caption}
-\usepackage[hidelinks]{hyperref}
+\usepackage[hidelinks,hypertexnames=false]{hyperref}
 \usepackage{url}
 
 \input{figures/tikz/styles.tex}
@@ -33,6 +33,7 @@
 \newcommand{\rupee}{Rs.\,}
 
 \captionsetup{font=small, labelfont=bf}
+\captionsetup[lstlisting]{justification=raggedright, singlelinecheck=false}
 \setlist{itemsep=2pt, topsep=4pt}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
@@ -45,7 +46,7 @@
 \definecolor{codestr}{RGB}{150,60,40}
 \definecolor{codecom}{RGB}{110,120,120}
 \lstset{
-  language=Python, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{codekw}\bfseries,
+  language=Python, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{codekw},
   stringstyle=\color{codestr}, commentstyle=\color{codecom}\itshape, backgroundcolor=\color{codebg},
   frame=single, rulecolor=\color{codeframe}, breaklines=true, columns=fullflexible, keepspaces=true,
   showstringspaces=false, captionpos=t, aboveskip=8pt, belowskip=6pt, xleftmargin=2pt, xrightmargin=2pt,
