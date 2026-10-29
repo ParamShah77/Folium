@@ -1,0 +1,11 @@
+\begin{tikzpicture}
+  \node[proc, minimum size=34mm, font=\small] (sys) {\textbf{0}\\ Folium\\ decision-support\\ system};
+  \node[entity, left=34mm of sys] (inv) {Investor};
+  \node[entity, right=30mm of sys, yshift=14mm] (mkt) {Market data\\ providers};
+  \node[entity, right=30mm of sys, yshift=-14mm] (gem) {Gemini API\\ (optional)};
+  \draw[flow] ([yshift=4mm]inv.east) -- node[lbl, above=1mm, align=center] {profile, holdings,\\ action, comment} ([yshift=4mm]inv.east -| sys.west);
+  \draw[flow] ([yshift=-4mm]inv.east -| sys.west) -- node[lbl, below=1mm, align=center] {verdict, projections,\\ explanation, record} ([yshift=-4mm]inv.east);
+  \draw[flow] (mkt.west) -- node[lbl, above, sloped] {prices, NIFTY, VIX} (sys.north east);
+  \draw[flow, dashed] ([yshift=2mm]sys.south east) -- node[lbl, above, sloped] {comment, numbers} ([yshift=2mm]gem.west);
+  \draw[flow, dashed] ([yshift=-2mm]gem.west) -- node[lbl, below, sloped] {checked wording} ([yshift=-2mm]sys.south east);
+\end{tikzpicture}

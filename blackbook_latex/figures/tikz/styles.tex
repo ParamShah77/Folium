@@ -1,0 +1,46 @@
+% Shared TikZ styles for every design diagram in the report.
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric, shapes.multipart, fit, calc, backgrounds}
+
+\definecolor{tealfill}{RGB}{227,241,239}
+\definecolor{tealline}{RGB}{42,127,122}
+\definecolor{bluefill}{RGB}{233,239,249}
+\definecolor{blueline}{RGB}{78,107,160}
+\definecolor{greyfill}{RGB}{243,243,243}
+\definecolor{greyline}{RGB}{120,120,120}
+\definecolor{sandfill}{RGB}{252,244,228}
+\definecolor{sandline}{RGB}{176,135,50}
+
+\tikzset{
+  >={Stealth[length=2.2mm]},
+  every node/.style={font=\small, execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  box/.style={draw=tealline, fill=tealfill, rounded corners=2pt, align=center,
+              inner sep=4pt, minimum height=8mm, line width=0.6pt},
+  mlbox/.style={box, draw=blueline, fill=bluefill},
+  store/.style={box, draw=greyline, fill=greyfill},
+  ext/.style={box, draw=sandline, fill=sandfill},
+  tier/.style={draw=greyline, dashed, rounded corners=4pt, inner sep=6pt},
+  tierlabel/.style={font=\footnotesize\itshape, text=greyline},
+  flow/.style={->, line width=0.6pt},
+  biflow/.style={<->, line width=0.6pt},
+  lbl/.style={font=\footnotesize, fill=white, inner sep=1.5pt},
+  proc/.style={circle, draw=tealline, fill=tealfill, align=center, minimum size=19mm,
+               inner sep=1pt, font=\footnotesize, line width=0.6pt},
+  entity/.style={rectangle, draw=black, fill=white, align=center, minimum height=9mm,
+                 inner sep=4pt, line width=0.6pt},
+  datastore/.style={draw=none, align=center, minimum width=34mm, minimum height=7mm,
+                    path picture={\draw (path picture bounding box.north west) -- (path picture bounding box.north east)
+                                         (path picture bounding box.south west) -- (path picture bounding box.south east);}},
+  usecase/.style={ellipse, draw=tealline, fill=tealfill, minimum width=60mm, minimum height=7mm,
+                  inner sep=1pt, font=\footnotesize, line width=0.5pt},
+  act/.style={box, rounded corners=6pt, text width=100mm, font=\footnotesize},
+}
+
+% A stick-figure actor for use-case diagrams: \actor{name}{position}{label}
+\newcommand{\actor}[3]{%
+  \begin{scope}[shift={(#2)}]
+    \draw[line width=0.6pt] (0,0.62) circle (0.16);
+    \draw[line width=0.6pt] (0,0.46) -- (0,0.05);
+    \draw[line width=0.6pt] (-0.28,0.32) -- (0.28,0.32);
+    \draw[line width=0.6pt] (0,0.05) -- (-0.2,-0.3) (0,0.05) -- (0.2,-0.3);
+    \node[font=\footnotesize, align=center] (#1) at (0,-0.6) {#3};
+  \end{scope}}

@@ -1,0 +1,27 @@
+\begin{tikzpicture}[node distance=3mm]
+  \node[box, text width=32mm] (dec) {\textbf{decisions.py}\\ \footnotesize POST /analyze (202)\\ \footnotesize GET /stream (SSE)};
+  \node[box, below=10mm of dec, text width=32mm] (pipe) {\textbf{pipeline.py}\\ \footnotesize orchestrator};
+  \node[box, below=10mm of pipe, text width=32mm] (ev) {\textbf{events.py}\\ \footnotesize Redis pub/sub\\ \footnotesize and backlog};
+  \draw[flow] (dec) -- node[lbl, right] {schedules} (pipe);
+  \draw[flow] (pipe) -- node[lbl, right] {publishes} (ev);
+
+  \node[box, right=22mm of dec.north east, anchor=north west, text width=34mm, yshift=6mm] (s1) {\footnotesize 1. bias\_detector.py\\ \footnotesize + comment\_reader.py};
+  \node[box, below=of s1, text width=34mm] (s2) {\footnotesize 2. simulator.py};
+  \node[box, below=of s2, text width=34mm] (s3) {\footnotesize 3. explainer.py};
+  \node[box, below=of s3, text width=34mm] (s4) {\footnotesize 4. recommendation.py\\ \footnotesize + debate.py};
+  \node[box, below=of s4, text width=34mm] (s5) {\footnotesize 5. audit.py};
+  \foreach \s in {s1,s2,s3,s4,s5} \draw[flow, greyline] (pipe.east) -- (\s.west);
+
+  \node[mlbox, right=10mm of s2.east, anchor=west, text width=20mm, minimum height=32mm] (br) {\textbf{ml\_bridge}\\ \footnotesize lazy import,\\ \footnotesize worker thread,\\ \footnotesize label mapping};
+  \foreach \s in {s1,s2,s3} \draw[flow, blueline] (\s.east) -- (br.west |- \s.east);
+
+  \node[mlbox, right=8mm of br.north east, anchor=north west, text width=22mm] (m1) {\footnotesize bias\_model\_v4};
+  \node[mlbox, below=2mm of m1, text width=22mm] (m2) {\footnotesize simulator\_v2};
+  \node[mlbox, below=2mm of m2, text width=22mm] (m3) {\footnotesize causal\_v4};
+  \node[mlbox, below=2mm of m3, text width=22mm] (m4) {\footnotesize explainer,\\ \footnotesize llm\_polish};
+  \foreach \m in {m1,m2,m3,m4} \draw[flow, blueline] (br.east) -- (\m.west);
+  \node[tierlabel, above=1mm of m1] {src/};
+
+  \node[store, below=6mm of s5, text width=34mm] (al) {\footnotesize audit\_logs (PostgreSQL)};
+  \draw[flow] (s5) -- (al);
+\end{tikzpicture}

@@ -1,0 +1,104 @@
+\chapter{Requirement Analysis}
+The requirements below were drawn from the implemented code, the API routes, the database migrations and the project's master reference document. The status column shows whether a requirement is implemented and tested in the current release or planned for the next one.
+
+\section{Functional Requirements}
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\textwidth}{|c|L|P{2.2cm}|}
+\hline
+\textbf{ID} & \textbf{Requirement} & \textbf{Status} \\
+\hline
+FR-1 & Register with e-mail and password, verify the address, log in with an optional ``keep me signed in'', refresh sessions and log out & Built \\
+\hline
+FR-2 & Reset a forgotten password through an e-mailed link & Built \\
+\hline
+FR-3 & Two-step verification with an authenticator app (TOTP), eight single-use backup codes and an administrator-assisted recovery path & Built \\
+\hline
+FR-4 & Sign in with Google end to end, including two-step verification, a grace-period account and a profile step for new accounts & Built \\
+\hline
+FR-5 & Record age, take-home income, EMIs, rent, education fees, emergency fund, risk tolerance (five-question quiz) and horizon; re-verify before sensitive changes and log every change & Built \\
+\hline
+FR-6 & Add, edit and remove shares (live prices) and mutual funds (searched and priced live); record gold, deposits, savings, property, loans, rent received and monthly SIP & Built \\
+\hline
+FR-7 & Compute net worth, liquid assets, monthly surplus and allocation; fall back to average cost when a price is unavailable & Built \\
+\hline
+FR-8 & Submit an analysis for one holding with an action, optional months held and a reason in the investor's own words & Built \\
+\hline
+FR-9 & Capture and store the market context, portfolio snapshot and the stock's beta and own volatility at submission & Built \\
+\hline
+FR-10 & Run the five-step analysis in the background and stream live progress, replaying it after a page reload & Built \\
+\hline
+FR-11 & Read the comment for stated cash needs and feelings (English, Hinglish, Hindi) and quote them back verbatim & Built \\
+\hline
+FR-12 & Show the behavioral pattern with High, Medium or Low confidence and the inputs that weighed most & Built \\
+\hline
+FR-13 & Project HOLD and SELL over the investor's horizon after tax, with median, bad-case and good-case values by year & Built \\
+\hline
+FR-14 & Show cause-and-effect factors and the single most helpful habit & Built \\
+\hline
+FR-15 & Six-part explanation in English and Hindi; HTML report in both languages and PDF report in English & Built \\
+\hline
+FR-16 & HOLD, SELL or BUY MORE verdict with its reasons and the numbers used, followed by the case for both sides & Built \\
+\hline
+FR-17 & Seal each analysis in a tamper-evident chain and let the investor verify it & Built \\
+\hline
+FR-18 & History of analyses with filtering by pattern and search by holding & Built \\
+\hline
+FR-19 & Download all personal data; delete the account with a 30-day grace period; opt in to optional AI help & Built \\
+\hline
+FR-20 & Administrator console with usage statistics, user management and a recovery queue & Planned (next release) \\
+\hline
+\end{tabularx}
+\caption{Functional requirements}
+\label{tab:fr}
+\end{table}
+
+\section{Non-Functional Requirements}
+Correctness and transparency were treated as the most important qualities. Every number shown to the investor has to come from a computation: explanation templates are authoritative, and optional AI wording is rejected if it introduces a number. Any input that is missing is filled with a disclosed default and listed on the result page under ``How this was worked out''.
+
+Security and privacy follow from the sensitivity of the data. Passwords are hashed with bcrypt at cost 12, sessions use RS256 JSON Web Tokens (15-minute access and 7-day refresh tokens, rotated) in httpOnly cookies, mutating requests need a CSRF token, and two-step secrets are encrypted with Fernet. Every user-owned table is protected by PostgreSQL row-level security, and the application connects as a non-superuser role so that the policies apply. The audit table is append-only. Abuse is limited by rate limits of 5 logins per minute, 3 registrations and 3 password resets per hour, and 10 analyses per minute.
+
+The system must also stay usable when something fails. A price or market-data outage never breaks a page; defaults are used and disclosed, and an explanation failure falls back to the template text. For performance, one simulation of 1,000 paths over 30 years takes about 0.1 seconds, and the analysis runs in the background so that the request returns immediately. For reproducibility, each decision stores its market and portfolio snapshot, and the dataset, training and simulation use fixed random seeds. For maintainability, the product reaches the research code through a single bridge module, and model versions can be rolled back with configuration switches.
+
+\section{Hardware and Software Requirements}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{3.2cm}|L|}
+\hline
+\textbf{Component} & \textbf{Requirement} \\
+\hline
+Processor and memory & 4-core x86-64 processor; 8 GB RAM (16 GB recommended), since PostgreSQL, Redis, the API, the front-end server and the ML libraries (about 400 MB on import) run together \\
+\hline
+Storage and network & About 3 GB of free space; internet access for live prices and optional services \\
+\hline
+Runtimes & Python 3.13 (required by the pinned scipy and DoWhy versions); Node.js with npm \\
+\hline
+Back end & FastAPI 0.115, Pydantic 2, asyncpg, Alembic, structlog, slowapi, Uvicorn \\
+\hline
+Authentication & PyJWT, bcrypt, zxcvbn, pyotp, Authlib, cryptography (Fernet) \\
+\hline
+Data stores & PostgreSQL 18; Redis-compatible store (Memurai on Windows) \\
+\hline
+Machine learning & numpy 2.4.2, pandas 3.0.1, scipy 1.17.1, scikit-learn 1.8.0, xgboost 3.2.0, shap 0.51.0, dowhy 0.14, yfinance 0.2.66 \\
+\hline
+Explanation and reports & Jinja2 3.1.6, textstat, ReportLab; optional google-genai \\
+\hline
+Front end & React 19, Vite 8, TypeScript, Tailwind 4, TanStack Query, React Hook Form with Zod, Recharts, Vitest \\
+\hline
+\end{tabularx}
+\caption{Hardware and software requirements}
+\label{tab:hwsw}
+\end{table}
+
+Python 3.13 is a hard requirement. DoWhy 0.14 restricts scipy to version 1.15.3 or lower on older Python versions, which would silently change the scipy version under which the model artefacts were built.
+
+\section{Feasibility Study}
+The project is technically feasible because every component relies on mature open-source libraries. XGBoost, scikit-learn and SHAP are standard for tabular modeling, DoWhy provides identification and refutation, FastAPI and asyncpg handle long-running work asynchronously, and PostgreSQL supports row-level security natively. The heavy computation (training the classifier in about 81 seconds and the causal study in about 54 seconds) happens offline, while one prediction and one simulation at request time are fast enough to run in a background task.
+
+It is operationally feasible because the investor supplies information they already know (income, loans, holdings) once, and each analysis then needs only a holding, an action and an optional sentence. Gaps are filled with disclosed defaults instead of blocking the user, explanations avoid jargon and are available in Hindi. It is economically feasible because all the software is free and open source, market data comes from free sources, and the optional e-mail and Gemini services have free tiers and are off by default.
+
+\section{Assumptions and Constraints}
+Each analysis concerns one position. Horizons are capped at 30 years, with 20 years used when none is given. Tax rules are those of FY 2025-26 under the new regime, mutual funds are treated as equity funds, gold is valued at the international price before import duty and GST, and all amounts are nominal rupees. The profile records take-home pay, so where the simulator needs income before tax it inverts the income-tax formula. The models assume long-run growth of 11\% for shares, 9\% for gold, 6.75\% for fixed deposits and 3\% for savings, sale charges of 0.15\%, and that a habit halves the tendency it acts on. These assumptions are stated to the investor on every result page.

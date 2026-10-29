@@ -1,0 +1,10 @@
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.synctex.gz
+figures/tikz/test.tex
+figures/tikz/t_*.pdf
+report.pdf

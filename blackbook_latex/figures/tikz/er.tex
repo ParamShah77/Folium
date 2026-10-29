@@ -1,0 +1,19 @@
+\begin{tikzpicture}[
+  ent/.style={rectangle split, rectangle split parts=2, draw=black, line width=0.6pt, align=left,
+              rectangle split part fill={tealfill, white}, font=\footnotesize, inner sep=3pt, text width=41mm},
+  rel/.style={draw=greyline, line width=0.6pt}]
+  \node[ent] (users) at (0,0) {\textbf{users}\nodepart{two}PK user\_id\\ email (unique)\\ password\_hash, mfa\_secret\_enc\\ age, income, EMIs, rent, fees\\ risk tolerance, horizon\\ ai\_consent, purge\_after\\ created\_at};
+  \node[ent] (port) at (-6.3,2.0) {\textbf{portfolios}\nodepart{two}PK holding\_id\\ FK user\_id\\ symbol, exchange\\ quantity, avg\_buy\_price\\ asset\_type};
+  \node[ent] (fin) at (6.3,2.0) {\textbf{financial\_profiles}\nodepart{two}PK, FK user\_id\\ gold, FDs, savings\\ property, loans\\ rent received, monthly SIP};
+  \node[ent] (dec) at (-6.3,-4.6) {\textbf{decisions}\nodepart{two}PK decision\_id\\ FK user\_id\\ symbol, prices, intent, reason\\ market snapshot\\ portfolio\_context (jsonb)\\ comment\_facts (jsonb)\\ bias, confidence, curves\\ recommendation, status};
+  \node[ent] (aud) at (6.3,-4.6) {\textbf{audit\_logs}\nodepart{two}PK log\_id\\ FK user\_id, FK decision\_id\\ payload\_hash\\ previous\_hash, chain\_hash\\ payload (jsonb)};
+  \node[ent] (tok) at (0,-5.2) {\textbf{refresh\_tokens, mfa\_*}\nodepart{two}FK user\_id\\ token\_hash, jti\\ code\_hash, used};
+  \node[ent] (log) at (0,4.1) {\textbf{profile\_change\_log}\nodepart{two}FK user\_id, field, old\_value\_hash};
+  \draw[rel] (users.west) -- node[lbl] {1 : N} (port.east);
+  \draw[rel] (users.east) -- node[lbl] {1 : 1} (fin.west);
+  \draw[rel] (users.south west) -- node[lbl] {1 : N} (dec.north east);
+  \draw[rel] (users.south east) -- node[lbl] {1 : N} (aud.north west);
+  \draw[rel] (users.south) -- node[lbl] {1 : N} (tok.north);
+  \draw[rel] (users.north) -- node[lbl] {1 : N} (log.south);
+  \draw[rel] (dec.south) -- ++(0,-0.5) coordinate (q) -- node[lbl] {1 : N (one decision, its audit entries)} (q -| aud.south) -- (aud.south);
+\end{tikzpicture}

@@ -1,0 +1,314 @@
+\chapter{Implementation}
+This chapter describes the implementation module by module. The code listings are excerpts copied from the repository; omitted lines are marked with \texttt{...}, and identifiers and logic are unchanged.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{2.6cm}|L|}
+\hline
+\textbf{Path} & \textbf{Contents} \\
+\hline
+\texttt{backend/} & Product API: routes, authentication, the analysis pipeline and its steps, services, database layer and migrations, middleware and tests \\
+\hline
+\texttt{frontend/} & React application: pages, components, API client, query hooks and tests \\
+\hline
+\texttt{src/} & Models and engines: dataset generator, bias model, simulator, causal module, explainer and templates; earlier versions kept for rollback \\
+\hline
+\texttt{models/}, \texttt{data/} & Trained model files; the dataset and cached market history \\
+\hline
+\texttt{results/}, \texttt{scripts/} & Evaluation files and reports; training, evaluation and maintenance scripts \\
+\hline
+\texttt{tests/}, \texttt{notebooks/} & Tests for the models and engines; research notebooks \\
+\hline
+\end{tabularx}
+\caption{Organization of the repository}
+\label{tab:repo}
+\end{table}
+
+\section{Dataset Generator}
+The generator in \texttt{src/dataset\_v4.py} produces the 20,000 labelled decisions. Its most important function for the rest of the system is \texttt{applicable\_bias\_motives}, which encodes the label table, together with \texttt{allowed\_labels}, which the bias model uses both as an input and as a guard. Keeping the table in one place means that the generator, the model and the tests cannot disagree about what a label means.
+
+\begin{lstlisting}[caption={The label rules in code form (\texttt{src/dataset\_v4.py})}, label=lst:rules]
+def applicable_bias_motives(s: dict) -> list[Motive]:
+    gl, r1m, vix, regime = s["unrealized_gl"], s["nifty_1m_return"], s["vix"], s["regime"]
+    falling_fear = gl < -0.03 and r1m <= FALLING_1M and (vix >= FEAR_VIX or regime in ("crash", "correction"))
+    calm = regime in ("normal", "bull")
+    out: list[Motive] = []
+    if falling_fear:
+        out.append(Motive("loss_aversion_panic", "loss_aversion", "sell"))
+    if gl <= DEEP_LOSS:
+        out.append(Motive("loss_aversion_refusal", "loss_aversion", "hold"))
+    if calm and gl >= EARLY_WIN:
+        out.append(Motive("disposition_sell_winner", "disposition", "sell"))
+    if calm and DEEP_LOSS < gl <= MODERATE_LOSS:
+        out.append(Motive("disposition_hold_loser", "disposition", "hold"))
+    if vix >= HERD_FEAR_VIX or r1m <= HERD_FEAR_1M:
+        out.append(Motive("herd_sell_fear", "herd", "sell"))
+    if r1m >= FRENZY_1M:
+        out.append(Motive("herd_buy_frenzy", "herd", "buy_more"))
+    return out
+\end{lstlisting}
+
+The thresholds are module constants, so the dataset card, the tests and the code all refer to the same values. Using \texttt{numpy.random.default\_rng(2026)} with the cached market file makes the dataset identical on every rebuild.
+
+\section{Bias Model}
+\texttt{src/bias\_model\_v4.py} builds the features, loads the model and makes predictions. The function \texttt{build\_features} refuses to run with missing inputs or an unknown action, so that the caller fills any gap and can disclose what it filled. The model is stored as native XGBoost JSON with a metadata file that holds the feature list, the calibration curve and the training medians, and \texttt{load} refuses to run if the stored feature list differs from the code.
+
+\begin{lstlisting}[caption={The definitional guard and top-label calibration (\texttt{src/bias\_model\_v4.py})}, label=lst:calib]
+def apply_guard(p: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Zero the patterns the definitions rule out, then renormalise."""
+    q = p * mask
+    return q / q.sum(axis=1, keepdims=True)
+
+def calibrate_top_label(p, curve_x, curve_y):
+    p = np.asarray(p, dtype=float)
+    k = p.argmax(axis=1)
+    rows = np.arange(len(p))
+    top = p[rows, k]
+    rest = 1.0 - top
+    second = np.sort(p, axis=1)[:, -2]
+    c = np.interp(top, curve_x, curve_y)
+    floor = np.where(rest > 0, second / np.maximum(rest + second, 1e-12) + 1e-6, top)
+    c = np.clip(np.maximum(c, floor), 0.0, 1.0)
+    scale = np.where(rest > 1e-12, (1.0 - c) / np.maximum(rest, 1e-12), 0.0)
+    q = p * scale[:, None]
+    q[rows, k] = c
+    return q
+\end{lstlisting}
+
+Since the rational label is always allowed, the guard never removes every class. \texttt{calibrate\_top\_label} replaces only the chosen class's probability and rescales the others in their original ratios. The \texttt{floor} term ensures that calibration can lower the stated confidence but cannot demote the chosen class below the runner-up; it changes how sure the model says it is, never what it says. The \texttt{predict} function asks XGBoost for both the raw scores and the exact SHAP contributions (\texttt{pred\_contribs=True}), and only the contributions of the chosen class are summed into drivers. This fixed a defect of the earlier v3 model, whose ``what weighed most'' explained a different class from the one it displayed in 98.6\% of test cases.
+
+Training is done by \texttt{scripts/train\_bias\_v4.py}. The cases are split 80:20 into development and test sets, stratified by label and regime. Five-fold cross-validation with early stopping chooses the number of trees, and the same folds give out-of-fold predictions for fitting the calibration curve. The hyperparameters are listed in Table \ref{tab:hyper}.
+
+In the product, \texttt{backend/core/bias\_detector.py} assembles the inputs from the decision row, the profile and the portfolio snapshot taken at submission. The comment reader runs first so that \texttt{cash\_need\_stated} is available. It scans the reason with regular expressions in English, Hinglish and Hindi, for example \texttt{(paisa|paise) (chahiye|ki zarurat)} or \texttt{(lost my job|laid off)}, and returns each match with the whole sentence quoted verbatim. Only a stated fact (a need for the money) changes a model input. Feelings such as fear or following friends are quoted back to the investor but never change the reading or the verdict. When the investor has consented, Gemini may also read the comment, but its answer is accepted only if every quote appears word for word in the comment.
+
+\section{Simulator}
+\texttt{src/simulator\_v2.py} compares holding and selling one position. Its input is a dataclass with the position value, cost basis, months held, asset type, horizon (clamped to 1 to 30 years), income, the rest of the liquid portfolio, beta and own volatility, SIP and education fees, the number of paths and the seed.
+
+\begin{lstlisting}[caption={Circular 12-month block bootstrap (\texttt{src/simulator\_v2.py})}, label=lst:boot]
+def _bootstrap(rng: np.random.Generator, n_paths: int, months: int, n_hist: int) -> np.ndarray:
+    b = int(ASSUMPTIONS["block_months"])
+    n_blocks = -(-months // b)
+    starts = rng.integers(0, n_hist, size=(n_paths, n_blocks))
+    return ((starts[:, :, None] + np.arange(b)) % n_hist).reshape(n_paths, -1)[:, :months]
+\end{lstlisting}
+
+The function in Listing \ref{lst:boot} is fully vectorized. It draws all block starts at once, expands each into 12 consecutive month indices, wraps them with the modulo operator and trims the result to the required length. Without the wrap-around, the first and last months of history would be under-sampled, and October 2007 starts with the 2008 crash.
+
+\begin{lstlisting}[caption={Paired HOLD and SELL valuation after tax (excerpt of \texttt{simulate})}, label=lst:sim]
+    growth = a["fd_rate"] + beta * (market_growth - a["fd_rate"])
+    eq_shock = eq_log[idx] - eq_log.mean()
+    own = rng.normal(-own_vol ** 2 / 2, own_vol, size=(n, m))
+    pos_cum = np.exp(np.cumsum(math.log1p(growth) / 12 + beta * eq_shock + own, axis=1))
+    ...
+    hold_value = inp.position_value * pos_cum
+    hold_gain = hold_value - inp.cost_basis
+    hold_in_hand = hold_value * (1 - a["sale_cost"]) - equity_gains_tax(hold_gain, inp.months_held + months_ahead)
+    sale = sale_today(inp)
+    split = destination(inp)
+    p = float(sale["proceeds"])
+    gold_part = p * split["gold"] * gd_cum
+    gold_in_hand = gold_part - gold_gains_tax(gold_part - p * split["gold"], months_ahead, slab)
+    sell_in_hand = (gold_in_hand + p * split["fixed_deposits"] * fd_after_tax
+                    + p * split["savings"] * sav_after_tax)
+    ...
+    diff = hold_end - sell_end
+    opp = float(np.median(diff))
+    prob_hold = float((diff > 0).mean())
+\end{lstlisting}
+
+Listing \ref{lst:sim} shows three design points. The holding's growth uses the capital asset pricing relation, so a volatile stock is not projected to grow faster only because it is volatile. The company-specific shock has mean $-\sigma^2/2$ in log space, so its expected multiplicative effect is one. HOLD is valued as if cashed in each year, while SELL paid its tax on day one and is taxed on interest every year, so the two are compared like for like. The tax helpers work on whole arrays, so tax is computed for all paths and months in one call. In the product, \texttt{backend/core/simulator.py} builds the inputs from the decision and the profile. It uses the beta and own volatility measured at submission from ten years of monthly prices, falling back to the median NIFTY 50 stock (beta 1.0, own volatility 21\%), and it converts take-home pay to gross income with \texttt{gross\_from\_take\_home} before looking up the slab rate.
+
+\section{Causal Module}
+\texttt{src/causal\_v4.py} re-implements the generator's motive weights so that, for any case, it returns the exact probability of selling, holding and buying more. It matches the stored motive share of all 20,000 cases with a maximum absolute error of zero. The true effect of an intervention is the mean change in these exact probabilities. The estimated effect comes from the g-computation model of Listing \ref{lst:gcomp} and from DoWhy with three refutation tests. The back end reads the results file and caches it.
+
+\begin{lstlisting}[caption={G-computation estimator (\texttt{src/causal\_v4.py})}, label=lst:gcomp]
+class GComputation:
+    """S-learner: P(action | everything observed), queried under interventions."""
+    def __init__(self, df: pd.DataFrame, seed: int = 0):
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        self.model = HistGradientBoostingClassifier(max_iter=400, learning_rate=0.06, max_leaf_nodes=31,
+                                                    l2_regularization=1.0, random_state=seed)
+        self.model.fit(df[OBSERVED], df.action.map({a: i for i, a in enumerate(ACTIONS)}))
+
+    def probabilities(self, df: pd.DataFrame) -> np.ndarray:
+        p = self.model.predict_proba(_refresh_derived(df)[OBSERVED])
+        out = np.zeros((len(df), 3))
+        out[:, self.model.classes_] = p
+        return out
+\end{lstlisting}
+
+\section{Recommendation and Both Sides}
+The function \texttt{decide} in \texttt{backend/core/recommendation.py} is a pure function. It takes values and returns a verdict and a list of reasons without touching the database or the network, which makes it directly testable.
+
+\begin{lstlisting}[caption={Evidence rules for the sell intent (excerpt of \texttt{decide})}, label=lst:decide]
+    if intent == "sell":
+        if p >= _STRONG:
+            reasons.append(f"Holding beat selling in {pct} of {horizon_years}-year simulations.")
+            if biased:
+                reasons.append(f"The urge to sell shows signs of {bias_name}.")
+            return "HOLD", reasons
+        if p <= _WEAK:
+            reasons.append(f"Holding beat selling in only {pct} of simulations.")
+            return "SELL", reasons
+        reasons.append(f"The simulations are close to even ({pct} favour holding).")
+        if biased:
+            reasons.append(f"With {bias_name} detected, the cautious choice is to wait.")
+            return "HOLD", reasons
+        reasons.append("No bias pattern showed up behind the sale, so your call stands.")
+        return "SELL", reasons
+\end{lstlisting}
+
+If no simulation result is available, the odds are treated as even and that fact is stated. When a reason mentions the confidence of a reading, it is written in words (high, medium or low) and never as a percentage. After the verdict, \texttt{backend/core/debate.py} builds the case for each side from the analysis's own numbers. These cases are never read by the verdict.
+
+\section{Pipeline Orchestrator}
+\begin{lstlisting}[caption={The step loop and failure handling (excerpt of \texttt{run\_analysis\_pipeline})}, label=lst:pipe]
+    try:
+        for step_name in STEP_ORDER:
+            await _set_status(db, decision_id, user_id, "processing", step_name)
+            await publish_event(redis, decision_id, {"step": step_name, "status": "running"})
+            decision = await _load_decision(db, decision_id, user_id)
+            ctx = PipelineContext(decision_id=decision_id, user_id=user_id,
+                                  decision=decision, db=db, redis=redis)
+            result = await resolve_step(step_name)(ctx)
+            await _apply_updates(db, decision_id, user_id, result.updates)
+            await publish_event(redis, decision_id,
+                                {"step": step_name, "status": "done", **result.event})
+        await _set_status(db, decision_id, user_id, "complete", None, completed=True)
+        await publish_event(redis, decision_id, {"step": "complete", "status": "done"})
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        try:
+            await _set_status(db, decision_id, user_id, "failed", None, error_message=str(exc)[:500])
+        finally:
+            await publish_event(redis, decision_id,
+                {"step": "failed", "status": "error", "error": str(exc)[:500]})
+\end{lstlisting}
+
+The loop in Listing \ref{lst:pipe} guarantees two properties. Each step sees what the earlier steps wrote, because the row is reloaded every time. A connected browser always learns that the run has ended: the success path publishes \emph{complete}, and the failure path publishes \emph{failed} inside a \texttt{finally} block, so the stream is notified even if writing the status fails.
+
+\section{Explanation Engine}
+The explanation engine in \texttt{src/explainer.py} gathers all numbers into one facts dictionary and renders the six sections with Jinja2 templates. Templates are rendered with \texttt{StrictUndefined}, so a missing fact raises an error in testing instead of printing a blank. Internal terms are translated into plain phrases, a 30-term jargon blocklist is enforced by tests, and money is formatted the Indian way (\rupee 1.2 lakh in prose, \rupee 1,32,451 in tables). The English and Hindi banks have 34 templates each with identical structure, so Hindi works without any external service. Reports are produced as HTML in both languages and as PDF in English; a Hindi PDF is refused with an explanation because ReportLab cannot shape Devanagari, and the HTML report prints correctly from a browser.
+
+\begin{lstlisting}[caption={Number-preservation check for optional AI wording (\texttt{src/llm\_polish.py})}, label=lst:guard]
+def guard_ok(original: str, polished: str) -> bool:
+    if not polished or not polished.strip():
+        return False
+    invented_numbers = _numbers(polished) - _numbers(original)
+    if invented_numbers:
+        return False
+    invented_money = _money(polished) - _money(original)
+    if invented_money:
+        return False
+    ratio = len(polished) / max(len(original), 1)
+    if not 0.6 <= ratio <= 1.8:
+        return False
+    return True
+\end{lstlisting}
+
+Tables are replaced with placeholder tokens before any text is sent and restored afterwards. Any failure (no key, quota, timeout or a malformed reply) returns the template text, and two consecutive failures pause the feature for five minutes. The check in Listing \ref{lst:guard} rejects added numbers; a removed number is caught only through the length limit, which is noted as an open item in Chapter 8.
+
+\section{Data Layer and Row-Level Security}
+\begin{lstlisting}[caption={Per-transaction user for row-level security (\texttt{backend/db/pool.py} and migration 0007)}, label=lst:rls]
+    async def rls_transaction(self, user_id):
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "SELECT set_config('app.current_user_id', $1::text, true)",
+                    str(user_id) if user_id is not None else "")
+                yield conn
+
+# policy created for each protected table
+CREATE POLICY decisions_isolation ON decisions FOR ALL
+    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid)
+    WITH CHECK (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
+\end{lstlisting}
+
+The third argument of \texttt{set\_config} makes the setting local to the transaction, so it cannot leak to the next request that reuses a pooled connection, and \texttt{NULLIF} turns an unset value into \texttt{NULL}, so a query that forgot to set the user sees no rows instead of failing. PostgreSQL superusers bypass row-level security, so the application connects as the non-superuser \texttt{app\_user}. Another user's decision is simply invisible, and a request for it returns 404 rather than 403.
+
+\section{Audit Chain}
+\begin{lstlisting}[caption={Appending an audit entry under a per-investor lock (\texttt{backend/core/audit.py})}, label=lst:audit]
+async def append_entry(conn, user_id, decision_id, row, recorded_at=None):
+    await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))", str(user_id))
+    entries, genesis = await load_chain(conn, user_id)
+    previous = chain_head(entries, genesis)
+    payload = build_payload(row, recorded_at or datetime.now(timezone.utc))
+    payload_hash = sha256(canonical(payload))
+    chain_hash = sha256(previous + payload_hash)
+    await conn.execute(
+        "INSERT INTO audit_logs (decision_id, user_id, event_type, payload_hash, "
+        "previous_hash, chain_hash, payload) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)",
+        decision_id, user_id, payload["event"], payload_hash, previous, chain_hash, canonical(payload))
+\end{lstlisting}
+
+The payload holds two fingerprints: one over 21 input fields (the holding, prices, action, reason, market and portfolio snapshots and the comment reading) and one over 14 output fields (pattern, confidence, projections, explanation, transcript and verdict). Values are normalized so that a number reads the same however it arrives from the database. The advisory lock serializes appends for each investor, so two analyses finishing together cannot claim the same predecessor. At the database level, rules turn \texttt{UPDATE} and \texttt{DELETE} on \texttt{audit\_logs} into no-ops, so the table is append-only.
+
+\section{Authentication and Google Sign-in}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{2.6cm}|L|}
+\hline
+\textbf{Concern} & \textbf{Implementation} \\
+\hline
+Passwords & bcrypt with cost 12; zxcvbn score of 3 or more required \\
+\hline
+Sessions & RS256 JWT, 15-minute access and 7-day refresh tokens with rotation, in httpOnly \texttt{SameSite=Lax} cookies; a Redis blacklist invalidates tokens on logout and refresh \\
+\hline
+CSRF & The \texttt{csrf\_token} cookie must equal the \texttt{X-CSRF-Token} header on every mutating request \\
+\hline
+Two-step & TOTP with \texttt{valid\_window=1}; secret encrypted with Fernet; eight bcrypt-hashed backup codes; recovery requests limited to one per e-mail per day \\
+\hline
+Google sign-in & OpenID Connect through Authlib; single-use state in Redis for ten minutes; only addresses verified by Google are accepted \\
+\hline
+Rate limits & Login 5 per minute, registration and password reset 3 per hour, analysis 10 per minute \\
+\hline
+\end{tabularx}
+\caption{Authentication and session controls}
+\label{tab:auth}
+\end{table}
+
+For Google sign-in, \texttt{GET /v1/auth/google/login} creates a random single-use state and stores it in Redis with the ``keep me signed in'' choice and the page to return to (only paths inside the app are accepted). When Google sends the browser back, the callback consumes the state, exchanges the code for the profile and accepts it only if Google reports the e-mail as verified; otherwise anyone could link an unverified address to another person's account. The callback always redirects to \texttt{/auth/google} in the app with the outcome in the URL fragment. Browsers never send a fragment to a server, so the single-use tokens it may carry stay out of server logs, and the page removes the fragment from the address bar once it has read it. The page then signs the investor in, asks for the two-step code, offers ``Keep my account'' during the deletion grace period, or explains a failure. A new Google account has no financial profile yet, so the route guard sends it to the Welcome page until the profile is complete, and a Google-only account can set a password from Settings.
+
+\section{Account Deletion and Data Export}
+Deleting an account needs the password, and a TOTP code if two-step verification is on, and signs the user out everywhere. For 30 days, logging in offers ``Keep my account''. After that, a periodic task anonymizes the account: name, e-mail, credentials, profile and financial data, holdings, sessions and profile history are erased, and each analysis loses its comment, snapshots, explanation and projections. The user identifier and creation time, which anchor the audit chain, remain with the audit entries but are no longer linked to any person. ``Download my data'' returns everything held about the investor as JSON, without the password hash, the two-step secret or tokens.
+
+\section{Front End}
+The front end is a React 19 application written in TypeScript and built with Vite. An axios client sends the CSRF token on mutating requests and, when a session expires, refreshes it once and retries. TanStack Query hooks fetch every resource, forms use React Hook Form with Zod schemas, and charts use Recharts. The result page follows the analysis through an \texttt{EventSource} on the stream endpoint and falls back to polling if the stream fails. Route guards send signed-out visitors to the login page while remembering where they were going.
+
+\section{Error Handling and Edge Cases}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{4.6cm}|L|}
+\hline
+\textbf{Situation} & \textbf{Behavior} \\
+\hline
+No live price & Valued at average cost and marked ``price unavailable'' \\
+\hline
+Market data unavailable & A calm median market is assumed and disclosed \\
+\hline
+Profile or portfolio gaps & Training medians used and listed on the result page \\
+\hline
+Stock with too little history & Median NIFTY 50 stock (beta 1.0, own swings 21\%) used and disclosed \\
+\hline
+No horizon given & 20 years, stated on the page; horizons above 30 are capped \\
+\hline
+Payments exceed income & Surplus ratio clipped at $-2$; a stated cash need reads a sale as rational \\
+\hline
+Very large position or goal within 3 years & A sale can be read as rational \\
+\hline
+Page reloaded during an analysis & Event backlog replayed; polling fallback \\
+\hline
+Two analyses finishing together & Per-investor lock keeps the audit chain linear \\
+\hline
+First sign-in with Google & Account created; profile asked on the Welcome page \\
+\hline
+Google sign-in cancelled or refused & The app explains what happened and offers to try again \\
+\hline
+AI help fails or misquotes & Rule-based reading and template text are used \\
+\hline
+\end{tabularx}
+\caption{Edge cases and how they are handled}
+\label{tab:edge}
+\end{table}
