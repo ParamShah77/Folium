@@ -1,5 +1,5 @@
-\chapter{Conclusion and Future Scope}
-\section{Conclusion}
+\chapter{Conclusion and Future Scope of Folium}
+\section{Conclusion of Folium}
 Retail investors often decide to sell, hold or buy more under the pull of recent losses, market fear or the crowd, while the tools available to them describe the asset rather than the decision. In this project we built Folium, a full-stack web application that judges one intended decision against the investor's whole financial picture. For each decision, a five-step background pipeline reads the investor's comment, classifies the behavioral pattern with a calibrated and guarded XGBoost model explained by exact TreeSHAP, projects holding and selling on the same block-bootstrapped market paths after Indian tax, attaches causal estimates validated against a known generator, renders a six-part explanation in English and Hindi, derives a verdict from explicit evidence rules, and seals the analysis in a per-investor hash chain. Investors sign in by e-mail or with Google, accounts are protected with two-step verification, CSRF protection and rate limits, and investors can export or delete their data.
 
 \begin{table}[H]
@@ -24,11 +24,11 @@ Tamper-proof audit mechanism & SHA-256 hash chain for every analysis with verifi
 
 Table \ref{tab:achieved} summarizes how each objective was met. All figures are development-stage results on synthetic behavioral labels.
 
-\section{Limitations}
+\section{Limitations of Folium}
 \label{sec:boundaries}
 Two boundaries define what the results can claim. The first is scientific. The behavioral labels are synthetic by design, because no public dataset links Indian investors' decisions to their finances and true motives. The readings are therefore validated against a known generator and not against real people, and no claim is made that the system improves investment outcomes. The second concerns modeling. The simulator's verdicts depend on stated long-run growth rates, projections are in nominal rupees, tax handling is simplified (losses are not set off against other gains), mutual funds are treated as equity funds, and each analysis concerns one position. Both boundaries are stated to the investor on every result page.
 
-\section{Future Scope}
+\section{Future Scope of Folium}
 The remaining work is organized in three phases, each building on foundations that already exist in the repository.
 
 \begin{table}[H]

@@ -1,7 +1,7 @@
-\chapter{Testing}
+\chapter{Testing of Folium}
 Testing in Folium had four goals: to show that each model and engine behaves as specified, including behavioral properties and not only code paths; to show that the security controls block what they are meant to block; to show that the pipeline, database and live stream work together; and to prevent regressions when models are retrained or replaced.
 
-\section{Test Suites}
+\section{Test Suites of Folium}
 \begin{table}[H]
 \centering
 \small
@@ -22,7 +22,7 @@ Front end & \texttt{frontend/src/test/} & 25 & Node.js (Vitest, Testing Library)
 
 The counts in Table \ref{tab:suites} are those recorded in the project's master reference after the latest changes, where all suites were reported as passing. Many tests are parameterized, so one test function runs over several cases.
 
-\section{Unit Testing}
+\section{Unit Testing of Folium}
 \begin{table}[H]
 \centering
 \small
@@ -59,7 +59,7 @@ UT-12 & Explanations & Six sections, English and Hindi structural parity, jargon
 \label{tab:unit}
 \end{table}
 
-\section{Integration Testing}
+\section{Integration Testing of Folium}
 Integration tests run the FastAPI application against real PostgreSQL and Redis instances through an HTTP client.
 
 \begin{table}[H]
@@ -98,7 +98,7 @@ IT-12 & Google return page for each outcome (front end) & Signs in, asks for the
 \label{tab:integration}
 \end{table}
 
-\section{System Testing}
+\section{System Testing of Folium}
 The behavior of the product as a whole is exercised through the demonstration walkthrough, which uses accounts and analyses created by the seeding script. Table \ref{tab:system} lists the system test cases with their expected results.
 
 \begin{table}[H]
@@ -131,12 +131,12 @@ ST-9 & First sign-in with a new Google account & Returns to the app; Welcome pag
 \label{tab:system}
 \end{table}
 
-\section{Validation, Edge Cases and Performance}
+\section{Validation, Edge Cases and Performance of Folium}
 Input is validated at three layers. Pydantic schemas reject malformed requests with HTTP 422 before any logic runs. Database check constraints enforce domain rules whatever the code path, for example that age lies between 18 and 100, that the quantity is positive, that confidence lies between 0 and 1, and that a recommendation is one of HOLD, SELL or BUY MORE. The model and the simulator raise an error on missing or invalid inputs. The edge cases of Table \ref{tab:edge} are covered by tests such as horizon clamping, the missing-simulation rule and the price outage.
 
 No load test has been performed. One simulation of 1,000 paths over 30 years takes 103.4 ms, and each prediction records its own inference time in milliseconds. Numerical stability, which matters more for the correctness of a verdict, was measured instead: at 1,000 paths the probability that holding wins varies by only about $\pm$1.7 points between runs.
 
-\section{Defects Found and Resolved}
+\section{Defects Found and Resolved in Folium}
 \begin{table}[H]
 \centering
 \small

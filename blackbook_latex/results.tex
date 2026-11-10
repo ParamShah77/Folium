@@ -1,7 +1,7 @@
-\chapter{Results and Analysis}
+\chapter{Results and Analysis of Folium}
 Every number in this chapter is taken from the evaluation files committed in the \texttt{results/} folder of the repository: the bias model evaluation written by the training script, the simulator evaluation, the causal results, and the paper evaluation written by \texttt{evaluate\_for\_paper.py}. The charts were plotted directly from these files. The experiments use fixed seeds and cached market data, so they can be reproduced. The behavioral labels are synthetic and the market history is real; no experiment with real investors has been carried out.
 
-\section{Experimental Setup}
+\section{Experimental Setup of Folium}
 The 20,000 cases of dataset v4.1 were split into 16,000 development and 4,000 test cases, stratified by label and market regime, and the test set was used once. Five-fold cross-validation with early stopping on the development set gave best iterations of 423, 330, 329, 381 and 364, and the final model uses 402 trees (1.1 times the mean). Because stress regimes are over-sampled, every metric is re-weighted to the real frequency of each regime (normal 39.4\%, bull 29.0\%, correction 19.9\%, crash 6.6\%, euphoria 5.2\%), and these are the figures quoted throughout.
 
 \begin{table}[H]
@@ -34,7 +34,7 @@ The evaluation metrics are accuracy, per-class precision, recall and F1, macro-F
 F1_k = \frac{2\,\text{Precision}_k\,\text{Recall}_k}{\text{Precision}_k + \text{Recall}_k}.
 \end{equation}
 
-\section{Behavioral Classification Results}
+\section{Behavioral Classification Results of Folium}
 \begin{table}[H]
 \centering
 \small
@@ -119,7 +119,7 @@ The calibrated points in Figure \ref{fig:reliability} lie close to the diagonal.
 
 Accuracy is 89.5\% in normal markets, 87.8\% in bull markets and corrections, 90.3\% in euphoria and 77.6\% in crashes, where loss aversion and herd behavior overlap the most. By action it is 84.9\% for sales, 90.0\% for holds and 89.4\% for purchases. Trained only on decisions dated 2008 to 2019 and tested on 2020 to 2026, which includes the COVID crash, the model reaches 86.5\% accuracy and 0.826 macro-F1, close to the random-split result.
 
-\subsection{Baselines and Other Learners}
+\subsection{Folium against Baselines and Other Learners}
 \begin{table}[H]
 \centering
 \small
@@ -177,8 +177,8 @@ To check whether XGBoost is the right learner, logistic regression and a 500-tre
 
 Of the test cases, 167 are sales forced by money. Bias model v4.1 reads 71.9\% of them as rational: 90.6\% when the need is stated in the comment and 39.3\% when it is not, against 37.7\% for the earlier v4.0 model trained without money pressure. The gap between stated and unstated needs is exactly what the comment reader is designed to close. The training script also runs 13 scenario checks and 8 relational checks on a typical investor, and v4.1 passes all 21 (v3 passed 5 of the 13 scenarios). For example, selling a winner up 35\% in a calm market reads as the disposition effect with confidence 0.98, selling at a 20\% loss in a calm market reads as rational, and in a fearful market a stated cash need raises the rational reading from 0.09 to 0.49. Gold share alone barely moves the reading (largest change 0.05), as it should, since gold has no role in the label definitions.
 
-\section{Simulator Results}
-\subsection{Realism and Choice of Generator}
+\section{Simulator Results of Folium}
+\subsection{Realism and Choice of Generator in Folium}
 \begin{table}[H]
 \centering
 \small
@@ -214,7 +214,7 @@ Block 24 months & $-$8.1\% & 10.3\% & 33.0\% & 0.105 / 0.023 / 0.033 & 0.030 \\
 
 Table \ref{tab:generators} and Figure \ref{fig:generators} justify the choice of generator. All six generators share the same average growth, so only the shape and the dependence differ. The 12-month block bootstrap is the only one that reproduces both the spread of real one-year returns and volatility clustering. Its KS distance (0.027) is a quarter of that of independent months (0.108) and a fifth of GBM's (0.132), while GBM and independent months have no clustering at all and make bad years about twice as bad as reality. Moving to 24-month blocks changes almost nothing. With the long-run growth assumptions used in the app, simulated one-year returns are $-$6.9\%, +11.6\% and +34.7\% at the 10th, 50th and 90th percentiles, against $-$7.5\%, +11.3\% and +33.3\% for the real index; the earlier v1 simulator had bad years of $-$15.8\%. The 19-year record holds only one independent decade, so ten-year comparisons (KS distance about 0.34 for every generator) are not used to rank generators.
 
-\subsection{Effect of the Horizon and Stability of the Numbers}
+\subsection{Effect of the Horizon and Stability of Folium's Numbers}
 \begin{table}[H]
 \centering
 \small
@@ -257,7 +257,7 @@ Table \ref{tab:horizon} and Figure \ref{fig:horizon} show the central practical 
 
 Figure \ref{fig:convergence} shows how much of each number is simulation noise. At the app's 1,000 futures, the probability that holding wins (the input to the recommendation rules) varies by about $\pm$1.7 points between runs, close to the binomial standard error of $\pm$1.5 points. The median rupee gap is noisier and varies by about $\pm$14\%. This is why the verdict is driven by the probability and the rupee gap is presented as an approximate value.
 
-\subsection{Results over 1,000 Investors and Sensitivity}
+\subsection{Folium Results over 1,000 Investors and Sensitivity}
 \begin{table}[H]
 \centering
 \small
@@ -313,7 +313,7 @@ Figure \ref{fig:sensitivity} ranks the assumptions by how many verdicts they cha
 
 Figure \ref{fig:stocks} shows a clear negative relationship between a stock's own volatility and the advantage of holding it. HDFC Bank, with beta 1.03 and own volatility of 14\%, wins in 73\% of 20-year futures, while Wipro, with beta 0.60 and own volatility of 25\%, wins in 50\%. Two effects combine: own volatility drags down the median compound outcome, and a low beta lowers expected growth under the capital asset pricing relation. The second effect is a modeling choice, since steady low-beta stocks have often done better historically than the relation predicts.
 
-\subsection{Comparison with Real History}
+\subsection{Comparison of Folium with Real History}
 \begin{table}[H]
 \centering
 \small
@@ -332,7 +332,7 @@ Figure \ref{fig:stocks} shows a clear negative relationship between a stock's ow
 
 Table \ref{tab:walk} places what actually happened in each real 5-year and 10-year window inside the simulated distribution for the same case. Every real outcome but one falls inside the simulated 10th to 90th percentile band, and real outcomes sit in the upper middle of the band, since 2007 to 2026 was a good period for holding equity. With only one to three independent windows this is a consistency check and not a validation of forecasting ability. A related check concerns the paired gap itself: for the base-case investor over 14 years, the difference of the two medians and the median of the paired differences differ by up to 19\% at year 10 (\rupee 63,790 against \rupee 51,717). Folium reports the paired gap with its 10th to 90th percentile range ($-$\rupee 1,19,371 to \rupee 5,12,349 at year 10), because that range also shows that holding loses in a substantial share of futures even when it wins in the typical one.
 
-\section{Cause and Effect Results}
+\section{Cause and Effect Results of Folium}
 \begin{table}[H]
 \centering
 \small
@@ -370,26 +370,26 @@ Table \ref{tab:effects} and Figure \ref{fig:causal} show that money pressure dom
 
 Across all 45 effects, the g-computation estimates have a mean absolute error of 0.48 points and the correct direction in 97\% of cases. For effects on selling, g-computation's error is 0.45 points against 1.07 for the linear DoWhy model, which for example overstates the effect of investing experience about fivefold. The linear model is better at the effect of a tendency within its own situation (0.3 points against 1.4). DoWhy passed 12 of 13 refutation tests; the one failure is the gold negative control, whose true effect is zero, so a test against chance cannot confirm anything. When the most helpful habit is applied in each situation, the estimates always move in the right direction and, where they are off, they understate the benefit. For example, setting selling rules in advance lowers the share of winners sold in a calm market from 56\% to 39\% in truth, and the estimate gives 54\% to 40\%. One unexpected finding is that habits can work against each other: for someone holding a deep loser, all three habits together barely help (43\% to 42\%), while reframing the loss alone helps a lot (43\% to 36\%). For this reason the app offers the single most helpful habit and never a bundle.
 
-\section{Explanation Quality}
+\section{Explanation Quality of Folium}
 Explanation quality was measured on the current pipeline for 166 sell and hold decisions drawn from the population study, explained in both English and Hindi (332 explanations), with AI wording switched off. Every explanation was complete (all six sections present), actionable and personalized, and none contained a jargon term. The English explanations have a mean Flesch reading ease of 76.4 (minimum 73.5, against a target of 60), which corresponds to fairly easy text, with 11.3 words per sentence. The Hindi explanations average 12.8 words per sentence against a target of 20; Flesch is not used for Hindi because its syllable model is undefined for Devanagari. These are measures of structure and readability; they do not show that the explanations change investor behavior, which would need a user study.
 
-\section{Application Screenshots}
+\section{Application Screenshots of Folium}
 The screenshots in this section are to be captured from the running application with the demonstration accounts created by \texttt{scripts/seed\_demo.py}.
 
 \newcommand{\screenshot}[2]{%
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][5.2cm][c]{0.8\textwidth}{\centering\textit{Screenshot to be inserted}\\[4pt]#1}}
+\includegraphics[width=0.8\textwidth]{#1}
 \caption{#2}
 \end{figure}}
-\screenshot{Result page}{Result page with the recommendation, both futures and the pattern found}
-\screenshot{Live progress}{Live five-step progress during an analysis}
-\screenshot{Hindi explanation}{Six-part explanation in Hindi}
-\screenshot{Portfolio page}{Portfolio page with net worth, allocation and holdings}
-\screenshot{Verify this record}{Verification of an audit record}
-\screenshot{Google sign-in and Welcome page}{Google sign-in return and the Welcome profile step}
+\screenshot{1.jpg}{Result page with the recommendation, both futures and the pattern found}
+\screenshot{7.jpg}{Live five-step progress during an analysis}
+\screenshot{2.jpg}{Six-part explanation }
+\screenshot{5.jpg}{Portfolio page with net worth, allocation and holdings}
+\screenshot{4.jpg}{Steps Explanation}
+\screenshot{6.jpg}{Google sign-in return and the Welcome profile step}
 
-\section{Discussion}
+\section{Discussion of Folium Results}
 On the development task, each analytical component does what it was designed to do. The classifier is accurate, calibrated and consistent with the label definitions, significantly better than the rules and a linear model and on par with a random forest. It changes its reading when the action changes, recognizes forced sales when the need is stated and generalizes across time periods within the data. The simulator's generator was chosen experimentally against five alternatives. It reproduces the real index's one-year distribution and volatility clustering, its probability output is stable at the app's path count, and every real window falls inside its band. The causal estimates recover a known mechanism closely and never overclaim the benefit of habits, and the explanations are complete, readable and free of jargon on the current models.
 
 The results also have clear boundaries. The behavioral labels are synthetic, so 87.9\% accuracy means that the model recovers the generator's labels, not that it diagnoses real investors, and most of that accuracy follows from the definitions themselves. The simulator's agreement with history is a distributional check and not a forecast, and its verdicts depend heavily on the stated growth assumptions. The causal results describe the generator and not people, and no study has measured whether investors who use Folium decide differently.

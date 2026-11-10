@@ -1,13 +1,13 @@
-\chapter{Methodology}
-Folium treats an investment decision as the unit of analysis. The investor states what they intend to do with one holding, and the system answers separate questions before combining them: which pattern is most likely behind the decision (the bias model), what each choice would lead to in rupees after tax over the investor's horizon (the simulator), what generally pushes people towards this action and which habit would help (the causal module), and what the investor should do and why (the evidence rules and the explanation engine). Keeping these questions apart is the main methodological choice of the project. Each module reports only what it can support, and the recommendation rules read only the outputs they are designed to read.
+\chapter{Methodology of Folium}
+The investment decision is the basic analytical unit for Folium. The user states intentions about a single position, and the system answers separate queries before combining them: What is the best explanation for the decision (the bias model); How much rupees will each chosen option pay after taxes for the duration of the horizon (the simulator); What drives people generally to behave this way and what is the good habit (the causal module); And what should the investor do and why (the evidence rules and the explanation engine). This separation of the questions is the key methodological decision in the project. Every module returns only those facts that it can support, and the recommendation rules use the outputs that were designed for them.
 
-The work has an offline part and an online part. Offline, the dataset is built from real market history, the bias model is trained and evaluated, and the simulator and causal module are evaluated; the outputs are model artefacts and result files. Online, for each analysis, the request and its context are captured and the five pipeline steps run. The online path only loads the offline artefacts and never retrains anything.
+The process includes an offline part and an online part. During the offline part, the dataset is created based on real market history; the bias model is trained and tested; and the simulator and causal components are tested. The output generated during this stage includes model artifacts and result files. During the online part, for each analysis, the request and its context are recorded, and the five pipeline stages are performed. The online path only loads the offline artifacts and does not include any training process.
 
-\section{Data Sources}
-Three kinds of data are used. Daily NIFTY 50 closes and India VIX values \cite{b54} were downloaded through yfinance \cite{b52} and cached (10 June 2008 to 5 October 2026, 4,475 trading days). Monthly NIFTY 50 returns, with a 1.25\% dividend yield added, and gold returns in rupees from October 2007 to September 2026 (228 months) are cached for the simulator. Second, the synthetic investor decisions of dataset v4.1 are used for training and causal validation. Third, live share prices, mutual fund NAVs from MFAPI.in \cite{b53} and the gold price are fetched at run time and cached for 15 minutes. No real investor's trading records are used.
+\section{Data Sources of Folium}
+The following three types of data are used. Closing daily values of NIFTY 50 and India VIX values \cite{b54} have been downloaded using yfinance \cite{b52} and cached (from 10 June 2008 to 5 October 2026, 4,475 trading days). Monthly returns of NIFTY 50 adjusted for 1.25\% dividend yield and monthly returns of rupee denominated gold from October 2007 to September 2026 (228 months) are cached for the simulator. Secondly, simulated investors' actions from dataset v4.1 are used for training and causal validation. Thirdly, live stock prices, NAV of mutual funds from MFAPI.in \cite{b53}, and gold price are downloaded during runtime and cached for 15 minutes.
 
-\section{Dataset v4.1}
-There is no public dataset that links the individual decisions of Indian retail investors with their full finances and a ground-truth behavioral label, and building one would require a large consented user study. The decisions are therefore generated synthetically while the market side is kept real. The design principle is that labels are motives and not rules. Each simulated investor has hidden tendencies, the situation decides which biased motives are possible, these compete with a rational motive, and the winning motive decides both the action and the label. The same sale can therefore be rational for one investor and biased for another, and the model has to infer which from what the app can observe.
+\section{Folium Dataset v4.1}
+There is no dataset where the individual decisions of the Indian retail investors are correlated to their overall financial information profile and a pre-defined ground truth label of behavior. In order to build this kind of dataset, a huge user study needs to be conducted with consent. So, the decision itself is artificial whereas the market context is real. As far as design philosophy is concerned, the labeling should convey the motivations, not the rules. Each artificial investor is assigned with certain latent biases. These biases are checked against the given context whether they are possible or not. Then there is struggle between bias and rational motivation to take action. Finally, whichever motivation is more dominant will decide the action and label of behavior.
 
 \begin{figure}[H]
 \centering
@@ -61,17 +61,17 @@ where $y_i$ is years of investing, $e_i$ indicates an emergency fund and $c_i$ i
 \label{fig:datadist}
 \end{figure}
 
-The dataset has 20,000 cases (Figure \ref{fig:datadist}): 11,134 rational (55.7\%), 3,929 herd (19.6\%), 2,937 disposition (14.7\%) and 2,000 loss aversion (10.0\%), with 8,251 holds, 7,995 sales and 3,754 purchases. Crashes form 24.5\% of the cases against 6.6\% of real days, so every evaluation figure is re-weighted back to real regime frequencies. The median investor is 38 years old with a monthly income of \rupee 75,000 and liquid assets of \rupee 9.7 lakh, and the median position is 12\% of liquid assets. Money pressure is represented explicitly: 0.7\% of households pay out more than they earn, 44\% have no emergency fund, cash shocks hit 6.8\% of decisions, and the money is needed in 1,165 cases, 889 of which end in a forced sale.
+The data sample size consists of 20,000 observations (Figure \ref{fig:datadist}): 11,134 rational (55.7\%), 3,929 herd (19.6\%), 2,937 disposition (14.7\%), and 2,000 loss-averse (10.0\%), with 8,251 holds, 7,995 sales, and 3,754 purchases. Crashes constitute 24.5\% of the data sample cases versus 6.6\% of actual days; thus, every evaluation criterion is scaled to match the real regime frequency distribution. The average investor age is 38 years, the monthly income is \rupee 75,000, liquid wealth is \rupee 9.7 lakh, and the average position equals 12\% of liquid wealth. Financial pressure is explicitly modeled: 0.7\% of families have expenditures exceeding their incomes, 44\% do not have an emergency fund, financial shocks are observed in 6.8\% of decisions, and money is needed in 1,165 cases, 889 of which end up in a forced sale.
 
-\section{Feature Engineering}
-The same function converts raw inputs into the 22 model features for training and for live requests, so the two cannot drift apart. Besides three action flags, the gain or loss, holding period, market values, age, horizon, risk tolerance and portfolio shares, two ratios are derived:
+\section{Feature Engineering in Folium}
+This very same function will convert the raw data into 22 feature variables used for both training and live input. Apart from the aforementioned 3 action signals, along with the gain or loss, holding period, market values, age, horizon, risk tolerance, and portfolio proportions, there are 2 ratios calculated:
 \begin{align}
 \text{surplus ratio} &= \mathrm{clip}\!\left(\frac{\text{income} + \text{rent received} - \text{fixed outflow}}{\text{income}}, -2, 2\right),\\
 \text{debt ratio} &= \mathrm{clip}\!\left(\frac{\text{loans}}{\text{liquid assets} + \text{property}}, 0, 5\right).
 \end{align}
-Three \texttt{allows} flags state which biased labels the definitions permit for this situation and action. In the product, missing profile fields are filled with training medians and missing market data with the median real trading day (NIFTY up 1.0\% in a month, VIX 16.9); all filled values are listed on the result page.
+There are three flags that denote which biased labels the definitions allow for this particular scenario and action. In the product itself, missing profile variables will be filled with medians of the training data, and missing market data will be filled with the median real trading day (NIFTY increases by 1.0\% in a month, VIX at 16.9).
 
-\section{Behavioral Classification}
+\section{Behavioral Classification in Folium}
 Let $\mathbf{x} \in \mathbb{R}^{22}$ be the feature vector and $y \in \{1,\dots,K\}$ with $K = 4$. The boosted-tree score for class $k$ and its probability are
 \begin{equation}
 F_k(\mathbf{x}) = \sum_{m=1}^{M} f_{m,k}(\mathbf{x}), \qquad \hat{p}_k(\mathbf{x}) = \frac{e^{F_k(\mathbf{x})}}{\sum_{j=1}^{K} e^{F_j(\mathbf{x})}} ,
@@ -92,12 +92,12 @@ The confidence is shown to the investor as High (0.85 and above), Medium (0.65 a
 
 \textbf{Attribution.} For the chosen class, SHAP decomposes the score additively, $F_k(\mathbf{x}) = \phi_{0,k} + \sum_{j} \phi_{j,k}(\mathbf{x})$ \cite{b7}, and exact TreeSHAP values \cite{b35} are summed into 18 plain drivers such as ``gain or loss'' or ``market fear''. Because Shapley values are additive this grouping is exact; the largest additivity error on the evaluation checks is $8.1\times10^{-6}$.
 
-\section{Paired Hold versus Sell Simulation}
+\section{Paired Hold versus Sell Simulation in Folium}
 Let $r^E_t$ and $r^G_t$ be the monthly log-returns of NIFTY 50 and of gold in rupees. To keep the swings of history but set typical growth to stated long-run rates ($\mu_E = 11\%$, $\mu_G = 9\%$), each series is re-centered,
 \begin{equation}
 \tilde{r}^E_t = r^E_t - \bar{r}^E + \frac{\ln(1+\mu_E)}{12}, \qquad \tilde{r}^G_t = r^G_t - \bar{r}^G + \frac{\ln(1+\mu_G)}{12}.
 \end{equation}
-A path of $12H$ months is built from 12-month blocks whose starting months are drawn uniformly, with indices taken modulo the history length (a circular block bootstrap \cite{b12,b33}). The same indices are used for equity and gold, which keeps their real month-by-month relationship. Re-centering is needed because gold compounded at about 14.8\% a year from 2007 to 2026, and replaying that as the future would build an unusually strong gold boom into every path.
+A 12-Hour $12H$ month path is generated using 12-month blocks with months chosen uniformly, and the indices are calculated using modulo of the length of the history (circular block bootstrap \cite{b12,b33}). The same set of indices is used for both stocks and gold, and this allows maintaining the real relationship between the two variables. Re-centering is needed since gold has appreciated by about 14.8\% per year between 2007 and 2026; otherwise, every path would have an exceptional gold boom.
 
 For a stock with beta $\beta$ and company-specific monthly volatility $\sigma$, the typical growth follows the capital asset pricing relation with the fixed deposit rate $r_f = 6.75\%$, $\mu_{\text{pos}} = r_f + \beta(\mu_E - r_f)$, and the monthly log-return on path $s$ is
 \begin{equation}
@@ -144,17 +144,17 @@ Slab rate & Taxable income is gross minus \rupee 75,000; nil up to \rupee 12 lak
 
 The tax rules in Table \ref{tab:tax} follow the Finance (No. 2) Act, 2024 \cite{b55} and the Finance Act, 2025 \cite{b56}. The slab rate depends on income before tax, but the app records take-home pay. If $T(g)$ is the income tax on gross income $g$, including the rebate and its marginal relief, then take-home pay is $h(g) = g - T(g)$, and the simulator needs $\hat{g}$ such that $h(\hat{g})$ equals twelve times the monthly take-home pay. Since $h$ is increasing except in a short stretch of the marginal relief band, $\hat{g}$ is found by bisection with 60 iterations, and rent received is added at 70\%. For example, a take-home pay of \rupee 1.6 lakh a month corresponds to about \rupee 21.5 lakh gross, so interest is taxed at 26\% and not the 20.8\% that the take-home figure alone would give.
 
-\section{Causal Estimation}
+\section{Causal Estimation in Folium}
 For a treatment $A$ and an outcome $Y$ (whether the investor takes a given action), the average treatment effect and its identification by the g-formula under consistency, positivity and conditional exchangeability given an adjustment set $Z$ are \cite{b10,b36,b37}
 \begin{align}
 \mathrm{ATE} &= \mathbb{E}[Y \mid \mathrm{do}(A = a')] - \mathbb{E}[Y \mid \mathrm{do}(A = a)],\\
 \mathbb{E}[Y \mid \mathrm{do}(A = a)] &= \sum_{z} \mathbb{E}[Y \mid A = a, Z = z]\,P(Z = z).
 \end{align}
-Two estimators work from the data alone, as a real study would. G-computation fits a histogram gradient-boosting model of the action given everything observed (scikit-learn \cite{b48}, 400 iterations) and averages its predictions with the treatment set to each value. DoWhy \cite{b11} identifies the effect from a graph that mirrors the generator and estimates it with a linear model, followed by placebo, random common cause and subset refutation tests.
+Both estimators work only based on the data like in a real study. G-computation fits a histogram gradient-boosting model of the action based on all observed variables (scikit-learn \cite{b48}, 400 iterations) and averages its predictions with the treatment set to each possible value. DoWhy \cite{b11} computes the effect from a graph resembling the generator graph and estimates it via a linear model after placebo, random common cause, and subset refutations.
 
-Because the generator is known exactly, the true effect can also be computed by re-evaluating the generator's motive probabilities with the input changed. This is what makes the evaluation possible: the estimates can be compared with the truth, which is never available in a real observational study. Gold share has no causal path to the decision and is used as a negative control. A habit is modeled as halving the tendency it acts on, which is an assumption stated in the app.
+Since the generator is known exactly, the true effect can also be estimated by computing the motive probabilities of the generator with changed input. The ability to do so makes it possible to evaluate the results because one can compare them to the truth unlike in the real observational study where it is impossible. The gold share has no causal pathway to the decision and acts as a negative control. A habit is assumed to be half as influential as it would otherwise be in the application.
 
-\section{Evidence-Based Recommendation}
+\section{Evidence-Based Recommendation in Folium}
 \begin{table}[H]
 \centering
 \small
@@ -173,15 +173,15 @@ Buy more & Herd behavior, or any bias with confidence $\geq 0.60$, gives HOLD; o
 \label{tab:rules}
 \end{table}
 
-The verdict comes from the small rule set in Table \ref{tab:rules}, where $p$ is the share of simulated futures in which holding beats selling. The band between 0.40 and 0.60 is treated as a toss-up, in which the behavioral reading decides. A verdict about money should be checkable by hand, and a rule set with stated thresholds meets this need where a language model would not. Every verdict stores its reasons and the exact numbers used.
+The verdict comes from the small rule set in Table \ref{tab:rules}, where $p$ is the share of simulated futures in which holding beats selling. The range of 0.40 through 0.60 is a considered a toss up, where the decision relies on the behavioral interpretation. Decisions involving the currency must be manually verifiable and a rule-based approach with explicit boundaries fulfills this criterion in a way a language model cannot. Every decision includes an explanation for itself and the exact values used.
 
-\section{Explanation}
-All model outputs are gathered into one dictionary of facts. Hand-written Jinja2 \cite{b57} templates, identical in structure in English and Hindi, turn the facts into six sections: in short, what is going on right now, your two possible futures, the story of your money, why we are telling you this, and what to do now. An optional Gemini rewording is accepted only if it introduces no new number or rupee amount and its length stays between 0.6 and 1.8 times the original.
+\section{Explanation in Folium}
+All output from models is combined to form one dictionary of facts. Manually written Jinja2 \cite{b57} templates, structurally the same for English and Hindi, take these facts and turn them into six components: a brief overview of the current situation, two possible future scenarios, the story behind the money, reasons for the communication, and suggested actions. Rewriting using Gemini is allowed only if it doesn’t add any new number or rupee figures and its length stays between 0.6 and 1.8 times of the original.
 
-\section{Tamper-Evident Audit Chain}
+\section{Tamper-Evident Audit Chain of Folium}
 Let $\mathrm{canon}(\cdot)$ be a canonical JSON serialization (sorted keys, no spaces) and $H$ be SHA-256. For the $i$-th entry of an investor, with payload $P_i$,
 \begin{align}
 h_0 &= H(\texttt{GENESIS:} \Vert \text{user id} \Vert \texttt{:} \Vert \text{created at}),\\
 \pi_i &= H(\mathrm{canon}(P_i)), \qquad h_i = H(h_{i-1} \Vert \pi_i).
 \end{align}
-Changing any byte of a payload changes $\pi_i$ and therefore every later chain hash, and removing an entry leaves the next one pointing at a hash that no entry produces, following the linked time-stamping idea of Haber and Stornetta \cite{b44}. Verification walks the entries by following the links from the genesis value rather than by timestamp, and reports an entry as altered if its hashes do not recompute, as unlinked if it does not connect to the chain, and as a fork if two entries claim the same predecessor.
+Changing any byte of the payload will result in changing $\pi_i$ and, in turn, all the chain hashes after that point. Likewise, the deletion of an entry will result in the next entry pointing to a hash that is not computed by any entry, as per the time-stamping scheme described by Haber \& Stornetta \cite{b44}. Verifying the chain works by following the pointers from the genesis value, and not using timestamps, and will identify an entry as modified if the hashes do not recalculate, as unlinked if it does not connect to the chain, and as a fork if two entries claim the same parent.

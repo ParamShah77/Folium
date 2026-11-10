@@ -1,7 +1,7 @@
-\chapter{Requirement Analysis}
-The requirements below were drawn from the implemented code, the API routes, the database migrations and the project's master reference document. The status column shows whether a requirement is implemented and tested in the current release or planned for the next one.
+\chapter{Requirement Analysis of Folium}
+These are some of the requirements that have been drawn from the implemented code, the API routes, the database migrations, and the master reference document of the project. The status column shows whether the requirement has been implemented and tested in the current release or the next release.
 
-\section{Functional Requirements}
+\section{Functional Requirements of Folium}
 \begin{table}[H]
 \centering
 \footnotesize
@@ -55,14 +55,14 @@ FR-20 & Administrator console with usage statistics, user management and a recov
 \label{tab:fr}
 \end{table}
 
-\section{Non-Functional Requirements}
-Correctness and transparency were treated as the most important qualities. Every number shown to the investor has to come from a computation: explanation templates are authoritative, and optional AI wording is rejected if it introduces a number. Any input that is missing is filled with a disclosed default and listed on the result page under ``How this was worked out''.
+\section{Non-Functional Requirements of Folium}
+Correctness and clarity were considered the most important aspects. The value provided to the investor should be based on calculations; explanations have to be followed, and AI-generated words that provide a number will not be accepted. All missing numbers are replaced by the default values and explained on the results page in the section titled “How this was worked out.”
 
-Security and privacy follow from the sensitivity of the data. Passwords are hashed with bcrypt at cost 12, sessions use RS256 JSON Web Tokens (15-minute access and 7-day refresh tokens, rotated) in httpOnly cookies, mutating requests need a CSRF token, and two-step secrets are encrypted with Fernet. Every user-owned table is protected by PostgreSQL row-level security, and the application connects as a non-superuser role so that the policies apply. The audit table is append-only. Abuse is limited by rate limits of 5 logins per minute, 3 registrations and 3 password resets per hour, and 10 analyses per minute.
+Security and privacy depend on the sensitivity of the data. Passwords are hashed with bcrypt with cost 12; sessions use RS256 JSON Web Tokens (access tokens for 15 minutes and refresh tokens for 7 days, rotated), kept in httpOnly cookies. Mutating requests need a CSRF token; two-step secrets are encrypted with Fernet. Each table owned by a user is secured with row-level security in PostgreSQL; the application connects with a non-superuser role to enforce the policies. The audit table is immutable. Abuse is prevented via rate limiting: 5 logins per minute, 3 sign-ups and 3 password reset requests per hour, 10 analyses per minute.
 
-The system must also stay usable when something fails. A price or market-data outage never breaks a page; defaults are used and disclosed, and an explanation failure falls back to the template text. For performance, one simulation of 1,000 paths over 30 years takes about 0.1 seconds, and the analysis runs in the background so that the request returns immediately. For reproducibility, each decision stores its market and portfolio snapshot, and the dataset, training and simulation use fixed random seeds. For maintainability, the product reaches the research code through a single bridge module, and model versions can be rolled back with configuration switches.
+The system should stay functional even in case of failures. Failure of price or market data does not make the page unusable since default values are applied and explained, and the failure of explanation goes back to the default text. In terms of performance, one simulation for 1,000 paths for 30 years takes about 0.1 seconds, and the analysis is done in the background, which makes the response fast. In terms of reproducibility, the decision stores the snapshot of the market and portfolio, and the dataset, training, and simulation use static random seeds. In terms of maintainability, all access to the research code is concentrated in one bridge module, and model versioning can be done using configuration switches.
 
-\section{Hardware and Software Requirements}
+\section{Hardware and Software Requirements of Folium}
 \begin{table}[H]
 \centering
 \small
@@ -93,12 +93,12 @@ Front end & React 19, Vite 8, TypeScript, Tailwind 4, TanStack Query, React Hook
 \label{tab:hwsw}
 \end{table}
 
-Python 3.13 is a hard requirement. DoWhy 0.14 restricts scipy to version 1.15.3 or lower on older Python versions, which would silently change the scipy version under which the model artefacts were built.
+The requirement for Python 3.13 is mandatory. DoWhy 0.14 restricts usage of SciPy below version 1.15.3 on legacy Python releases, and that will implicitly change the version of SciPy used for building the model artifacts.
 
-\section{Feasibility Study}
-The project is technically feasible because every component relies on mature open-source libraries. XGBoost, scikit-learn and SHAP are standard for tabular modeling, DoWhy provides identification and refutation, FastAPI and asyncpg handle long-running work asynchronously, and PostgreSQL supports row-level security natively. The heavy computation (training the classifier in about 81 seconds and the causal study in about 54 seconds) happens offline, while one prediction and one simulation at request time are fast enough to run in a background task.
+\section{Feasibility Study of Folium}
+Technical feasibility is guaranteed since all the modules use well-matured open-source libraries. XGBoost, scikit-learn, and SHAP are standard choices for tabular modeling; DoWhy handles identification and refutation; FastAPI and asyncpg handle long tasks asynchronously; and PostgreSQL has native support for row-level security. The heavy computations – more specifically, training the classifier in about 81 seconds and running the causal study in around 54 seconds – are done offline. Meanwhile, one prediction and one simulation per request are sufficiently fast to be completed as background tasks.
 
-It is operationally feasible because the investor supplies information they already know (income, loans, holdings) once, and each analysis then needs only a holding, an action and an optional sentence. Gaps are filled with disclosed defaults instead of blocking the user, explanations avoid jargon and are available in Hindi. It is economically feasible because all the software is free and open source, market data comes from free sources, and the optional e-mail and Gemini services have free tiers and are off by default.
+Operational feasibility is guaranteed since the investor provides the information that is already known to them (income, loans, holdings) once, and each further analysis requires only holdings, action, and optional sentence. Any missing information is accounted for using disclosed defaults rather than rejecting the user, and explanations are easily understandable and even provided in Hindi to avoid any technical terms. Economic feasibility is provided since all software is open-source and free of charge, the market data are obtained from free providers, and optional e-mail and Gemini services have a free tier and are off by default.
 
-\section{Assumptions and Constraints}
-Each analysis concerns one position. Horizons are capped at 30 years, with 20 years used when none is given. Tax rules are those of FY 2025-26 under the new regime, mutual funds are treated as equity funds, gold is valued at the international price before import duty and GST, and all amounts are nominal rupees. The profile records take-home pay, so where the simulator needs income before tax it inverts the income-tax formula. The models assume long-run growth of 11\% for shares, 9\% for gold, 6.75\% for fixed deposits and 3\% for savings, sale charges of 0.15\%, and that a habit halves the tendency it acts on. These assumptions are stated to the investor on every result page.
+\section{Assumptions and Constraints of Folium}
+Every one of them considers only one individual position. The horizons are restricted up to 30 years, but 20 years is considered if no horizon is indicated. Taxes according to the new system apply in fiscal year 2025-2026; mutual funds are considered as equity funds; international price without duty and GST is used for gold; and everything is shown in nominal rupees. The personal profiles are based on take-home pay; hence, whenever the simulator needs the income prior to taxes, then it uses the inverse of the income-tax formula. The model uses the assumption of long-term growth rates of 11\% for shares, 9\% for gold, 6.75\% for fixed deposits, and 3\% for savings; sales charge of 0.15\%; and a habit reduces by half the influence on which it operates.

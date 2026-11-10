@@ -1,4 +1,4 @@
-\chapter{Implementation}
+\chapter{Implementation of Folium}
 This chapter describes the implementation module by module. The code listings are excerpts copied from the repository; omitted lines are marked with \texttt{...}, and identifiers and logic are unchanged.
 
 \begin{table}[H]
@@ -25,7 +25,7 @@ This chapter describes the implementation module by module. The code listings ar
 \label{tab:repo}
 \end{table}
 
-\section{Dataset Generator}
+\section{Dataset Generator of Folium}
 The generator in \texttt{src/dataset\_v4.py} produces the 20,000 labelled decisions. Its most important function for the rest of the system is \texttt{applicable\_bias\_motives}, which encodes the label table, together with \texttt{allowed\_labels}, which the bias model uses both as an input and as a guard. Keeping the table in one place means that the generator, the model and the tests cannot disagree about what a label means.
 
 \begin{lstlisting}[caption={The label rules in code form (\texttt{src/dataset\_v4.py})}, label=lst:rules]
@@ -51,7 +51,7 @@ def applicable_bias_motives(s: dict) -> list[Motive]:
 
 The thresholds are module constants, so the dataset card, the tests and the code all refer to the same values. Using \texttt{numpy.random.default\_rng(2026)} with the cached market file makes the dataset identical on every rebuild.
 
-\section{Bias Model}
+\section{Bias Model of Folium}
 \texttt{src/bias\_model\_v4.py} builds the features, loads the model and makes predictions. The function \texttt{build\_features} refuses to run with missing inputs or an unknown action, so that the caller fills any gap and can disclose what it filled. The model is stored as native XGBoost JSON with a metadata file that holds the feature list, the calibration curve and the training medians, and \texttt{load} refuses to run if the stored feature list differs from the code.
 
 \begin{lstlisting}[caption={The definitional guard and top-label calibration (\texttt{src/bias\_model\_v4.py})}, label=lst:calib]
@@ -82,7 +82,7 @@ Training is done by \texttt{scripts/train\_bias\_v4.py}. The cases are split 80:
 
 In the product, \texttt{backend/core/bias\_detector.py} assembles the inputs from the decision row, the profile and the portfolio snapshot taken at submission. The comment reader runs first so that \texttt{cash\_need\_stated} is available. It scans the reason with regular expressions in English, Hinglish and Hindi, for example \texttt{(paisa|paise) (chahiye|ki zarurat)} or \texttt{(lost my job|laid off)}, and returns each match with the whole sentence quoted verbatim. Only a stated fact (a need for the money) changes a model input. Feelings such as fear or following friends are quoted back to the investor but never change the reading or the verdict. When the investor has consented, Gemini may also read the comment, but its answer is accepted only if every quote appears word for word in the comment.
 
-\section{Simulator}
+\section{Simulator of Folium}
 \texttt{src/simulator\_v2.py} compares holding and selling one position. Its input is a dataclass with the position value, cost basis, months held, asset type, horizon (clamped to 1 to 30 years), income, the rest of the liquid portfolio, beta and own volatility, SIP and education fees, the number of paths and the seed.
 
 \begin{lstlisting}[caption={Circular 12-month block bootstrap (\texttt{src/simulator\_v2.py})}, label=lst:boot]
@@ -93,7 +93,7 @@ def _bootstrap(rng: np.random.Generator, n_paths: int, months: int, n_hist: int)
     return ((starts[:, :, None] + np.arange(b)) % n_hist).reshape(n_paths, -1)[:, :months]
 \end{lstlisting}
 
-The function in Listing \ref{lst:boot} is fully vectorized. It draws all block starts at once, expands each into 12 consecutive month indices, wraps them with the modulo operator and trims the result to the required length. Without the wrap-around, the first and last months of history would be under-sampled, and October 2007 starts with the 2008 crash.
+This function is fully vectorized as depicted in Listing \ref{lst:boot}. This is because it creates all starting blocks at once, converts them into twelve consecutive month numbers, uses the modulo operator to wrap around, and then truncates the result to the desired length. Without the wrap-around process, the first and last months of the historical data will get underrepresented such that October 2007 matches the year 2008 crisis.
 
 \begin{lstlisting}[caption={Paired HOLD and SELL valuation after tax (excerpt of \texttt{simulate})}, label=lst:sim]
     growth = a["fd_rate"] + beta * (market_growth - a["fd_rate"])
@@ -119,7 +119,7 @@ The function in Listing \ref{lst:boot} is fully vectorized. It draws all block s
 
 Listing \ref{lst:sim} shows three design points. The holding's growth uses the capital asset pricing relation, so a volatile stock is not projected to grow faster only because it is volatile. The company-specific shock has mean $-\sigma^2/2$ in log space, so its expected multiplicative effect is one. HOLD is valued as if cashed in each year, while SELL paid its tax on day one and is taxed on interest every year, so the two are compared like for like. The tax helpers work on whole arrays, so tax is computed for all paths and months in one call. In the product, \texttt{backend/core/simulator.py} builds the inputs from the decision and the profile. It uses the beta and own volatility measured at submission from ten years of monthly prices, falling back to the median NIFTY 50 stock (beta 1.0, own volatility 21\%), and it converts take-home pay to gross income with \texttt{gross\_from\_take\_home} before looking up the slab rate.
 
-\section{Causal Module}
+\section{Causal Module of Folium}
 \texttt{src/causal\_v4.py} re-implements the generator's motive weights so that, for any case, it returns the exact probability of selling, holding and buying more. It matches the stored motive share of all 20,000 cases with a maximum absolute error of zero. The true effect of an intervention is the mean change in these exact probabilities. The estimated effect comes from the g-computation model of Listing \ref{lst:gcomp} and from DoWhy with three refutation tests. The back end reads the results file and caches it.
 
 \begin{lstlisting}[caption={G-computation estimator (\texttt{src/causal\_v4.py})}, label=lst:gcomp]
@@ -138,7 +138,7 @@ class GComputation:
         return out
 \end{lstlisting}
 
-\section{Recommendation and Both Sides}
+\section{Recommendation and Both Sides in Folium}
 The function \texttt{decide} in \texttt{backend/core/recommendation.py} is a pure function. It takes values and returns a verdict and a list of reasons without touching the database or the network, which makes it directly testable.
 
 \begin{lstlisting}[caption={Evidence rules for the sell intent (excerpt of \texttt{decide})}, label=lst:decide]
@@ -161,7 +161,7 @@ The function \texttt{decide} in \texttt{backend/core/recommendation.py} is a pur
 
 If no simulation result is available, the odds are treated as even and that fact is stated. When a reason mentions the confidence of a reading, it is written in words (high, medium or low) and never as a percentage. After the verdict, \texttt{backend/core/debate.py} builds the case for each side from the analysis's own numbers. These cases are never read by the verdict.
 
-\section{Pipeline Orchestrator}
+\section{Pipeline Orchestrator of Folium}
 \begin{lstlisting}[caption={The step loop and failure handling (excerpt of \texttt{run\_analysis\_pipeline})}, label=lst:pipe]
     try:
         for step_name in STEP_ORDER:
@@ -187,7 +187,7 @@ If no simulation result is available, the odds are treated as even and that fact
 
 The loop in Listing \ref{lst:pipe} guarantees two properties. Each step sees what the earlier steps wrote, because the row is reloaded every time. A connected browser always learns that the run has ended: the success path publishes \emph{complete}, and the failure path publishes \emph{failed} inside a \texttt{finally} block, so the stream is notified even if writing the status fails.
 
-\section{Explanation Engine}
+\section{Explanation Engine of Folium}
 The explanation engine in \texttt{src/explainer.py} gathers all numbers into one facts dictionary and renders the six sections with Jinja2 templates. Templates are rendered with \texttt{StrictUndefined}, so a missing fact raises an error in testing instead of printing a blank. Internal terms are translated into plain phrases, a 30-term jargon blocklist is enforced by tests, and money is formatted the Indian way (\rupee 1.2 lakh in prose, \rupee 1,32,451 in tables). The English and Hindi banks have 34 templates each with identical structure, so Hindi works without any external service. Reports are produced as HTML in both languages and as PDF in English; a Hindi PDF is refused with an explanation because ReportLab cannot shape Devanagari, and the HTML report prints correctly from a browser.
 
 \begin{lstlisting}[caption={Number-preservation check for optional AI wording (\texttt{src/llm\_polish.py})}, label=lst:guard]
@@ -206,9 +206,9 @@ def guard_ok(original: str, polished: str) -> bool:
     return True
 \end{lstlisting}
 
-Tables are replaced with placeholder tokens before any text is sent and restored afterwards. Any failure (no key, quota, timeout or a malformed reply) returns the template text, and two consecutive failures pause the feature for five minutes. The check in Listing \ref{lst:guard} rejects added numbers; a removed number is caught only through the length limit, which is noted as an open item in Chapter 8.
+Tables are first converted to placeholders before any text is transmitted and then reverted back after transmission. In case of any error (no key, no quota, timeout, or incorrect reply), the template text is returned, and two errors in succession result in the feature being disabled for five minutes. Listing \ref{lst:guard} checks for additional numbers, while a deletion of a number is detected using the length check only.
 
-\section{Data Layer and Row-Level Security}
+\section{Data Layer and Row-Level Security of Folium}
 \begin{lstlisting}[caption={Per-transaction user for row-level security (\texttt{backend/db/pool.py} and migration 0007)}, label=lst:rls]
     async def rls_transaction(self, user_id):
         async with self._pool.acquire() as conn:
@@ -226,7 +226,7 @@ CREATE POLICY decisions_isolation ON decisions FOR ALL
 
 The third argument of \texttt{set\_config} makes the setting local to the transaction, so it cannot leak to the next request that reuses a pooled connection, and \texttt{NULLIF} turns an unset value into \texttt{NULL}, so a query that forgot to set the user sees no rows instead of failing. PostgreSQL superusers bypass row-level security, so the application connects as the non-superuser \texttt{app\_user}. Another user's decision is simply invisible, and a request for it returns 404 rather than 403.
 
-\section{Audit Chain}
+\section{Audit Chain of Folium}
 \begin{lstlisting}[caption={Appending an audit entry under a per-investor lock (\texttt{backend/core/audit.py})}, label=lst:audit]
 async def append_entry(conn, user_id, decision_id, row, recorded_at=None):
     await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))", str(user_id))
@@ -241,9 +241,10 @@ async def append_entry(conn, user_id, decision_id, row, recorded_at=None):
         decision_id, user_id, payload["event"], payload_hash, previous, chain_hash, canonical(payload))
 \end{lstlisting}
 
-The payload holds two fingerprints: one over 21 input fields (the holding, prices, action, reason, market and portfolio snapshots and the comment reading) and one over 14 output fields (pattern, confidence, projections, explanation, transcript and verdict). Values are normalized so that a number reads the same however it arrives from the database. The advisory lock serializes appends for each investor, so two analyses finishing together cannot claim the same predecessor. At the database level, rules turn \texttt{UPDATE} and \texttt{DELETE} on \texttt{audit\_logs} into no-ops, so the table is append-only.
+The payload contains two fingerprints – one covering more than 21 fields (holding, prices, action, reason, market and portfolio snapshots, and the comment), and one covering 14 fields (pattern, confidence, projections, explanation, transcript and verdict).
+Values are normalized such that the number should read the same regardless of how it is extracted from the database. The advisory lock serializes appends to the entry for each investor, meaning that analyses that are completed at the same time will not be able to have the same predecessor. In the database, the \texttt{UPDATE} and \texttt{DELETE} operations on \texttt{audit\_logs} are no-ops.
 
-\section{Authentication and Google Sign-in}
+\section{Authentication and Google Sign-in in Folium}
 \begin{table}[H]
 \centering
 \small
@@ -268,15 +269,17 @@ Rate limits & Login 5 per minute, registration and password reset 3 per hour, an
 \label{tab:auth}
 \end{table}
 
-For Google sign-in, \texttt{GET /v1/auth/google/login} creates a random single-use state and stores it in Redis with the ``keep me signed in'' choice and the page to return to (only paths inside the app are accepted). When Google sends the browser back, the callback consumes the state, exchanges the code for the profile and accepts it only if Google reports the e-mail as verified; otherwise anyone could link an unverified address to another person's account. The callback always redirects to \texttt{/auth/google} in the app with the outcome in the URL fragment. Browsers never send a fragment to a server, so the single-use tokens it may carry stay out of server logs, and the page removes the fragment from the address bar once it has read it. The page then signs the investor in, asks for the two-step code, offers ``Keep my account'' during the deletion grace period, or explains a failure. A new Google account has no financial profile yet, so the route guard sends it to the Welcome page until the profile is complete, and a Google-only account can set a password from Settings.
+For Google sign-in, \texttt{GET /v1/auth/google/login} generates a one-off state, saves it into Redis with the “keep me signed in” preference and the landing page (path must be from within the app). Once Google gives the reply to the browser, the callback consumes the state, exchanges the code for the profile, and accepts it only if Google says the e-mail is verified – otherwise anyone could tie a non-verified e-mail to the account of some other person. Callback always redirects the browser to \texttt{/auth/google} page in the app with the result in the URL fragment. Browser never sends the fragment of the URL to the server, so any single-use token it contains will not end up in the server logs, and then the page strips the fragment from the URL once it gets it. Then the page signs in the investor, requests the two-step code, asks if the user wants “Keep my account” feature during the deletion grace period, or explains the error. A new Google account has not got any financial profile, so the route guard will take the investor to the Welcome page until it becomes complete. In Google-only accounts, the password can be defined in Settings.
 
-\section{Account Deletion and Data Export}
-Deleting an account needs the password, and a TOTP code if two-step verification is on, and signs the user out everywhere. For 30 days, logging in offers ``Keep my account''. After that, a periodic task anonymizes the account: name, e-mail, credentials, profile and financial data, holdings, sessions and profile history are erased, and each analysis loses its comment, snapshots, explanation and projections. The user identifier and creation time, which anchor the audit chain, remain with the audit entries but are no longer linked to any person. ``Download my data'' returns everything held about the investor as JSON, without the password hash, the two-step secret or tokens.
+\section{Account Deletion and Data Export in Folium}
+Password and a TOTP code (if two-factor authentication is enabled) will be needed to delete an account, and it will log the user out everywhere. For 30 days, during login process there will be an option of ``Keep my account''. Beyond this period, a cron job will be responsible for anonymizing the account: name, email, credentials, financial data along with profile information, assets will all get cleared, and each of them will lose comments, snapshots, analysis and projections. However, user ID and creation date will persist along with audit entries, but will not link to any individual anymore. ``Download my data'' provides everything the platform knows about investor in JSON format, minus hashed password, two-factor secret and tokens.
 
-\section{Front End}
-The front end is a React 19 application written in TypeScript and built with Vite. An axios client sends the CSRF token on mutating requests and, when a session expires, refreshes it once and retries. TanStack Query hooks fetch every resource, forms use React Hook Form with Zod schemas, and charts use Recharts. The result page follows the analysis through an \texttt{EventSource} on the stream endpoint and falls back to polling if the stream fails. Route guards send signed-out visitors to the login page while remembering where they were going.
+\section{Front End of Folium}
 
-\section{Error Handling and Edge Cases}
+The frontend application is made using React 19 with TypeScript and is developed using Vite. axios client is used for sending the CSRF token for the mutating request and, once it expires, retries only once and tries the request again. The tanstack query API is used for fetching all
+the resources and the forms have been built using React Hook Forms with Zod Schemas and Recharts has been used for charts. The result page subscribes to the analysis event from the \texttt{EventSource} of the stream API endpoint and falls back to the poll API if stream fails.
+
+\section{Error Handling and Edge Cases in Folium}
 \begin{table}[H]
 \centering
 \small
