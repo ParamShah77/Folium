@@ -1,0 +1,45 @@
+\chapter{Introduction}
+Individual participation in Indian stock markets has increased significantly in the last ten years. The advent of discount brokers, mobile trading apps, and the SIP channel to invest in mutual funds has allowed an individual to buy shares through a few clicks on their mobile phone. But access does not mean wisdom. An investor seeing a 15\% fall in one stock while their friends discuss market crash in a group chat room is faced with a situation that is more emotional than anything else.
+
+These factors all play a role in these kinds of decisions. Prospect theory implies that an individual will make judgments on an outcome relative to the reference point and react more strongly to loss than to gain of equivalent amounts \cite{b1}. Studies on trading data show a persistent bias toward harvesting gains early and holding onto losses \cite{b2}, and investors are shown to go along with the flow despite having information pointing to the opposite conclusion \cite{b3}. Such biases are not exceptions but rather common occurrences, and they come at a cost. \cite{b14}.
+
+At the same time, the very same action can be quite justified for someone else. The selling of an underperforming stock is a wrong move if it is done out of fear, but it is a sound one if the investor needs money for his or her college education and does not have an emergency reserve. A method which identifies a decision as being biased without taking into account the financial situation of the investor himself or herself will be wrong precisely in this case. It is important to assess the decision from the investor’s point of view, not to make yet another market prediction.
+
+Folium was built to tackle this shortcoming. For one investment position and an action of choice, Folium analyzes the investor's type, the particular position, and the current market environment, and tries to answer four different questions. What is the underlying behavioral pattern for these features? Which variables were used to determine this interpretation? What can be predicted using a causative approach? And what is the distribution of returns for each case assuming a certain market generator? These questions cannot be confused. High probabilities of classification do not mean psychological evaluation, and simulated gains do not mean success.
+
+This project began as a research effort aimed at identifying behavioral bias by using a Streamlit prototype and synthetic data. After multiple iterations, it became a full web application that consists of a FastAPI backend, React frontend, PostgreSQL database with row-level security, real historical data from the NIFTY 50 and India VIX index, a trained classifier, a simulator that accounts for taxes, causal inference tools, an English and Hindi dual-language explanation system, and an immutable logging feature.
+
+\section{Problem Statement of Folium}
+In creating and implementing a secure and interpretable system for providing decision support in terms of determining for one specific purposeful action (sell, hold, or purchase), which is taken by an Indian retail investor, the behavioral pattern that best explains his decision with appropriate calibration of certainty; comparing the outcomes of holding against the outcomes of selling of the same security over the time horizon of the investor when simulated market conditions remain the same; evaluating the influencing factors that affect the investor in his decision-making process; interpreting the results of such calculations in plain English or Hindi without allowing changing any number; making a suggestion according to predetermined criteria; and documenting the results of each analysis.
+
+\section{Motivation for Folium}
+Cost of making a behavioral mistake is tangible but not visible when the decision is being made. A stock market investor who indulges in panic selling during a market downturn never sees how much those money could have grown if they stayed invested. Folium makes this hypothetical situation tangible by simulating both situations within the same market scenario.
+
+The text produced by many AI-based financial assistants is fluent but has figures that cannot be attributed to any calculable source at all. When there is a need for a decision to be made in the real world with money involved, one fabricated figure will not suffice; therefore, we aimed for a solution where all the numbers are a result of a deterministic calculation and all assumptions are revealed. Another important factor is that of India. Capital gain tax, use of gold and fixed deposits in an individual’s portfolio, EMIs and tuition fees as fixed expenses, and need for explanation in Hindi are rarely considered elsewhere.
+
+\section{Objectives of Folium}
+Our key objectives for building this system are as follows:
+
+\begin{itemize}
+\item Develop a causation framework to recognize any type of bias during decision-making and model cause and effect relations.
+\item Create a custom simulation engine that would evaluate the effect of financial decisions over a period of 10-30 years in case of uncertainty and compounding impact.
+\item Create decision-oriented, counterfactual explanations that effectively illustrate how financial decisions have a causal impact on outcomes, exceeding simple post-hoc reasoning.
+\item Develop an audit method for tracking the AI recommendation and the cause-and-effect assumptions used in its formation as well as alternative scenarios considered.
+\end{itemize}
+
+\section{Scope of Folium}
+Subject of the decision is either the listed Indian equity stock (NSE or BSE) or the equity mutual fund. The setting is gold, fixed deposits, savings, property, debt, rent income, and systematic investment plans (SIPs). The model accommodates three decisions (sell, hold, and buy more), four types of behavioral classes, and investment period from 1 year to 30 years. The output is in English and Hindi languages using the web-based interface that can also be used on the mobile phone.
+
+The scope of the project does not include trade execution and broker integration, real-time trading signals, portfolio-wide optimization (each of which concerns one position), derivatives, cryptocurrencies and insurance, and inflation-adjusted predictions. The application clearly mentions that the result obtained from the application is purely informational and educational in nature and cannot be taken as investment advice. The target users are retail investors who need a second opinion regarding their decision. There is an admin option to reset two-step verification for a particular user.
+
+\section{Layout of the Report}
+A brief overview of each chapter is provided here.\\
+Chapter 2: A literature survey of behavioral finance, machine learning, explainability, causal modeling and simulation is presented.\\
+Chapter 3: The functional and non-functional requirements and the feasibility of Folium are described.\\
+Chapter 4: The system design of Folium is explained with architecture, data-flow, use case, activity, sequence, entity-relationship and deployment diagrams.\\
+Chapter 5: The methodology of Folium is explained, including the dataset and the mathematics of each model.\\
+Chapter 6: The implementation of each module of Folium is described with selected code.\\
+Chapter 7: The experimental evaluation and the results of Folium are presented and discussed.\\
+Chapter 8: The testing carried out on Folium is described.\\
+Chapter 9: The conclusion and future scope of Folium are given.\\
+Chapter 10: Publications.

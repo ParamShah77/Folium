@@ -1,0 +1,20 @@
+\begin{tikzpicture}[node distance=5mm]
+  \node[circle, fill=black, minimum size=4mm] (start) {};
+  \node[act, below=of start] (a1) {Investor picks a holding, an action, months held and an optional reason};
+  \node[act, below=of a1] (a2) {POST /v1/decisions/analyze: validate input, capture market,\\ portfolio snapshot and the stock's beta and own volatility};
+  \node[act, below=of a2] (a3) {Insert the decision with status \emph{pending}; return 202 with its id};
+  \node[act, below=of a3, fill=bluefill, draw=blueline] (b1) {Step 1: read the comment, then run bias model v4.1};
+  \node[act, below=of b1, fill=bluefill, draw=blueline] (b2) {Step 2: simulate HOLD and SELL on shared market paths};
+  \node[act, below=of b2, fill=bluefill, draw=blueline] (b3) {Step 3: cause and effect, then English and Hindi explanation};
+  \node[act, below=of b3, fill=bluefill, draw=blueline] (b4) {Step 4: evidence rules give the verdict; build both sides};
+  \node[act, below=of b4, fill=bluefill, draw=blueline] (b5) {Step 5: append the hash-chained audit entry};
+  \node[act, below=of b5] (c) {Mark the decision \emph{complete}; publish the final event};
+  \node[circle, draw=black, line width=1pt, minimum size=5mm, below=of c] (end) {};
+  \node[circle, fill=black, minimum size=2.6mm] at (end) {};
+  \foreach \x/\y in {start/a1,a1/a2,a2/a3,a3/b1,b1/b2,b2/b3,b3/b4,b4/b5,b5/c,c/end} \draw[flow] (\x) -- (\y);
+  \node[box, fill=sandfill, draw=sandline, right=8mm of b3, text width=24mm, font=\footnotesize] (f) {Any step raises an error: status \emph{failed}, a \emph{failed} event is published};
+  \begin{scope}[on background layer]
+    \node[fit=(b1)(b5), inner sep=2mm] (bg) {};
+  \end{scope}
+  \draw[flow, dashed, sandline] (bg.east) -- (f.west);
+\end{tikzpicture}

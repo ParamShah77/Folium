@@ -1,0 +1,15 @@
+%% Figure 5.2 - Components involved in one analysis
+flowchart LR
+  D[decisions.py POST /analyze, GET /stream] -->|schedules| O[pipeline.py orchestrator]
+  O -->|publishes| E[events.py Redis pub/sub + backlog]
+  O --> S1[bias_detector.py + comment_reader.py]
+  O --> S2[simulator.py]
+  O --> S3[explainer.py]
+  O --> S4[recommendation.py + debate.py]
+  O --> S5[audit.py]
+  S1 & S2 & S3 --> B[ml_bridge.py]
+  B --> M1[src/bias_model_v4]
+  B --> M2[src/simulator_v2]
+  B --> M3[src/causal_v4]
+  B --> M4[src/explainer + llm_polish]
+  S5 --> AL[(audit_logs)]

@@ -1,0 +1,28 @@
+%% Figure 5.8 - ER diagram (main tables)
+erDiagram
+  users ||--o{ portfolios : owns
+  users ||--|| financial_profiles : has
+  users ||--o{ decisions : requests
+  users ||--o{ audit_logs : "chain of"
+  users ||--o{ refresh_tokens : sessions
+  users ||--o{ profile_change_log : changes
+  decisions ||--o{ audit_logs : "recorded in"
+  users { uuid user_id PK
+    text email
+    text password_hash
+    text mfa_secret_enc
+    bool ai_consent
+    timestamptz purge_after }
+  decisions { uuid decision_id PK
+    uuid user_id FK
+    text decision_intent
+    jsonb portfolio_context
+    jsonb comment_facts
+    text bias_detected
+    jsonb simulation_curves
+    text recommendation }
+  audit_logs { uuid log_id PK
+    text payload_hash
+    text previous_hash
+    text chain_hash
+    jsonb payload }

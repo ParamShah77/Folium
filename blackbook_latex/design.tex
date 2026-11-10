@@ -1,0 +1,102 @@
+\chapter{System Design of Folium}
+All figures in this chapter have been created based on the code architecture in the repository.
+
+\section{System Architecture of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/tikz/architecture.tex}}
+\caption{System architecture of Folium}
+\label{fig:arch}
+\end{figure}
+
+Figure \ref{fig:arch} shows the overall architecture. The presentation tier is a React single-page application. During development the Vite server forwards every \texttt{/v1/*} request to the API, so the browser sees a single origin, which keeps the httpOnly session cookies and the CSRF check simple.
+
+{\raggedright The application tier is a FastAPI service. Its routes are in \texttt{backend/api/v1/}, its cross-cutting checks in \texttt{backend/middleware/}, its authentication code in \texttt{backend/auth/} and its domain services in \texttt{backend/services/}. The analysis itself runs as a background task under \texttt{backend/core/pipeline.py}.\par}
+
+The analytics tier is the research code in \texttt{src/}. An important design decision is that the back end never re-implements the models. The module \texttt{backend/core/ml\_bridge.py} is the only place where the back end reaches into \texttt{src/}. It imports the heavy ML libraries lazily (they take about two seconds and 400 MB to load), runs blocking work in a worker thread so that the server stays responsive, and maps the vocabulary between the two sides. Since the research modules produced the reported numbers, re-implementing them would risk silently changing those numbers.
+
+PostgreSQL will manage users, portfolios, decisions, and the audit chain via row-level security. The token blacklist, rate limit counters, and event backlog are stored in a Redis-compatible database. External services are queried only for pricing and market data, for Google sign-in, and optionally for e-mail and Gemini.
+
+\section{Analysis Pipeline Components of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/components.tex}}
+\caption{Components involved in one analysis}
+\label{fig:components}
+\end{figure}
+
+Figure \ref{fig:components} shows the components of one analysis. The analyze route (\texttt{POST} on \texttt{/v1/decisions/analyze}) schedules the pipeline as a background task and returns immediately. The orchestrator calls five steps in a fixed order: bias detection, simulation, explanation, recommendation and audit. Each step returns the columns it wants to update and the fields to attach to its progress event, while the orchestrator alone owns the status, the events and persistence. It refuses any step that tries to write the columns it reserves for itself. The first three steps call the research code through the bridge, and the audit step writes to the \texttt{audit\_logs} table.
+
+\section{Data-Flow Diagrams of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{\input{figures/tikz/dfd0.tex}}
+\caption{Data-flow diagram, level 0}
+\label{fig:dfd0}
+\end{figure}
+
+At the contextual level (Figure \ref{fig:dfd0}), the system interacts with three external systems. The investor provides a profile, holdings, the action desired, and an optional comment, and then gets a decision, projections, an explanation, and an audit trail. The market data vendors provide prices, the NIFTY index, and the VIX. The Gemini API is optional, and it takes the comment and the analysis numbers only if the investor has approved it and the server has allowed it, and its output is taken only after due diligence.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/dfd1.tex}}
+\caption{Data-flow diagram, level 1 (the analysis process)}
+\label{fig:dfd1}
+\end{figure}
+
+Figure \ref{fig:dfd1} illustrates the analysis divided into six processes. The Process 1.0 represents the analyze endpoint, wherein the context is captured, whereas processes 2.0 to 6.0 form the pipeline of five steps respectively. Each process stores the outputs into the decisions store, which in turn is read by the next process, thus the orchestrator refreshes the decision before each step. The simulation retrieves the profile of income, SIP, and sales proceeds destination, and finally the last process appends to the audit store.
+
+\section{Use Case Diagram of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/usecase.tex}}
+\caption{Use case diagram}
+\label{fig:usecase}
+\end{figure}
+
+Figure \ref{fig:usecase} illustrates the actors along with the use cases associated with them. The investor may register/login either by e-mail or using Google account and then uses all the functionalities of the application. The use case implemented by the administrator is to reset the two-step verification for the user. The market data service is involved in the process of portfolio management with live prices and in analysis requests with market context and stock risk.
+
+\section{Activity Diagram of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.85\textwidth}{!}{\input{figures/tikz/activity.tex}}
+\caption{Activity diagram of a decision analysis}
+\label{fig:activity}
+\end{figure}
+
+Figure \ref{fig:activity} presents a single analysis. The synchronous part ends with an HTTP 202 response to make sure the browser does not wait for the finish of the models. Five steps, which are shaded, run in the background. In case any of the steps produces an exception, the decision is considered as a failure, the error is logged, and a failure event is issued to stop waiting on the part of the browser. No problem with wording makes the analysis fail as the explanation step switches to the template text.
+
+\section{Sequence Diagram of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/tikz/sequence.tex}}
+\caption{Sequence diagram of an analysis with live progress}
+\label{fig:sequence}
+\end{figure}
+
+Figure \ref{fig:sequence} illustrates the order of message exchanges. An interesting feature is the backlog replay. In case the browser connects only to the Redis publish/subscribe, all events published before the connection establishment would be lost, and reloading the page while analyzing would show an empty history. Therefore, every event is additionally added to the Redis list with an expiry date. The stream endpoint performs the backlog replay first and then processes live messages, eliminating duplicates through the sequence number. In case the stream cannot be opened at all, the results page switches to polling.
+
+\section{Entity-Relationship Diagram of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{\input{figures/tikz/er.tex}}
+\caption{Entity-relationship diagram of the main tables}
+\label{fig:er}
+\end{figure}
+
+Figure \ref{fig:er} shows the main entities, created by Alembic migrations 0001 to 0012. The \texttt{users} table holds the account, the basic financial profile, the deletion schedule and the AI consent flag. \texttt{financial\_profiles} has a one-to-one relationship with users and stores gold, deposits, savings, property, loans, rent received and the monthly SIP, while \texttt{portfolios} holds shares and mutual funds. Each analysis is one row of \texttt{decisions}, which stores both the inputs (including snapshots of the portfolio and the comment reading as JSONB) and every model output. \texttt{audit\_logs} holds the hash-chained entries, and its foreign keys use \texttt{ON DELETE SET NULL} so that the chain survives when an account is anonymized. Row-level security is enabled and forced on decisions, audit logs, portfolios, financial profiles and the profile change log.
+
+\section{Deployment Diagram of Folium}
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{\input{figures/tikz/deployment.tex}}
+\caption{Deployment diagram of the development set-up}
+\label{fig:deploy}
+\end{figure}
+
+Figure \ref{fig:deploy} shows the configuration used for development and demonstration, with all processes on one laptop. PostgreSQL has two roles: \texttt{finai}, the owner used for migrations, and \texttt{app\_user}, a non-superuser used by the application so that the row-level security policies apply. Container definitions are present in the repository for the planned public deployment.
+
+\section{User Interface Design of Folium}
+This includes the landing page, privacy policy, and sign-in pages as well as the \texttt{/auth/google} endpoint to which Google sign-in response will go. When a user is made to do a Google sign-in for the first time, he or she will be taken to the Welcome page that asks for the basic profile data; until then, all other pages signed-in from will redirect to the welcome page except the settings page. Pages within the app include a dashboard, portfolio, form with live market card for analysis, results page, history, and settings page.
+
+The results screen acts as the center of the design. The page shows the live five-stage process with clear headings like “Reading your decision” and “Projecting the future,” followed by the decision, the reasons behind it, the position within the whole portfolio, a graph showing both the possible futures, the pattern along with the probability bars, the six-point explanation with an English-Hindi switch, reports that can be downloaded, the inputs that have the most impact, cause-and-effect analysis, numeric values for both sides, the decision in the investor’s own words, “Verify this record,” and “How this was worked out.” Notably, the interface does not show the name of the model used and the accuracy percentage.

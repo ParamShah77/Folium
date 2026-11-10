@@ -1,0 +1,8 @@
+%% Figure 5.9 - Deployment (development / demo laptop)
+flowchart LR
+  subgraph L[Windows laptop, Python 3.13 venv]
+    V[Vite dev server :3000 React SPA] <-->|proxy /v1| U[Uvicorn :8000 FastAPI + pipeline]
+    U <--> A[(models/ results/ data/)]
+    U <--> PG[(PostgreSQL 18 :5432 finai owner, app_user RLS)]
+    U <--> R[(Memurai / Redis :6379)]
+  end

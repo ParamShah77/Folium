@@ -1,0 +1,23 @@
+%% Figure 5.1 - Three-tier architecture of Folium
+flowchart TB
+  subgraph P[Presentation tier]
+    SPA[React 19 SPA - Vite, TypeScript, Tailwind]
+  end
+  subgraph A[Application tier - FastAPI backend/]
+    API[api/v1 routes] --- MW[middleware: CSRF, rate limit, headers, logging]
+    AUTH[auth: RS256 JWT, bcrypt, TOTP, OAuth, Fernet] --- SVC[services: portfolio, prices, market, email, deletion]
+    PIPE[core/pipeline.py: bias -> simulation -> explanation -> recommendation -> audit]
+  end
+  subgraph M[Analytics tier - src/ via core/ml_bridge.py]
+    ML[dataset_v4, bias_model_v4, simulator_v2, causal_v4, explainer]
+    ART[(models/, results/, data/)]
+  end
+  PG[(PostgreSQL + RLS)]
+  RD[(Redis / Memurai)]
+  EXT[Yahoo Finance, MFAPI.in, Gemini optional, Resend optional]
+  SPA <-->|/v1/* JSON, cookies| API
+  PIPE <--> ML
+  ART --> ML
+  A <--> PG
+  A <--> RD
+  A <--> EXT

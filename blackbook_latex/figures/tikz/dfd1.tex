@@ -1,0 +1,21 @@
+\begin{tikzpicture}[proc/.append style={minimum size=24mm, text width=20mm}]
+  \node[proc] (p1) {1.0\\ Capture\\ context};
+  \node[proc, right=14mm of p1] (p2) {2.0\\ Read comment,\\ detect bias};
+  \node[proc, right=14mm of p2] (p3) {3.0\\ Simulate\\ hold vs sell};
+  \node[proc, below=16mm of p3] (p4) {4.0\\ Explain\\ (EN / HI)};
+  \node[proc, left=14mm of p4] (p5) {5.0\\ Recommend,\\ both sides};
+  \node[proc, left=14mm of p5] (p6) {6.0\\ Seal audit\\ record};
+  \node[entity, left=10mm of p1] (inv) {Investor};
+  \draw[flow] (inv) -- node[lbl, above] {request} (p1);
+  \draw[flow] (p1) -- node[lbl, above] {snapshot} (p2);
+  \draw[flow] (p2) -- node[lbl, above] {pattern} (p3);
+  \draw[flow] (p3) -- node[lbl, right] {curves, $p$} (p4);
+  \draw[flow] (p4) -- node[lbl, above] {narrative} (p5);
+  \draw[flow] (p5) -- node[lbl, above] {verdict} (p6);
+  \node[datastore, below=12mm of p6] (d3) {D3 \; audit\_logs};
+  \node[datastore, below=12mm of p5] (d2) {D2 \; decisions};
+  \node[datastore, below=12mm of p4] (d1) {D1 \; users, profiles};
+  \draw[flow] (p6) -- node[lbl, right] {append} (d3);
+  \draw[flow] (p5) -- node[lbl, right] {write outputs} (d2);
+  \draw[flow] (d1.east) -- ++(6mm,0) |- node[lbl, pos=0.25, right] {read profile} (p3.east);
+\end{tikzpicture}

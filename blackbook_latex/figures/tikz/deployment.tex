@@ -1,0 +1,15 @@
+\begin{tikzpicture}
+  \node[box, text width=40mm, minimum height=16mm] (vite) {\textbf{Vite dev server :3000}\\ \footnotesize React SPA, proxies /v1};
+  \node[box, right=8mm of vite, text width=40mm, minimum height=16mm] (uv) {\textbf{Uvicorn :8000}\\ \footnotesize FastAPI app and\\ \footnotesize background pipeline};
+  \node[mlbox, right=8mm of uv, text width=34mm, minimum height=16mm] (art) {\textbf{Files on disk}\\ \footnotesize models/, results/, data/};
+  \node[store, below=12mm of uv.south west, anchor=north east, xshift=-2mm, text width=40mm] (pg) {\textbf{PostgreSQL 18 :5432}\\ \footnotesize finai (owner), app\_user (RLS)};
+  \node[store, below=12mm of uv.south east, anchor=north west, xshift=2mm, text width=40mm] (rd) {\textbf{Memurai / Redis :6379}};
+  \draw[biflow] (vite) -- (uv);
+  \draw[biflow] (uv) -- (art);
+  \draw[biflow] (uv.south) ++(-5mm,0) -- (pg.north);
+  \draw[biflow] (uv.south) ++(5mm,0) -- (rd.north);
+  \begin{scope}[on background layer]
+    \node[tier, fit=(vite)(art)(pg)(rd), inner sep=5mm] (dev) {};
+  \end{scope}
+  \node[tierlabel, anchor=south west] at (dev.north west) {Device: development and demonstration laptop (Windows, Python 3.13)};
+\end{tikzpicture}

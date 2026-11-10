@@ -1,0 +1,5 @@
+\begin{tikzpicture}[node distance=4mm]
+  \foreach \t [count=\i] in {{Real trading day\\ NIFTY, VIX\\ stress-\\ weighted}, {Household\\ income, EMIs,\\ rent, fees, fund}, {Portfolio\\ shares, funds,\\ gold, FD, loans}, {Hidden tendencies\\ and a possible\\ cash shock}, {Motives\\ compete\\ (bias vs rational)}, {Action and\\ label = winning\\ motive}}
+    \node[box, text width=21.5mm, minimum height=19mm, font=\footnotesize, fill=\ifnum\i>4 bluefill\else tealfill\fi, draw=\ifnum\i>4 blueline\else tealline\fi] (d\i) at (\i*2.62,0) {\t};
+  \foreach \i [evaluate=\i as \j using int(\i+1)] in {1,...,5} \draw[flow] (d\i) -- (d\j);
+\end{tikzpicture}

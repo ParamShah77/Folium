@@ -1,0 +1,104 @@
+\chapter{Requirement Analysis of Folium}
+These are some of the requirements that have been drawn from the implemented code, the API routes, the database migrations, and the master reference document of the project. The status column shows whether the requirement has been implemented and tested in the current release or the next release.
+
+\section{Functional Requirements of Folium}
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\textwidth}{|c|L|P{2.2cm}|}
+\hline
+\textbf{ID} & \textbf{Requirement} & \textbf{Status} \\
+\hline
+FR-1 & Register with e-mail and password, verify the address, log in with an optional ``keep me signed in'', refresh sessions and log out & Built \\
+\hline
+FR-2 & Reset a forgotten password through an e-mailed link & Built \\
+\hline
+FR-3 & Two-step verification with an authenticator app (TOTP), eight single-use backup codes and an administrator-assisted recovery path & Built \\
+\hline
+FR-4 & Sign in with Google end to end, including two-step verification, a grace-period account and a profile step for new accounts & Built \\
+\hline
+FR-5 & Record age, take-home income, EMIs, rent, education fees, emergency fund, risk tolerance (five-question quiz) and horizon; re-verify before sensitive changes and log every change & Built \\
+\hline
+FR-6 & Add, edit and remove shares (live prices) and mutual funds (searched and priced live); record gold, deposits, savings, property, loans, rent received and monthly SIP & Built \\
+\hline
+FR-7 & Compute net worth, liquid assets, monthly surplus and allocation; fall back to average cost when a price is unavailable & Built \\
+\hline
+FR-8 & Submit an analysis for one holding with an action, optional months held and a reason in the investor's own words & Built \\
+\hline
+FR-9 & Capture and store the market context, portfolio snapshot and the stock's beta and own volatility at submission & Built \\
+\hline
+FR-10 & Run the five-step analysis in the background and stream live progress, replaying it after a page reload & Built \\
+\hline
+FR-11 & Read the comment for stated cash needs and feelings (English, Hinglish, Hindi) and quote them back verbatim & Built \\
+\hline
+FR-12 & Show the behavioral pattern with High, Medium or Low confidence and the inputs that weighed most & Built \\
+\hline
+FR-13 & Project HOLD and SELL over the investor's horizon after tax, with median, bad-case and good-case values by year & Built \\
+\hline
+FR-14 & Show cause-and-effect factors and the single most helpful habit & Built \\
+\hline
+FR-15 & Six-part explanation in English and Hindi; HTML report in both languages and PDF report in English & Built \\
+\hline
+FR-16 & HOLD, SELL or BUY MORE verdict with its reasons and the numbers used, followed by the case for both sides & Built \\
+\hline
+FR-17 & Seal each analysis in a tamper-evident chain and let the investor verify it & Built \\
+\hline
+FR-18 & History of analyses with filtering by pattern and search by holding & Built \\
+\hline
+FR-19 & Download all personal data; delete the account with a 30-day grace period; opt in to optional AI help & Built \\
+\hline
+FR-20 & Administrator console with usage statistics, user management and a recovery queue & Planned (next release) \\
+\hline
+\end{tabularx}
+\caption{Functional requirements}
+\label{tab:fr}
+\end{table}
+
+\section{Non-Functional Requirements of Folium}
+Correctness and clarity were considered the most important aspects. The value provided to the investor should be based on calculations; explanations have to be followed, and AI-generated words that provide a number will not be accepted. All missing numbers are replaced by the default values and explained on the results page in the section titled “How this was worked out.”
+
+Security and privacy depend on the sensitivity of the data. Passwords are hashed with bcrypt with cost 12; sessions use RS256 JSON Web Tokens (access tokens for 15 minutes and refresh tokens for 7 days, rotated), kept in httpOnly cookies. Mutating requests need a CSRF token; two-step secrets are encrypted with Fernet. Each table owned by a user is secured with row-level security in PostgreSQL; the application connects with a non-superuser role to enforce the policies. The audit table is immutable. Abuse is prevented via rate limiting: 5 logins per minute, 3 sign-ups and 3 password reset requests per hour, 10 analyses per minute.
+
+The system should stay functional even in case of failures. Failure of price or market data does not make the page unusable since default values are applied and explained, and the failure of explanation goes back to the default text. In terms of performance, one simulation for 1,000 paths for 30 years takes about 0.1 seconds, and the analysis is done in the background, which makes the response fast. In terms of reproducibility, the decision stores the snapshot of the market and portfolio, and the dataset, training, and simulation use static random seeds. In terms of maintainability, all access to the research code is concentrated in one bridge module, and model versioning can be done using configuration switches.
+
+\section{Hardware and Software Requirements of Folium}
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|P{3.2cm}|L|}
+\hline
+\textbf{Component} & \textbf{Requirement} \\
+\hline
+Processor and memory & 4-core x86-64 processor; 8 GB RAM (16 GB recommended), since PostgreSQL, Redis, the API, the front-end server and the ML libraries (about 400 MB on import) run together \\
+\hline
+Storage and network & About 3 GB of free space; internet access for live prices and optional services \\
+\hline
+Runtimes & Python 3.13 (required by the pinned scipy and DoWhy versions); Node.js with npm \\
+\hline
+Back end & FastAPI 0.115, Pydantic 2, asyncpg, Alembic, structlog, slowapi, Uvicorn \\
+\hline
+Authentication & PyJWT, bcrypt, zxcvbn, pyotp, Authlib, cryptography (Fernet) \\
+\hline
+Data stores & PostgreSQL 18; Redis-compatible store (Memurai on Windows) \\
+\hline
+Machine learning & numpy 2.4.2, pandas 3.0.1, scipy 1.17.1, scikit-learn 1.8.0, xgboost 3.2.0, shap 0.51.0, dowhy 0.14, yfinance 0.2.66 \\
+\hline
+Explanation and reports & Jinja2 3.1.6, textstat, ReportLab; optional google-genai \\
+\hline
+Front end & React 19, Vite 8, TypeScript, Tailwind 4, TanStack Query, React Hook Form with Zod, Recharts, Vitest \\
+\hline
+\end{tabularx}
+\caption{Hardware and software requirements}
+\label{tab:hwsw}
+\end{table}
+
+The requirement for Python 3.13 is mandatory. DoWhy 0.14 restricts usage of SciPy below version 1.15.3 on legacy Python releases, and that will implicitly change the version of SciPy used for building the model artifacts.
+
+\section{Feasibility Study of Folium}
+Technical feasibility is guaranteed since all the modules use well-matured open-source libraries. XGBoost, scikit-learn, and SHAP are standard choices for tabular modeling; DoWhy handles identification and refutation; FastAPI and asyncpg handle long tasks asynchronously; and PostgreSQL has native support for row-level security. The heavy computations – more specifically, training the classifier in about 81 seconds and running the causal study in around 54 seconds – are done offline. Meanwhile, one prediction and one simulation per request are sufficiently fast to be completed as background tasks.
+
+Operational feasibility is guaranteed since the investor provides the information that is already known to them (income, loans, holdings) once, and each further analysis requires only holdings, action, and optional sentence. Any missing information is accounted for using disclosed defaults rather than rejecting the user, and explanations are easily understandable and even provided in Hindi to avoid any technical terms. Economic feasibility is provided since all software is open-source and free of charge, the market data are obtained from free providers, and optional e-mail and Gemini services have a free tier and are off by default.
+
+\section{Assumptions and Constraints of Folium}
+Every one of them considers only one individual position. The horizons are restricted up to 30 years, but 20 years is considered if no horizon is indicated. Taxes according to the new system apply in fiscal year 2025-2026; mutual funds are considered as equity funds; international price without duty and GST is used for gold; and everything is shown in nominal rupees. The personal profiles are based on take-home pay; hence, whenever the simulator needs the income prior to taxes, then it uses the inverse of the income-tax formula. The model uses the assumption of long-term growth rates of 11\% for shares, 9\% for gold, 6.75\% for fixed deposits, and 3\% for savings; sales charge of 0.15\%; and a habit reduces by half the influence on which it operates.
