@@ -12,6 +12,10 @@ const API = process.env.FOLIUM_API_URL ?? "http://127.0.0.1:8000";
 const PORT = Number(process.env.PORT ?? 3000);
 
 export default defineConfig({
+  base: "/Folium/",
+  plugins: [react(), tailwindcss()],
+
+export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
